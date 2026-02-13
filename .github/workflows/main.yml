@@ -3,11 +3,11 @@ name: Build Windows EXE
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # permet de lancer manuellement depuis l'interface GitHub
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest   # machine Windows réelle chez GitHub
+    runs-on: windows-latest
 
     steps:
       - name: Checkout du code
@@ -19,13 +19,20 @@ jobs:
           python-version: '3.11'
 
       - name: Installation des dépendances
+        run: pip install flask PyPDF2 lxml openpyxl pyinstaller
+
+      - name: Générer le nom avec horodatage
+        id: timestamp
         run: |
-          pip install flask PyPDF2 lxml openpyxl pyinstaller
+          $ts = Get-Date -Format "yyyyMMdd_HHmm"
+          $name = "FacturX_V11_$ts"
+          echo "EXE_NAME=$name" >> $env:GITHUB_OUTPUT
+          echo "Nom du .exe : $name"
 
       - name: Build .exe avec PyInstaller
         run: |
           pyinstaller --noconfirm --onefile --console `
-            --name "FacturX_V11" `
+            --name "${{ steps.timestamp.outputs.EXE_NAME }}" `
             --hidden-import flask `
             --hidden-import flask.templating `
             --hidden-import jinja2 `
@@ -39,15 +46,9 @@ jobs:
             --hidden-import encodings.utf_8 `
             launcher.py
 
-      - name: Vérification du .exe généré
-        run: |
-          dir dist\
-          echo "Taille du .exe :"
-          (Get-Item dist\FacturX_V11.exe).length / 1MB
-
-      - name: Upload du .exe comme artefact téléchargeable
+      - name: Upload du .exe
         uses: actions/upload-artifact@v4
         with:
-          name: FacturX_V11_Windows
-          path: dist\FacturX_V11.exe
+          name: ${{ steps.timestamp.outputs.EXE_NAME }}
+          path: dist\${{ steps.timestamp.outputs.EXE_NAME }}.exe
           retention-days: 30
