@@ -1,0 +1,65 @@
+name: Build Linux Offline Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Generer horodatage
+        id: timestamp
+        run: |
+          TS=$(date +'%Y%m%d_%H%M')
+          PKG="FacturX_V11_Linux_Offline_$TS"
+          echo "PKG_NAME=$PKG" >> $GITHUB_OUTPUT
+
+      - name: Telecharger les dependances Python pour Linux x86_64 / Python 3.12
+        run: |
+          pip download \
+            flask \
+            PyPDF2 \
+            lxml \
+            openpyxl \
+            gunicorn \
+            --dest ./python_wheels \
+            --platform manylinux2014_x86_64 \
+            --python-version 3.12 \
+            --implementation cp \
+            --abi cp312 \
+            --only-binary=:all:
+          echo "--- Wheels telecharges ---"
+          ls -lh ./python_wheels/
+
+      - name: Creer la structure du package
+        run: |
+          PKG="${{ steps.timestamp.outputs.PKG_NAME }}"
+          mkdir -p "$PKG/python_wheels"
+          cp facturx_webapp_v11.py "$PKG/"
+          cp install_offline.sh "$PKG/install.sh"
+          cp update.sh "$PKG/"
+          chmod +x "$PKG/install.sh" "$PKG/update.sh"
+          cp python_wheels/* "$PKG/python_wheels/"
+          cp mapping_v5_simple.json "$PKG/" 2>/dev/null || true
+          cp mapping_v5_groupee.json "$PKG/" 2>/dev/null || true
+          echo "--- Contenu du package ---"
+          ls -la "$PKG/"
+          echo "--- Wheels inclus ---"
+          ls "$PKG/python_wheels/"
+
+      - name: Creer archive tar.gz
+        run: |
+          PKG="${{ steps.timestamp.outputs.PKG_NAME }}"
+          tar -czf "${PKG}.tar.gz" "$PKG/"
+          ls -lh "${PKG}.tar.gz"
+
+      - name: Upload du package offline
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.timestamp.outputs.PKG_NAME }}
+          path: ${{ steps.timestamp.outputs.PKG_NAME }}.tar.gz
+          retention-days: 30
