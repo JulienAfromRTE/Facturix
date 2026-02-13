@@ -765,7 +765,9 @@ def controle():
 
 if __name__ == '__main__':
     print("="*60)
-    print("APPLICATION FACTUR-X V11.0")
-    print("Ouvrez ce lien dans votre navigateur : http://localhost:5000")
+    print("APPLICATION FACTUR-X V8.0")
+    print("http://0.0.0.0:5000")  # Vérifiez que ça affiche bien 0.0.0.0
     print("="*60)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    import os
+    os.environ['FLASK_RUN_HOST'] = '0.0.0.0'
+    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
