@@ -8,8 +8,10 @@ from lxml import etree
 from collections import defaultdict
 
 app = Flask(__name__)
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = os.path.dirname(sys.executable)  # ← dossier du .exe ✅
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(_file_))  # ← mode devUPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def load_mapping(type_formulaire='CARTsimple'):
