@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Factur-X V11.0"""
 from flask import Flask, render_template_string, request, jsonify
-import os, json, PyPDF2
+import os, json, PyPDF2, sys
 import logging
 from lxml import etree
 from collections import defaultdict
@@ -11,7 +11,7 @@ app = Flask(__name__)
 if getattr(sys, 'frozen', False):
     SCRIPT_DIR = os.path.dirname(sys.executable)  # ← dossier du .exe ✅
 else:
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(_file_))  # ← mode devUPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # ← mode devUPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def load_mapping(type_formulaire='CARTsimple'):
@@ -765,9 +765,11 @@ def controle():
 
 if __name__ == '__main__':
     print("="*60)
-    print("APPLICATION FACTUR-X V8.0")
-    print("http://0.0.0.0:5000")  # Vérifiez que ça affiche bien 0.0.0.0
+    print("  FACTUR-X V11.0")
     print("="*60)
-    import os
-    os.environ['FLASK_RUN_HOST'] = '0.0.0.0'
-    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
+    print(f"  Dossier : {SCRIPT_DIR}")
+    print("  URL     : http://0.0.0.0:5000")  # ← 0.0.0.0 au lieu de localhost
+    print("  Accessible sur le réseau à : http://<VOTRE_IP>:5000")
+    print("  Fermez cette fenetre pour arreter l'application.")
+    print("="*60)
+    app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)  # ← host='0.0.0.0'
