@@ -770,4 +770,4 @@ if __name__ == '__main__':
     print("  Accessible sur le réseau à : http://<VOTRE_IP>:5000")
     print("  Fermez cette fenetre pour arreter l'application.")
     print("="*60)
-    app.run(debug=False, host='10.132.23.4', port=8080, threaded=True)  # ← host='0.0.0.0'
+    app.run(debug=False, host='10.132.23.4', port=80, threaded=True)  # ← host='0.0.0.0'
