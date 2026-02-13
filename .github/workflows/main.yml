@@ -1,0 +1,53 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # permet de lancer manuellement depuis l'interface GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest   # machine Windows réelle chez GitHub
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation des dépendances
+        run: |
+          pip install flask PyPDF2 lxml openpyxl pyinstaller
+
+      - name: Build .exe avec PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --console `
+            --name "FacturX_V11" `
+            --hidden-import flask `
+            --hidden-import flask.templating `
+            --hidden-import jinja2 `
+            --hidden-import jinja2.ext `
+            --hidden-import werkzeug `
+            --hidden-import lxml `
+            --hidden-import lxml.etree `
+            --hidden-import lxml._elementpath `
+            --hidden-import PyPDF2 `
+            --hidden-import encodings.cp1252 `
+            --hidden-import encodings.utf_8 `
+            launcher.py
+
+      - name: Vérification du .exe généré
+        run: |
+          dir dist\
+          echo "Taille du .exe :"
+          (Get-Item dist\FacturX_V11.exe).length / 1MB
+
+      - name: Upload du .exe comme artefact téléchargeable
+        uses: actions/upload-artifact@v4
+        with:
+          name: FacturX_V11_Windows
+          path: dist\FacturX_V11.exe
+          retention-days: 30
