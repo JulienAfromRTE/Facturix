@@ -1,0 +1,46 @@
+name: Build Linux Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Generer horodatage
+        id: timestamp
+        run: |
+          TS=$(date +'%Y%m%d_%H%M')
+          PKG="FacturX_V11_Linux_$TS"
+          echo "PKG_NAME=$PKG" >> $GITHUB_OUTPUT
+          echo "Nom du package : $PKG"
+
+      - name: Creer la structure du package
+        run: |
+          PKG="${{ steps.timestamp.outputs.PKG_NAME }}"
+          mkdir -p "$PKG"
+          cp facturx_webapp_v11.py "$PKG/"
+          cp install.sh "$PKG/"
+          cp update.sh "$PKG/"
+          chmod +x "$PKG/install.sh"
+          chmod +x "$PKG/update.sh"
+          cp mapping_v5_simple.json "$PKG/" 2>/dev/null || echo "mapping simple absent"
+          cp mapping_v5_groupee.json "$PKG/" 2>/dev/null || echo "mapping groupee absent"
+          ls -la "$PKG/"
+
+      - name: Creer archive tar.gz
+        run: |
+          PKG="${{ steps.timestamp.outputs.PKG_NAME }}"
+          tar -czf "${PKG}.tar.gz" "$PKG/"
+          ls -lh "${PKG}.tar.gz"
+
+      - name: Upload du package Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.timestamp.outputs.PKG_NAME }}
+          path: ${{ steps.timestamp.outputs.PKG_NAME }}.tar.gz
+          retention-days: 30
