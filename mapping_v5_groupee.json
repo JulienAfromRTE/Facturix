@@ -1,0 +1,2442 @@
+{
+  "categories": {
+    "BG-1": {
+      "description": "Numéro, date, type, devise, notes",
+      "range": [
+        1,
+        26
+      ],
+      "titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE"
+    },
+    "BG-13": {
+      "description": "Conditions de livraison, échéance, moyens de paiement",
+      "range": [
+        70,
+        105
+      ],
+      "titre": "🚚 LIVRAISON ET PAIEMENT"
+    },
+    "BG-22": {
+      "description": "Montants HT, TVA, TTC, remises",
+      "range": [
+        106,
+        115
+      ],
+      "titre": "💰 TOTAUX DE LA FACTURE"
+    },
+    "BG-23": {
+      "description": "Ventilation par taux de TVA",
+      "range": [
+        116,
+        124
+      ],
+      "titre": "🧾 DÉTAIL DE LA TVA"
+    },
+    "BG-25": {
+      "description": "Détail des produits/services facturés",
+      "range": [
+        125,
+        160
+      ],
+      "titre": "📋 LIGNES DE FACTURE"
+    },
+    "BG-4": {
+      "description": "Raison sociale, adresse, TVA vendeur",
+      "range": [
+        27,
+        43
+      ],
+      "titre": "🏢 INFORMATIONS VENDEUR"
+    },
+    "BG-7": {
+      "description": "Raison sociale, adresse, TVA acheteur",
+      "range": [
+        44,
+        66
+      ],
+      "titre": "🏪 INFORMATIONS ACHETEUR"
+    }
+  },
+  "champs": [
+    {
+      "balise": "BT-1",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Numéro de facture",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_001",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle du format de l'identifiant du document",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le format du numéro de facture est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_002",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle d'unicité de l'identifiant de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Doublon : Une facture a déjà été émise avec ce numéro",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_003",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle du format de l'identifiant de facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "L'identifiant de la facture est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "STD_INV_PAY_001",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du nombre de transactions",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Nombre de transactions",
+          "nature": "Présence",
+          "ref": "STD_TRANS_007",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Numéro de la facture",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "WNUM_FACT",
+      "type": "String",
+      "valide": true,
+      "xpath": "//rsm:ExchangedDocument/ram:ID"
+    },
+    {
+      "balise": "BT-2",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la date d'émission de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La date d'émission est absente ou antérieure à la date de dépôt de la facture",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_034",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la date de facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Date facture",
+          "nature": "Présence",
+          "ref": "STD_INV_PAY_002",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date de facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La date de facture doit être comprise entre 2000 et 2099.",
+          "nature": "Cohérence",
+          "ref": "STD_INV_PAY_003",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la date de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Date transaction",
+          "nature": "Présence",
+          "ref": "STD_TRANS_002",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Date d'émission facture initiale / facture rectificative",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "DATE_FACT",
+      "type": "Date",
+      "valide": true,
+      "xpath": "//rsm:ExchangedDocument/ram:IssueDateTime/udt:DateTimeString"
+    },
+    {
+      "balise": "BT-3",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de la présence et de la cohérence du code type de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le type de facture est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_005",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence type de facture et type d'échange",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le type de facture n'est pas cohérent avec le cadre de facturation",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_018",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du type de document et le code du motif d'exonération",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le type du document est incohérent avec le code motif d'exonération",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_153",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la catégorie de transactions",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Catégorie transactions",
+          "nature": "Présence",
+          "ref": "STD_TRANS_004",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du type de la facture antérieure au niveau des lignes",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le type de la facture antérieure de lignes est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_193",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du type de la facture initiale",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le type de la facture initiale (${originalInvoice}) est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_105",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Code de type de facture ",
+      "obligatoire": "Oui",
+      "rdg": "ERDK-ERGRD = 01 ou ERDK-ERGRD  = 05 =>  380 (facture)\nERDK-ERGRD = 04 => 381 (avoir)",
+      "rdi": "GS_FECT_EINV-BG0-BT3_CODE_TYPE_FACT",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:TypeCode"
+    },
+    {
+      "balise": "BT-5",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de la présence et de la cohérence de la devise de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La devise de facture est absente ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_006",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Warning",
+          "description": "Contrôle de la cohérence Devise/Pays émetteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La devise de facture est différente de la devise du pays fournisseur",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_007",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et cohérence du code devise de la transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La devise de la transaction est absente ou invalide",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_001",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du code devise paiement",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La devise paiement est absente ou invalide.",
+          "nature": "Présence",
+          "ref": "STD_INV_PAY_007",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence de la devise de paiement",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La devise de paiement est absente ou invalide",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_PAY_003",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Code/désignation de devise de la facture",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "WCURR_FACTURE",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode"
+    },
+    {
+      "balise": "BT-8",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "libelle": "Code de date d'exigibilité TBA  + affichage \"TVA acquittée sur les débits\"",
+      "obligatoire": "",
+      "rdg": "Valeur constante \"5\"",
+      "rdi": "GS_FECT_EINV-BG0-BT8_TVA_COMMENT",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_8"
+    },
+    {
+      "balise": "BT-9",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date de paiement de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La date de paiement de la transaction est absente ou invalide",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_PAY_001",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date d’exigibilité",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La date d’exigibilité doit être comprise entre 2000 et 2099",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_118",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date d’échéance",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La date d’échéance doit être comprise entre 2000 et 2099",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_119",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la date de paiement facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Date paiement facture",
+          "nature": "Présence",
+          "ref": "STD_INV_PAY_004",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date de paiement facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La date de paiement de facture doit être comprise entre 2000 et 2099.",
+          "nature": "Cohérence",
+          "ref": "STD_INV_PAY_005",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Date d'échéance / Date de versement en cas d'acompte",
+      "obligatoire": "",
+      "rdg": "ERDK-FAEDN",
+      "rdi": "GS_FECT_EINV-BG0-BT9_DATE_ECHEANCE",
+      "type": "Date",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradePaymentTerms/ram:DueDateDateTime/udt:DateTimeString"
+    },
+    {
+      "balise": "BT-10",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "Autres",
+      "controles_cegedim": [],
+      "libelle": "Code service Chorus",
+      "obligatoire": "Non",
+      "rdg": "Cas Chorus uniquement : code service",
+      "rdi": "GS_CHORUS_MD-BUYER-REFERENCE",
+      "type": "String",
+      "xpath": "BT-10"
+    },
+    {
+      "balise": "BT-13",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de gestion des engagements et services",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Référence commande client ou Code service client",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_096",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Référence du bon de commande \n(le n° de marché et le n° d'engagement sont traités plus bas)",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "Attente d'évolution",
+      "rdi": "BT13_NUM_COMMANDE",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_13"
+    },
+    {
+      "balise": "BT-20",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "S'il n'y a pas de date d'échéance (BT-9 = vide)",
+      "libelle": "Conditions de paiement",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "IF ERDK-FAEDS = 00000000 : \nRechercher dans la table FKKVKP, zone ZAHLKOND est la condition de paiement, afficher le texte dans RG_20 avec la condion correspond",
+      "rdi": "BT20_COND_PAIEMENT",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_20"
+    },
+    {
+      "balise": "BT-21-BAR",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur BAR)",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_BAR"
+    },
+    {
+      "balise": "BT-21-SUR",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet des remarques fournisseur (valeur SUR) pour adresses emails supplémentaires",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_SUR"
+    },
+    {
+      "balise": "BT-21-ADN",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur ADN)",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_ADN"
+    },
+    {
+      "balise": "BT-21-AAB",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet de la Mention \"Escompte\" (valeur AAB) ",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_AAB"
+    },
+    {
+      "balise": "BT-21-PMT",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet de la Mention de l'indemnité forfaitaire pour frais de recouvrement\"40euros\" (valeur PMT)",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_PMT"
+    },
+    {
+      "balise": "BT-21-PMD",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code du sujet de la Mention de pénalités (valeur PMD)",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_21_PMD"
+    },
+    {
+      "balise": "BT-22",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence d'une note dans le cas d'autofacturation",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Mention \"Autofacturation\"",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_090",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence d'une note dans le cas d'autoliquidation",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Mention \"Autoliquidation\"",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_091",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Mention de note de facture",
+      "obligatoire": "Oui",
+      "presence": "",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22"
+    },
+    {
+      "balise": "BT-22-BAR",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Mention indiquant le traitement attendu sur la facture \n(E-invoincing / E-Reporting / hors réforme / archive simple…)",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "à déterminer, réunion le 14/01",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_BAR"
+    },
+    {
+      "balise": "BT-22-SUR",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Remarques fournisseur (pour indication Copiver - si nécessaire) ",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_SUR"
+    },
+    {
+      "balise": "BT-22-ADN",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Mention indiquant si la facture relève du B2G en France (règles additionneles CPRO)",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_ADN"
+    },
+    {
+      "balise": "BT-22-AAB",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Mention \"Escompte\" ou \"Absence d'escompe\"",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "- Si présence d’escompte : identique à l’existant « Le montant sera prélevé sur votre compte X le X majoré/minoré de X% du montant TTC, seule la taxe correspondant au prix effectivement payé donne droit à déduction. »\n\n- Si absence d’escompte : « Escompte pour paiement anticipé : néant »",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_AAB"
+    },
+    {
+      "balise": "BT-22-PMT",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Mention de l'indemnité forfaitaire pour frais de recouvrement \"40euros\"",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
+      "rdi": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_PMT"
+    },
+    {
+      "balise": "BT-22-PMD",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Mention de pénalités",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "GT_PENA_FR",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_22_PMD"
+    },
+    {
+      "balise": "BT-23",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "libelle": "Type de processus métier (cadre de facturation)",
+      "obligatoire": "Oui",
+      "rdg": "CART :\nRécupère ADDRNUMBER du BP dans BUT021_FS avec ADR_KIND = 00010\nRechercher le champ COUNTRY dans ADRC\nIF COUNTRY = FR, BT23 = S1\nELSE BT23 = S7",
+      "rdi": "GS_FECT_EINV-BG2-BT23_TYPE_PROC",
+      "type": "Date",
+      "xpath": "//rsm:ExchangedDocumentContext/ram:BusinessProcessSpecifiedDocumentContextParameter/ram:ID"
+    },
+    {
+      "balise": "BT-24",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du type d'échange",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le type d'échange est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_017",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence type de facture et type d'échange",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le type de facture n'est pas cohérent avec le cadre de facturation",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_018",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Type de profil (à clarifier) EN ATTENTE DE CONFIRMATION PAR CEGEDIM POUR CE BT, IL SEMBLERAIT QUE CEGEDIM GENERE ET COMPLETE LE BT-24",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "BT24_TYPE_PROFIL",
+      "type": "Date",
+      "xpath": "//rsm:ExchangedDocumentContext/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID"
+    },
+    {
+      "balise": "BT-25",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "22Contrôle de cohérence de la date facture initiale",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La date de la facture initiale (${originalInvoice}) doit être comprise entre 2000 et 2099",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_084",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de la présence des données qui renvoient à une facture antérieure",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La référence à une facture antérieure est invalide ou existe au niveau de l'entête et au niveau des lignes",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_257",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Référence à une facture antérieure (sur avoir faire référence à la facture initiale) ",
+      "obligatoire": "",
+      "rdg": "Cas Avoir :\nRécupère champ INTOPBEL dans la table ERDK",
+      "rdi": "GS_FECT_EINV-BG3-BT25_NUM_FACT_REF",
+      "type": "Date",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_25"
+    },
+    {
+      "balise": "BT-26",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de la présence des données qui renvoient à une facture antérieure",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La référence à une facture antérieure est invalide ou existe au niveau de l'entête et au niveau des lignes",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_257",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Cas des avoirs : Date d'émission de facture antérieure",
+      "obligatoire": "",
+      "rdg": "Table ERDK : \nOPBEL = N° Doc annulé (43*)\nRécupère BLDAT",
+      "rdi": "GS_FECT_EINV-BG3-BT26_DATE_FACT_R",
+      "type": "Date",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_26"
+    },
+    {
+      "balise": "BT-26-1",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "Qualifiant utilisé pour les contrôles fonctionnels de la norme EN16931 ",
+      "libelle": "Format date (de la date d'émission de la facture antérieur - cas des avoirs)",
+      "obligatoire": "Dépendant",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_26_1"
+    },
+    {
+      "balise": "BT-27",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la raison sociale du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Raison sociale fournisseur",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_009",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Raison sociale du vendeur",
+      "obligatoire": "Oui",
+      "rdg": "Texte : \"RTE Réseau de transport d'électricité\"",
+      "rdi": "GS_FECT_EINV-BG4-BT27_RAISON_SOC",
+      "type": "Date",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:Name"
+    },
+    {
+      "balise": "BT-29",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant légal OU l'identifiant fiscal du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire :  Identifiant légal ou fiscal fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_012",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence des identifiants privés du fournisseur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "L'identifiant privé fournisseur %identifiant  privé du founisseur erroné% doit être destiné à une entité publique.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_137",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant schéma de l'identifiant légal du fournisseur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Type identifiant légal fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_149",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence des identifiants privés du fournisseur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "L'identifiant privé fournisseur %identifiant  privé du fournisseur erroné% est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_151",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de l'identifiant du Vendeur",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Incohérence de l'identifiant du schéma de l'identifiant du vendeur.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_264",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "Le destinataire/bénéficiaire de la facture est une entité publique",
+      "libelle": "Identifiant privé du vendeur (flux vers Chorus Pro uniquement)",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_29"
+    },
+    {
+      "balise": "BT-29-1",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [],
+      "dependance": "Le SIRET du vendeur est transmis",
+      "libelle": "Identifiant du schéma  (flux vers Chorus Pro uniquement)",
+      "obligatoire": "Dépendant",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "Date",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_29_1"
+    },
+    {
+      "balise": "BT-30",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant légal OU l'identifiant fiscal du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire :  Identifiant légal ou fiscal fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_012",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du Siret avec le Siren du client",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET client est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_147",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant légal du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Identifiant légal fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_155",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret du fournisseur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le SIRET fournisseur est différent de l'Identifiant privé fournisseur du type SIRET.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_164",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret du fournisseur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET fournisseur est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_165",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret du facturant",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET tiers facturant est différent de l'identifiant privé du tiers facturant du type SIRET.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_177",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret du facturant",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET tiers facturant est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_178",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du SIRET de l'entité publique",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : SIRET de l'entité publique",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_183",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de conformité du Siren de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIREN tiers payeur est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_186",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du Siren du facturant",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIREN tiers facturant est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_189",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle d'enrichissement à partir du siret de l'état",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Aucune ligne n'est trouvée dans l'annuaire",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_095",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siren du vendeur",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Si le vendeur est assujetti à la TVA en France, l'indication de son SIREN est obligatoire.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_268",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siren de l'acheteur",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Si l'acheteur est assujetti à la TVA en France, l'indication de son SIREN est obligatoire.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_262",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siren du vendeur pour FR",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Si le vendeur est assujetti à la TVA en France, l'indication de son SIREN est obligatoire.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_263",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de l'identifiant du Vendeur",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Incohérence de l'identifiant du schéma de l'identifiant du vendeur.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_264",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Numéro de SIREN - vendeur",
+      "obligatoire": "Oui",
+      "presence": "Qui / Non",
+      "rdg": "Table DFKKBPTAXNUM\nPARTNER = 10000\nTAXTYPE  = FR02\nRécupère le TAXNUM",
+      "rdi": "BT30_SIREN_RTE",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_30"
+    },
+    {
+      "balise": "BT-30-1",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [],
+      "dependance": "Condition : SIREN du vendeur est transmis",
+      "libelle": "Identifiant du schéma - vendeur",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "Valeur constante : 0002",
+      "rdi": "BT30_1_ID_SCHEMA_RTE",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_30_1"
+    },
+    {
+      "balise": "BT-31",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant légal OU l'identifiant fiscal du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire :  Identifiant légal ou fiscal fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_012",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de l'identifiant fiscal du vendeur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "L'identifiant fiscal fournisseur est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_013",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Identifiant à la TVA du vendeur (n°TVA intracommunautaire - assujetti ou assujetti unique)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "MENTION_ID_TVA",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']"
+    },
+    {
+      "balise": "BT-31-0",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [],
+      "dependance": "Condition : identifiant à la TVA est transmis",
+      "libelle": "Qualifiant d'Identifiant à la TVA du Vendeur",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "Valeur constante : VA",
+      "rdi": "BT31_0_QUAL_ID_TVA_RTE",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_31_0"
+    },
+    {
+      "balise": "BT-40",
+      "categorie_bg": "BG-4",
+      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Warning",
+          "description": "Contrôle de la cohérence Devise/Pays émetteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La devise de facture est différente de la devise du pays fournisseur",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_007",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du pays émetteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Pays fournisseur",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_008",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle  de cohérence du pays émetteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le pays fournisseur est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_087",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du pays de facturation du facturant",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le pays du tiers facturant est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_127",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Pays du vendeur (fournisseur)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_ORG-COUNTRY",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+    },
+    {
+      "balise": "BT-44",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la raison sociale de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Raison sociale client",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_035",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Raison sociale de l'acheteur",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_DE-NAME1",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:Name"
+    },
+    {
+      "balise": "BT-47",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant légal de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Identifiant légal client",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_014",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du Siret avec le Siren du client",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET client est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_147",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret du client",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET client est différent de l'Identifiant privé client du type SIRET.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_166",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET tiers payeur est différent de l'identifiant privé du tiers payeur du type SIRET.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_173",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du siret  de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le SIRET tiers payeur est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_174",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de l'identifiant de l'acheteur",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Incohérence de l'identifiant du schéma de l'identifiant du l'acheteur.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_265",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Numéro de SIREN ",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_DO-RCS",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
+    },
+    {
+      "balise": "BT-47-1",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "libelle": "Identifiant du schéma - acheteur",
+      "obligatoire": "Oui",
+      "rdg": "Valeur constante : 0002",
+      "rdi": "GS_FECT_EINV-BG7-BT47_1_ID_SCHEMA_CLT",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_47_1"
+    },
+    {
+      "balise": "BT-48",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de l'identifiant fiscal de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Identifiant fiscal client",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_015",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de l'identifiant fiscal de l'acheteur",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format d'identifiant fiscal client est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_088",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Identifiant à la TVA  de l'acheteur (n°TVA intracommunautaire)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_DO-IDTVA",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']"
+    },
+    {
+      "balise": "BT-48-0",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "libelle": "Identifiant à la TVA  de l'acheteur - Qualifiant d'identificant fiscal de l'acheteur",
+      "obligatoire": "Oui",
+      "rdg": "Valeur constante : VA",
+      "rdi": "GS_FECT_EINV-BG7-BT48_0_QUAL_ID_TVA_CLT",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_48_0"
+    },
+    {
+      "balise": "BT-49",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence d'identifiant du schéma de l'adresse électronique du Facturé à",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Type adresse électronique du tiers facturé",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_132",
+          "type": "Legal"
+        },
+        {
+          "categorie": 0,
+          "description": "Contrôle de cohérence du code routage du facturé",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format du code routage tiers facturé est invalide.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_143",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Identifiant d'adressage",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "RG_BT-49",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_49"
+    },
+    {
+      "balise": "BT-49-1",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "dependance": "Si l'adresse électronique de l'acheteur est transmise",
+      "libelle": "Identifiant du schéma de l'identifiant d'adressage",
+      "obligatoire": "Dépendant",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_49_1"
+    },
+    {
+      "balise": "BT-50",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "libelle": "Adresse de l'acheteur (Ligne 1)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_ORG-STREET",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:LineOne"
+    },
+    {
+      "balise": "BT-52",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": 0,
+          "description": "Contrôle de cohérence  du code service client",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format du code service client est invalide.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_139",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Localité de l'acheteur",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_ORG-STREET",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CityName"
+    },
+    {
+      "balise": "BT-53",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "libelle": "Code postal de l'acheteur ",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_ORG-STREET",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:PostcodeCode"
+    },
+    {
+      "balise": "BT-55",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle  de cohérence du code pays client",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le pays client est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_089",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du pays du facturé",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le pays du tiers facturé est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_126",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Pays de l'acheteur (client)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "ADRC_DE-COUNTRY",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+    },
+    {
+      "balise": "BT-58",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Adresse électronique du contact de l’acheteur (email supplémentaire destinataire factures HORS REFORME) - 50 caractères max",
+      "obligatoire": "Non",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_58"
+    },
+    {
+      "balise": "BT-134",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence des dates de période de facturation au niveau des lignes",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La date de fin période de facturation des lignes est antérieure à la date de début de période de facturation des lignes",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_075",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de la date de début de période de facturation d'une ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La date de début de période de facturation d'une ligne doit être comprise entre 2000 et 2099",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_122",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "   - Date du début de la période de facturation d'une ligne",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_134"
+    },
+    {
+      "balise": "BT-134-1",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Format date",
+      "obligatoire": "Dépendant",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_134_1"
+    },
+    {
+      "balise": "BT-135",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence des dates de période de facturation au niveau des lignes",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La date de fin période de facturation des lignes est antérieure à la date de début de période de facturation des lignes",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_075",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence de fin de période de facturation d'une ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "La date de fin de période de facturation d'une ligne doit être comprise entre 2000 et 2099",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_094",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "   - Date de fin de la période de facturation d'une ligne",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_135"
+    },
+    {
+      "balise": "BT-135-1",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Format date",
+      "obligatoire": "Dépendant",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_135_1"
+    },
+    {
+      "balise": "BT-106",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant total ligne HT",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Somme des montants nets des lignes de facture",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_036",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du Total lignes HT",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant total HT des lignes  est différent de la somme des montants HT des lignes  +/- tolérence",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_046",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle du format du montant total ligne HT",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format de la somme des montants nets des lignes de facture est invalide (doit contenir au max 19 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_110",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Somme des montants nets des lignes de facture (montant hors TVA)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "BT106 : correspond à l’addition de toutes les lignes, sans tenir compte des remises, frais globaux ou même l'escompteBT-116 : correspond à la somme du montant net des lignes de facture, moins les remises plus les charges ou frais au niveau du document",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount"
+    },
+    {
+      "balise": "BT-109",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du montant total HT",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le Montant HT de facture est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_037",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant total HT",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant Total HT est différent de la somme des montants net, remises et charges",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_044",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant NET de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant Net à payer est différent du montant TTC moins le montant de l'acompte (+ arrondis)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_138",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du montant total HT de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le montant total HT de transaction est  absent ou invalide  (doit contenir au max 16 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_005",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant total des transactions hors TVA",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le montant total des transactions hors TVA doit être égal à la somme des montants de base d'imposition du type de TVA.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_259",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Montant total de la facture hors TVA",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "WMNT_HT",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+    },
+    {
+      "balise": "BT-110",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du montant total de TVA de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant total de TVA de facture est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_043",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du montant total TVA de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le montant total TVA de transaction est  absent ou invalide  (doit contenir au max 16 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_006",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant total de TVA des transactions avec les montants de TVA",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le montant total de TVA des transactions doit être égal à la somme des totaux de TVA par taux.",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_260",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Montant total de TVA de la facture",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "WMNT_TVA",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount"
+    },
+    {
+      "balise": "BT-110-1",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [],
+      "dependance": "",
+      "libelle": "Code devise du montant total de TVA",
+      "obligatoire": "Oui",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "",
+      "type": "Decimal",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_110_1"
+    },
+    {
+      "balise": "BT-112",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant TTC de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant TTC est différent de Total HT + Total TVA",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_033",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant total TTC",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Montant TTC de facture",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_038",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle du format du montant TTC",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format du montant TTC de facture est invalide (doit contenir au max 19 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_115",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Montant total de la Facture, avec la TVA.",
+      "obligatoire": "Oui",
+      "rdg": "BT-112 = BT-109 + BT-110",
+      "rdi": "WMNT_NAP",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+    },
+    {
+      "balise": "BT-115",
+      "categorie_bg": "BG-22",
+      "categorie_titre": "💰 TOTAUX DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence si montant net à payer est positif",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Date d'échéance ou Conditions de paiement",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_019",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant net à payer",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Montant Net à payer",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_039",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant total à payer",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le montant Net à payer est différent de zéro",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_041",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle du format du montant net à payer",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format du montant total net à payer est invalide (doit contenir au max 19 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_116",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Montant à payer",
+      "obligatoire": "Oui",
+      "rdg": "BT-115 = BT-112 - BT-113 + BT-114",
+      "rdi": "MNT_A_PAYER",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
+    },
+    {
+      "balise": "BT-116",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence de la base de TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "La base de TVA est absente ou son fomat est invalide (doit contenir au max 16 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_076",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence de la base d'imposition",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "La base d'imposition de transaction est  absente ou invalide  (doit contenir au max 16 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_008",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Base d'imposition du type de TVA (Total HT par taux d'imposition de la taxe)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "GT_TVA-MNT_HT",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:BasisAmount"
+    },
+    {
+      "balise": "BT-117",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Montant TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_068",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le montant TVA est différent de la base TVA multipliée par le taux de TVA",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_069",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant de TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le format du montant de TVA est invalide (doit contenir au max 19 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_081",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Montant TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_154",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant TVA de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Montant TVA de transaction",
+          "nature": "Présence",
+          "ref": "STD_TRANS_010",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant TVA de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le format du montant TVA de transaction est invalide (doit contenir au max 16 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_011",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du montant TVA de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Le montant total TVA est différent de la somme des montants TVA +/- tolérance",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_012",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Montant de la TVA pour chaque type de TVA",
+      "obligatoire": "Oui",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "GT_TVA-MNT_TVA",
+      "type": "Decimal",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_117"
+    },
+    {
+      "balise": "BT-118",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [],
+      "libelle": "Code de type de TVA (mention \"Autoliquidation\" sur la facture) ",
+      "obligatoire": "Oui",
+      "rdg": "Création d'une table de paramétrage\nZFACTUREX_CODE_TVA",
+      "rdi": "GS_FECT_EINV-BG23-BT118_TVA_CODE_TYPE",
+      "type": "Decimal",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+    },
+    {
+      "balise": "BT-118-0",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [],
+      "dependance": "Qualifiant utilisé pour les contrôles fonctionnels de la norme EN16931 ",
+      "libelle": "Qualifiant d'identifiant du code type TVA",
+      "obligatoire": "Non",
+      "presence": "n/a",
+      "rdg": "",
+      "rdi": "",
+      "type": "Decimal",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_118_0"
+    },
+    {
+      "balise": "BT-119",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du taux de TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Taux de TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_077",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du taux de TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Taux de TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_156",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de taux de paiement facture",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Taux paiement facture",
+          "nature": "Présence",
+          "ref": "STD_INV_PAY_006",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du taux de TVA de transaction",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Taux TVA de transaction",
+          "nature": "Présence",
+          "ref": "STD_TRANS_009",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du taux d'imposition",
+          "e_invoicing": null,
+          "e_reporting": "e-Rep",
+          "message": "Absence dune donnée obligatoire : Taux d'imposition",
+          "nature": "Cohérence",
+          "ref": "STD_TRANS_PAY_002",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Taux de TVA applicable (à différencier si multiples)",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "GT_TVA-TAUX",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:RateApplicablePercent"
+    },
+    {
+      "balise": "BT-121",
+      "categorie_bg": "BG-23",
+      "categorie_titre": "🧾 DÉTAIL DE LA TVA",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du motif d'exonération de la TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Motif d'exonération de TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_078",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du code motif d'exonération de la TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Absence d'une donnée obligatoire : Code Motif d'exonération de TVA",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_079",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du type de document et le code du motif d'exonération",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le type du document est incohérent avec le code motif d'exonération",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_153",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Code de motif d'exonération de la TVA",
+      "obligatoire": "",
+      "rdg": "",
+      "rdi": "GS_FECT_EINV-BG23-BT121_TVA_EXO_CODE",
+      "type": "String",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_121"
+    },
+    {
+      "balise": "BT-126",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du numéro de ligne de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Numéro de ligne",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_025",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du numéro de la ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le numéro de la ligne comporte plus que 6 caractères",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_057",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle d'unicité des identifiants des lignes de la facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Des lignes de facture ont le même numéro de ligne",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_142",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Identifiant de ligne de facture (numéro de la ligne de facture, par ex. 001, 002, 003)",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "Indiquer le numéro de ligne de facture",
+      "rdi": "BG25_BT126",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_126"
+    },
+    {
+      "balise": "BT-129",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence  de la quantité facturée à la ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Quantité facturée de ligne",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_026",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence de la quantité facturée à la ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Quantité facturée de la ligne",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_157",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Quantité facturée",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "BG25_BT129",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_129"
+    },
+    {
+      "balise": "BT-130",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du Code de l'unité de mesure de la quantité facturée",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Code unité de mesure de quantité facturée",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_027",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du Code de l'unité de mesure de la quantité facturée des lignes",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Code d'unité de mesure de la quantité facturée",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_158",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Code de l'unité de mesure de la quantité facturée",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "BG25_BT130",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_130"
+    },
+    {
+      "balise": "BT-131",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du montant net de ligne de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le format du montant net est invalide (doit contenir au max 19 chiffres, un point, puis 2 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_028",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du montant net de ligne de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Montant de ligne de la facture",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_159",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
+      "obligatoire": "Oui",
+      "presence": "Oui",
+      "rdg": "",
+      "rdi": "",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_131"
+    },
+    {
+      "balise": "BT-146",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du prix net de l'article",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Prix net d’article",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_030",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du prix net de l'article",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le Prix net d'article est invalide (montant négatif non autorisé)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_031",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du prix net de l'article",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le prix net de l'article est différent du prix brut moins le rabais +/- tolérence",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_045",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du prix unitaire HT des lignes de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le  format du prix unitaire HT de la ligne de facture est invalide (doit contenir au max 14 chiffres, un point, puis 4 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_104",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du prix net des lignes de factures",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Prix net de l’article",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_160",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Prix net de l'article",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "x",
+      "rdi": "BG29_BT146",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_146"
+    },
+    {
+      "balise": "BT-148",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du prix brut de l'article",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le Prix brut d'article est invalide (montant négatif non autorisé)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_032",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence du prix unitaire brut des lignes de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le format du prix unitaire brut de la ligne de facture est invalide (doit contenir au max 14 chiffres, un point, puis 4 décimales.)",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_103",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Prix brut de l'article",
+      "obligatoire": "Dépendant",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "BG29_BT148",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_148"
+    },
+    {
+      "balise": "BT-151",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du type TVA au niveau de la ligne de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Type TVA",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_024",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence et de cohérence du type de TVA",
+          "e_invoicing": "e-Inv",
+          "e_reporting": "e-Rep",
+          "message": "Le type de TVA est absent ou invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_055",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du type TVA au niveau de la ligne de facture",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Type de TVA de l'article facturé",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_161",
+          "type": "Legal"
+        }
+      ],
+      "libelle": "Code de type de TVA de l'article facturé",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "BG30_BT151",
+      "type": "String",
+      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+    },
+    {
+      "balise": "BT-153",
+      "categorie_bg": "BG-25",
+      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du nom de l'article à la ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Nom d'article",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_029",
+          "type": "Legal"
+        },
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de présence du nom de l'article à la ligne",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Nom de l'article",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_163",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "Nom de l'article (dénomination du bien livré ou du service rendu) ",
+      "obligatoire": "Oui",
+      "presence": "Non",
+      "rdg": "",
+      "rdi": "BG31_BT153",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_153"
+    },
+    {
+      "balise": "BT-13",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de gestion des engagements et services",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Absence d'une donnée obligatoire : Référence commande client ou Code service client",
+          "nature": "Présence",
+          "ref": "CM_REF_FAC_096",
+          "type": "Legal"
+        }
+      ],
+      "dependance": "",
+      "libelle": "N° d'engagement (pour CHORUS)",
+      "obligatoire": "Non",
+      "presence": "Oui",
+      "rdg": "Factures Chorus uniquement",
+      "rdi": "GS_CHORUS_MD-ORDER-NUMBER",
+      "type": "String",
+      "type_formulaire": "CART Simple",
+      "xpath": "//rsm:ExchangedDocument/ram:BT_13"
+    }
+  ],
+  "description": "Mapping généré automatiquement V5.0",
+  "source_cegedim": "Controles_CEGEDIM.xlsx",
+  "source_sap": "Mapping_SAP_Exstream.xlsx",
+  "type_facture": "simple",
+  "type_facture_label": "CART Simple",
+  "version": "5.0"
+}

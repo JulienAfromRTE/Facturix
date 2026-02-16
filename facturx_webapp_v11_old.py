@@ -255,57 +255,13 @@ def perform_controls(field, rdi_value, xml_value, type_controle):
     return status, regles_testees, details_erreurs
 
 
-def normalize_category(categorie_bg, categorie_titre):
-    """
-    Normalise les catégories pour éviter les doublons.
-    Retourne un tuple (categorie_bg_normalisee, categorie_titre_normalise)
-    """
-    # Nettoyer les espaces et mettre en majuscules pour la comparaison
-    titre_upper = categorie_titre.upper().strip()
-    bg_upper = categorie_bg.upper().strip()
-    
-    # Mapping de normalisation basé sur les mots-clés (avec emojis)
-    normalizations = {
-        'INFOS': ('BG-INFOS-GENERALES', '📄 INFORMATIONS GÉNÉRALES DE LA FACTURE'),
-        'GÉNÉRALES': ('BG-INFOS-GENERALES', '📄 INFORMATIONS GÉNÉRALES DE LA FACTURE'),
-        'GENERALES': ('BG-INFOS-GENERALES', '📄 INFORMATIONS GÉNÉRALES DE LA FACTURE'),
-        'TOTAUX': ('BG-TOTAUX', '💰 TOTAUX DE LA FACTURE'),
-        'TVA': ('BG-TVA', '🧾 DÉTAIL DE LA TVA'),
-        'LIGNE': ('BG-LIGNES', '📋 LIGNES DE FACTURE'),
-        'VENDEUR': ('BG-VENDEUR', '🏢 INFORMATIONS VENDEUR'),
-        'ACHETEUR': ('BG-ACHETEUR', '🛒 INFORMATIONS ACHETEUR'),
-    }
-    
-    # Chercher une correspondance dans le titre
-    for keyword, (norm_bg, norm_titre) in normalizations.items():
-        if keyword in titre_upper or keyword in bg_upper:
-            return norm_bg, norm_titre
-    
-    # Si aucune correspondance, retourner tel quel
-    return categorie_bg, categorie_titre
-
-
-def get_category_order(categorie_bg):
-    """Retourne l'ordre de tri des catégories"""
-    order_map = {
-        'BG-INFOS-GENERALES': 1,
-        'BG-TOTAUX': 2,
-        'BG-TVA': 3,
-        'BG-LIGNES': 4,
-        'BG-VENDEUR': 5,
-        'BG-ACHETEUR': 6,
-    }
-    return order_map.get(categorie_bg, 999)
-
-
 def apply_contextual_controls(results):
     """
     Controles conditionnels en dur :
-    1. BT-22 = "B2G" (Chorus) -> BT-10, BT-13, BT-29, BT-29-1 obligatoires
+    1. BT-21-BAR = "Chorus"   -> BT-10, BT-13, BT-29, BT-29-1 obligatoires
     2. Avoir (BT-3 = "381")   -> BT-25, BT-26 obligatoires
     3. BT-8 doit toujours valoir "5"
     4. Client etranger (BT-48 ne commence pas par "FR") -> BT-58 obligatoire
-    5. BT-131 negatif -> BT-129 doit etre negatif
     """
     # Index balise -> result pour acces rapide
     by_balise = {r['balise']: r for r in results}
@@ -329,12 +285,12 @@ def apply_contextual_controls(results):
             r['details_erreurs'].insert(0, f'Champ obligatoire selon regle : {raison}')
 
     # -------------------------------------------------------
-    # Regle 1 : BT-22 = "B2G" (Chorus)
+    # Regle 1 : BT-21-BAR = "Chorus"
     # -------------------------------------------------------
-    bt22 = by_balise.get('BT-22')
-    if bt22 and bt22.get('rdi', '').strip().upper() == 'B2G':
+    bt21 = by_balise.get('BT-21-BAR')
+    if bt21 and bt21.get('rdi', '').strip().lower() == 'chorus':
         for balise in ['BT-10', 'BT-13', 'BT-29', 'BT-29-1']:
-            force_obligatoire(balise, 'Facture B2G (Chorus)')
+            force_obligatoire(balise, 'BT-21-BAR = Chorus')
 
     # -------------------------------------------------------
     # Regle 2 : Avoir → BT-25 et BT-26 obligatoires
@@ -372,31 +328,6 @@ def apply_contextual_controls(results):
         if tva and not tva.startswith('FR'):
             force_obligatoire('BT-58', 'Client etranger : TVA = ' + tva)
 
-    # -------------------------------------------------------
-    # Regle 5 : BT-131 negatif → BT-129 doit etre negatif
-    # BT-131 = montant net de la ligne (facture negative si negatif)
-    # BT-129 = quantite facturee (doit etre negative, pas le prix unitaire)
-    # -------------------------------------------------------
-    bt131 = by_balise.get('BT-131')
-    bt129 = by_balise.get('BT-129')
-    if bt131 and bt129:
-        try:
-            montant_net = float(bt131.get('rdi', '0').replace(',', '.').replace(' ', ''))
-            quantite = float(bt129.get('rdi', '0').replace(',', '.').replace(' ', ''))
-            if montant_net < 0:
-                regle_label = 'Facture negative : quantite doit etre negative'
-                if regle_label not in bt129['regles_testees']:
-                    bt129['regles_testees'].append(regle_label)
-                if quantite >= 0:
-                    bt129['status'] = 'ERREUR'
-                    if 'RAS' in bt129['details_erreurs']:
-                        bt129['details_erreurs'].remove('RAS')
-                    msg = f'BT-131 est negatif ({montant_net}), BT-129 doit etre negatif (trouve: {quantite})'
-                    if msg not in bt129['details_erreurs']:
-                        bt129['details_erreurs'].append(msg)
-        except (ValueError, AttributeError):
-            pass  # Si conversion impossible, on ignore
-
     return results
 
 
@@ -404,7 +335,6 @@ HTML = r"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<link rel="icon" type="image/x-icon" href="/img/IcoSite.ico">
 <link rel="icon" type="image/png" href="/img/AppLogo_V2.png">
 <title>Facturix</title>
 <style>
@@ -827,15 +757,7 @@ track.onmousemove=function(e){
 track.onmouseleave=function(){overlay.classList.remove('visible');};
 var cont=document.getElementById('categoriesContainer');
 cont.innerHTML='';
-// Trier les catégories dans l'ordre défini
-var categoryOrder={'BG-INFOS-GENERALES':1,'BG-TOTAUX':2,'BG-TVA':3,'BG-LIGNES':4,'BG-VENDEUR':5,'BG-ACHETEUR':6};
-var sortedCategories=Object.keys(data.categories_results).sort(function(a,b){
-var orderA=categoryOrder[a]||999;
-var orderB=categoryOrder[b]||999;
-return orderA-orderB;
-});
-for(var i=0;i<sortedCategories.length;i++){
-var bgId=sortedCategories[i];
+for(var bgId in data.categories_results){
 var cat=data.categories_results[bgId];
 if(cat.champs.length===0)continue;
 var div=document.createElement('div');
@@ -1346,7 +1268,7 @@ def controle():
         }
 
         results = []
-        for index, field in enumerate(mapping):
+        for field in mapping:
             rdi_field_name = field.get('rdi', '')
             rdi_value = rdi_data.get(rdi_field_name, '').strip()
             if not rdi_value and rdi_field_name:
@@ -1368,11 +1290,6 @@ def controle():
             status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
             xml_short_name = get_xml_short_name(field.get('xpath', ''))
             xml_tag_name = get_xml_tag_name(field.get('xpath', ''))
-
-            # Normaliser la catégorie pour éviter les doublons
-            categorie_bg_raw = field.get('categorie_bg', 'BG-OTHER')
-            categorie_titre_raw = field.get('categorie_titre', 'Autres')
-            categorie_bg, categorie_titre = normalize_category(categorie_bg_raw, categorie_titre_raw)
 
             # Construire la liste CEGEDIM détaillée pour le tableau dédié
             ceg_details = []
@@ -1397,10 +1314,9 @@ def controle():
                 'regles_testees': regles_testees,
                 'details_erreurs': details_erreurs,
                 'controles_cegedim': ceg_details,
-                'categorie_bg': categorie_bg,
-                'categorie_titre': categorie_titre,
-                'obligatoire': field.get('obligatoire', 'Non'),
-                'order_index': index  # Conserver l'ordre du mapping
+                'categorie_bg': field.get('categorie_bg', 'BG-OTHER'),
+                'categorie_titre': field.get('categorie_titre', 'Autres'),
+                'obligatoire': field.get('obligatoire', 'Non')
             })
 
         # Appliquer les controles conditionnels en dur
@@ -1423,9 +1339,8 @@ def controle():
             elif result['status'] == 'ERREUR':
                 categories_results[bg_id]['stats']['erreur'] += 1
 
-        # Trier les champs dans chaque catégorie selon l'ordre du mapping (order_index)
         for bg_id in categories_results:
-            categories_results[bg_id]['champs'].sort(key=lambda x: x.get('order_index', 9999))
+            categories_results[bg_id]['champs'].sort(key=lambda x: (0 if x['obligatoire'] == 'Oui' else 1, x['balise']))
 
         # Nettoyage
         os.remove(rdi_path)
