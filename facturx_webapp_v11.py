@@ -36,7 +36,91 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 VERSIONS_FOLDER = os.path.join(SCRIPT_DIR, 'mapping_versions')
 os.makedirs(VERSIONS_FOLDER, exist_ok=True)
 
+RULES_FILE = os.path.join(SCRIPT_DIR, 'business_rules.json')
+
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
+
+def load_business_rules():
+    """Charge les règles métiers depuis le fichier JSON"""
+    if not os.path.exists(RULES_FILE):
+        # Créer le fichier avec les règles par défaut
+        default_rules = {
+            "rules": [
+                {
+                    "id": "rule_1",
+                    "name": "Facture B2G Chorus",
+                    "enabled": True,
+                    "conditions": [
+                        {"field": "BT-22", "operator": "equals", "value": "B2G"}
+                    ],
+                    "actions": [
+                        {"type": "make_mandatory", "field": "BT-10"},
+                        {"type": "make_mandatory", "field": "BT-13"},
+                        {"type": "make_mandatory", "field": "BT-29"},
+                        {"type": "make_mandatory", "field": "BT-29-1"}
+                    ]
+                },
+                {
+                    "id": "rule_2",
+                    "name": "Facture avoir",
+                    "enabled": True,
+                    "conditions": [
+                        {"field": "BT-3", "operator": "equals", "value": "381"}
+                    ],
+                    "actions": [
+                        {"type": "make_mandatory", "field": "BT-25"},
+                        {"type": "make_mandatory", "field": "BT-26"}
+                    ]
+                },
+                {
+                    "id": "rule_3",
+                    "name": "BT-8 doit valoir 5",
+                    "enabled": True,
+                    "conditions": [],
+                    "actions": [
+                        {"type": "must_equal", "field": "BT-8", "value": "5"}
+                    ]
+                },
+                {
+                    "id": "rule_4",
+                    "name": "Client étranger",
+                    "enabled": True,
+                    "conditions": [
+                        {"field": "BT-48", "operator": "not_starts_with", "value": "FR"}
+                    ],
+                    "actions": [
+                        {"type": "make_mandatory", "field": "BT-58"}
+                    ]
+                },
+                {
+                    "id": "rule_5",
+                    "name": "Facture négative - quantité",
+                    "enabled": True,
+                    "conditions": [
+                        {"field": "BT-131", "operator": "less_than", "value": "0"}
+                    ],
+                    "actions": [
+                        {"type": "must_be_negative", "field": "BT-129"}
+                    ]
+                }
+            ]
+        }
+        save_business_rules(default_rules)
+        return default_rules
+    try:
+        with open(RULES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return {"rules": []}
+
+def save_business_rules(rules_data):
+    """Sauvegarde les règles métiers"""
+    try:
+        with open(RULES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(rules_data, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
 
 def load_mapping(type_formulaire='CARTsimple'):
     filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
@@ -209,30 +293,32 @@ def perform_controls(field, rdi_value, xml_value, type_controle):
     regles_testees = []
     details_erreurs = []
     status = 'OK'
+    is_xml_only = (type_controle in ['cii', 'xmlonly'])
 
     if field.get('obligatoire') == 'Oui':
         regles_testees.append('Presence obligatoire')
-        if not rdi_value:
-            status = 'ERREUR'
-            details_erreurs.append('Champ obligatoire absent du RDI')
-
-    # Ajouter les Règles de Gestion (RDG) dans les règles testées
-    if field.get('rdg'):
-        rdg_text = field['rdg']
-        # Si trop long, tronquer intelligemment
-        if len(rdg_text) > 100:
-            regles_testees.append(f"{rdg_text[:100]}...")
+        if is_xml_only:
+            # En mode CII ou XML only : présence vérifiée dans le XML uniquement
+            if not xml_value:
+                status = 'ERREUR'
+                details_erreurs.append('Champ obligatoire absent du XML')
         else:
-            regles_testees.append(rdg_text)
-
-    # Traiter les contrôles CEGEDIM mais ne PAS les ajouter aux regles_testees
-    # (ils seront visibles dans le tableau dédié CEGEDIM)
-    controles_cegedim = field.get('controles_cegedim', [])
-    for controle in controles_cegedim:
-        if controle.get('nature') == 'Presence':
             if not rdi_value:
                 status = 'ERREUR'
-                details_erreurs.append(f"{controle.get('ref')}: {controle.get('message', 'Controle CEGEDIM echoue')}")
+                details_erreurs.append('Champ obligatoire absent du RDI')
+
+    # Règles de Gestion (RDG)
+    if field.get('rdg'):
+        rdg_text = field['rdg']
+        regles_testees.append(f"{rdg_text[:100]}..." if len(rdg_text) > 100 else rdg_text)
+
+    # Contrôles CEGEDIM (non applicables en mode CII/XML only)
+    if not is_xml_only:
+        for controle in field.get('controles_cegedim', []):
+            if controle.get('nature') == 'Presence':
+                if not rdi_value:
+                    status = 'ERREUR'
+                    details_erreurs.append(f"{controle.get('ref')}: {controle.get('message', 'Controle CEGEDIM echoue')}")
 
     if type_controle == 'xml':
         regles_testees.append('Comparaison RDI vs XML')
@@ -298,7 +384,136 @@ def get_category_order(categorie_bg):
     return order_map.get(categorie_bg, 999)
 
 
-def apply_contextual_controls(results):
+def apply_business_rules(results, type_formulaire='simple'):
+    """
+    Applique les règles métiers configurables.
+    Remplace l'ancienne fonction apply_contextual_controls hardcodée.
+    """
+    rules_data = load_business_rules()
+    by_balise = {r['balise']: r for r in results}
+    
+    def evaluate_condition(cond, by_balise):
+        """Évalue une condition"""
+        field = cond.get('field')
+        operator = cond.get('operator')
+        value = cond.get('value', '')
+        
+        result_obj = by_balise.get(field)
+        if not result_obj:
+            return False
+        
+        field_value = result_obj.get('rdi', '').strip() or result_obj.get('xml', '').strip()
+        
+        if operator == 'equals':
+            return field_value.upper() == value.upper()
+        elif operator == 'not_equals':
+            return field_value.upper() != value.upper()
+        elif operator == 'contains':
+            return value.upper() in field_value.upper()
+        elif operator == 'not_contains':
+            return value.upper() not in field_value.upper()
+        elif operator == 'starts_with':
+            return field_value.upper().startswith(value.upper())
+        elif operator == 'not_starts_with':
+            return not field_value.upper().startswith(value.upper())
+        elif operator == 'less_than':
+            try:
+                return float(field_value.replace(',', '.')) < float(value)
+            except:
+                return False
+        elif operator == 'greater_than':
+            try:
+                return float(field_value.replace(',', '.')) > float(value)
+            except:
+                return False
+        elif operator == 'is_empty':
+            return not field_value
+        elif operator == 'is_not_empty':
+            return bool(field_value)
+        
+        return False
+    
+    def apply_action(action, by_balise):
+        """Applique une action"""
+        action_type = action.get('type')
+        target_field = action.get('field')
+        
+        target = by_balise.get(target_field)
+        if not target:
+            return
+        
+        rule_name = action.get('reason', 'Règle métier')
+        
+        if action_type == 'make_mandatory':
+            target['obligatoire'] = 'Oui'
+            regle_label = f'Règle: {rule_name}'
+            if regle_label not in target['regles_testees']:
+                target['regles_testees'].insert(0, regle_label)
+            
+            if not target.get('rdi', '').strip() and not target.get('xml', '').strip():
+                target['status'] = 'ERREUR'
+                if 'RAS' in target['details_erreurs']:
+                    target['details_erreurs'].remove('RAS')
+                error_msg = f'Règle métier "{rule_name}" non respectée : champ obligatoire absent'
+                target['details_erreurs'].insert(0, error_msg)
+        
+        elif action_type == 'must_equal':
+            expected = action.get('value', '')
+            actual = target.get('rdi', '').strip() or target.get('xml', '').strip()
+            regle_label = f'Valeur imposée = "{expected}"'
+            if regle_label not in target['regles_testees']:
+                target['regles_testees'].append(regle_label)
+            
+            if actual != expected:
+                target['status'] = 'ERREUR'
+                if 'RAS' in target['details_erreurs']:
+                    target['details_erreurs'].remove('RAS')
+                msg = f'Règle métier "{rule_name}" non respectée : attendu "{expected}", trouvé "{actual}"'
+                if msg not in target['details_erreurs']:
+                    target['details_erreurs'].append(msg)
+        
+        elif action_type == 'must_be_negative':
+            try:
+                value_str = target.get('rdi', '0').strip() or target.get('xml', '0').strip()
+                value = float(value_str.replace(',', '.').replace(' ', ''))
+                regle_label = 'Doit être négatif'
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                
+                if value >= 0:
+                    target['status'] = 'ERREUR'
+                    if 'RAS' in target['details_erreurs']:
+                        target['details_erreurs'].remove('RAS')
+                    msg = f'Règle métier "{rule_name}" non respectée : valeur doit être négative (trouvée: {value})'
+                    if msg not in target['details_erreurs']:
+                        target['details_erreurs'].append(msg)
+            except:
+                pass
+    
+    # Parcourir toutes les règles actives
+    for rule in rules_data.get('rules', []):
+        if not rule.get('enabled', True):
+            continue
+        
+        # Vérifier si la règle s'applique à ce type de formulaire
+        applicable_forms = rule.get('applicable_forms', [])
+        if applicable_forms and type_formulaire not in applicable_forms:
+            continue  # Règle non applicable à ce formulaire
+        
+        # Évaluer toutes les conditions (AND logique)
+        conditions_met = True
+        for cond in rule.get('conditions', []):
+            if not evaluate_condition(cond, by_balise):
+                conditions_met = False
+                break
+        
+        # Si conditions remplies, appliquer les actions
+        if conditions_met or len(rule.get('conditions', [])) == 0:
+            for action in rule.get('actions', []):
+                action['reason'] = rule.get('name', 'Règle métier')
+                apply_action(action, by_balise)
+    
+    return results
     """
     Controles conditionnels en dur :
     1. BT-22 = "B2G" (Chorus) -> BT-10, BT-13, BT-29, BT-29-1 obligatoires
@@ -406,7 +621,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <link rel="icon" type="image/x-icon" href="/img/IcoSite.ico">
 <link rel="icon" type="image/png" href="/img/AppLogo_V2.png">
-<title>Facturix</title>
+<title>Facturix - La potion magique pour des factures certifiées !</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:flex;align-items:stretch;gap:0}
@@ -527,6 +742,34 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 .modal .form-group label{font-weight:600;margin-bottom:5px;font-size:0.9em}
 .modal .form-group input,.modal .form-group select{padding:8px;border:2px solid #366092;border-radius:6px;font-size:0.95em}
 .modal .form-group textarea{padding:8px;border:2px solid #366092;border-radius:6px;font-size:0.85em;min-height:55px;font-family:monospace}
+/* Règles métiers */
+.rule-card{background:#fff;border-radius:10px;margin-bottom:15px;overflow:hidden;border:2px solid #ddd}
+.rule-header{padding:15px;display:flex;justify-content:space-between;align-items:center;background:#f5f5f5}
+.rule-header.enabled{background:#e8f5e9;border-left:4px solid #4caf50}
+.rule-header.disabled{background:#ffebee;border-left:4px solid #f44336;opacity:0.7}
+.rule-title{flex:1}
+.rule-title strong{font-size:1.1em;color:#366092}
+.rule-status{margin-left:12px;padding:4px 10px;border-radius:4px;font-size:0.85em;font-weight:600}
+.rule-header.enabled .rule-status{background:#4caf50;color:#fff}
+.rule-header.disabled .rule-status{background:#f44336;color:#fff}
+.rule-actions-btn{display:flex;gap:8px}
+.rule-actions-btn button{padding:6px 12px;border:none;border-radius:4px;cursor:pointer;font-weight:600;background:#2196F3;color:#fff}
+.rule-actions-btn button:hover{background:#1976D2}
+.rule-actions-btn .btn-edit{background:#FF9800}
+.rule-actions-btn .btn-edit:hover{background:#F57C00}
+.rule-actions-btn .btn-delete{background:#f44336}
+.rule-actions-btn .btn-delete:hover{background:#d32f2f}
+.rule-body{padding:15px;border-top:1px solid #eee}
+.rule-description{color:#666;font-size:0.9em;margin-bottom:12px;font-style:italic}
+.rule-logic{background:#f9f9f9;padding:12px;border-radius:6px;font-family:monospace;font-size:0.9em}
+.rule-logic div{margin:6px 0}
+.condition-item,.action-item{background:#f0f4ff;padding:12px;border-radius:6px;margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.condition-item select,.action-item select,.condition-item input,.action-item input{padding:8px;border:2px solid #366092;border-radius:4px;font-size:0.9em;max-width:280px}
+.condition-item .cond-field,.action-item .action-field{min-width:200px;flex:1}
+.condition-item .cond-op,.action-item .action-type{min-width:150px}
+.condition-item .cond-value,.action-item .action-value{min-width:120px;flex:0.5}
+.condition-item .btn-remove,.action-item .btn-remove{background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap}
+.condition-item .btn-remove:hover,.action-item .btn-remove:hover{background:#d32f2f}
 
 /* Easter egg Konami */
 .konami-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;flex-direction:column}
@@ -559,8 +802,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="container">
 <div class="header">
 <div class="header-left">
-<img class="header-logo" src="/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix — Controle Factur-X</h1>
-<div class="version">V12.0 — Made with love by Julien ❤️</div></div>
+<img class="header-logo" src="/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
+<div class="version">v58 — Made with love by Julien ❤️</div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
 <img src="/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
@@ -569,6 +812,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="tabs">
 <button class="tab active" id="tabControle">Controle</button>
 <button class="tab" id="tabParam">Parametrage</button>
+<button class="tab" id="tabRules">Règles Métiers</button>
 <button class="tab" id="tabAide">Aide</button>
 </div>
 
@@ -578,17 +822,20 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <h2>Configuration</h2>
 <div class="form-row">
 <div class="form-group">
-<label>Type de Formulaire SAP :</label>
+<label>Type de Factures :</label>
 <select id="typeFormulaire">
 <option value="simple">CART Simple</option>
 <option value="groupee">CART Groupe</option>
+<option value="ventesdiverses">Ventes Diverses</option>
 </select>
 </div>
 <div class="form-group">
 <label>Type de Controle :</label>
 <select id="typeControle">
-<option value="xml">XML - Sortie Exstream (complet)</option>
+<option value="xml">RDI vs XML - Comparaison sortie SAP / Exstream</option>
 <option value="rdi">RDI - Sortie SAP</option>
+<option value="xmlonly">XML - Vérif facture uniquement</option>
+<option value="cii">CII - GCP (XML direct)</option>
 </select>
 </div>
 </div>
@@ -601,7 +848,11 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <label>PDF ou XML :</label>
 <input type="file" id="pdfFile" accept=".pdf,.xml">
 </div>
-<div class="form-group">
+<div class="form-group" id="groupeCii" style="display:none">
+<label>Fichier XML CII :</label>
+<input type="file" id="ciiFile" accept=".xml">
+</div>
+<div class="form-group" id="groupeRdi">
 <label>Fichier RDI :</label>
 <input type="file" id="rdiFile" accept=".txt,.rdi">
 </div>
@@ -632,6 +883,10 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <label for="searchBT">🔍 Rechercher un BT :</label>
 <input type="text" id="searchBT" placeholder="Tapez un numéro de BT (ex: 48)">
 <button class="btn-clear" id="btnClearSearch" style="display:none">✕ Effacer</button>
+<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="filterErrors" style="width:18px;height:18px">
+<span>Afficher uniquement les erreurs</span>
+</label>
 </div>
 </div>
 <div class="section"><div id="categoriesContainer"></div></div>
@@ -648,6 +903,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <select id="typeFormulaireParam">
 <option value="simple">CART Simple</option>
 <option value="groupee">CART Groupe</option>
+<option value="ventesdiverses">Ventes Diverses</option>
 </select>
 </div>
 </div>
@@ -658,9 +914,40 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <button class="btn-save-version" id="btnSaveVersion">💾 Sauvegarder version</button>
 <button class="btn-restore" id="btnRestore">🕐 Restaurer version</button>
 </div>
+<div class="search-box">
+<label for="searchBTParam">🔍 Rechercher un BT :</label>
+<input type="text" id="searchBTParam" placeholder="Tapez un numéro de BT (ex: 48)">
+<button class="btn-clear" id="btnClearSearchParam" style="display:none">✕ Effacer</button>
+</div>
 </div>
 <div class="section">
 <ul class="mapping-list" id="mappingList"></ul>
+</div>
+</div>
+
+<!-- ONGLET RÈGLES MÉTIERS -->
+<div id="contentRules" class="tab-content">
+<div class="section">
+<h2>Règles Métiers Configurables</h2>
+<p>Gérez les règles de validation conditionnelles qui s'appliquent aux champs de la facture.</p>
+<div class="form-row" style="margin-bottom:15px">
+<div class="form-group">
+<label>Filtrer par type de factures :</label>
+<select id="filterFormType">
+<option value="all">Toutes les factures</option>
+<option value="simple">CART Simple uniquement</option>
+<option value="groupee">CART Groupée uniquement</option>
+<option value="ventesdiverses">Ventes Diverses uniquement</option>
+</select>
+</div>
+</div>
+<div class="btn-group">
+<button class="btn-secondary" id="btnReloadRules">🔄 Actualiser</button>
+<button class="btn-add" id="btnAddRule">+ Nouvelle règle</button>
+</div>
+</div>
+<div class="section">
+<div id="rulesList"></div>
 </div>
 </div>
 
@@ -715,6 +1002,13 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 </div>
 <div class="form-group"><label>Champ RDI :</label><input type="text" id="editRdi"></div>
 <div class="form-group"><label>XPath :</label><input type="text" id="editXpath"></div>
+<div class="form-group">
+<label>Attribut (optionnel) :</label>
+<input type="text" id="editAttribute" placeholder="Ex: schemeID (pour extraire un attribut XML)">
+<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
+Laissez vide pour extraire le texte de la balise. Indiquez le nom d'attribut (ex: schemeID, format) pour extraire sa valeur.
+</small>
+</div>
 <div class="form-group"><label>Type :</label>
 <select id="editType"><option value="String">String</option><option value="Decimal">Decimal</option><option value="Date">Date</option></select>
 </div>
@@ -734,6 +1028,62 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 <span class="modal-close" id="restoreModalClose">&times;</span>
 </div>
 <div id="versionsList"></div>
+</div>
+</div>
+
+<!-- MODAL EDITION RÈGLE -->
+<div id="editRuleModal" class="modal">
+<div class="modal-content" style="max-width:900px">
+<div class="modal-header">
+<h2 id="ruleModalTitle">Créer une règle</h2>
+<span class="modal-close" id="ruleModalClose">&times;</span>
+</div>
+<div class="form-group">
+<label>Nom de la règle :</label>
+<input type="text" id="ruleName" placeholder="Ex: Facture B2G Chorus">
+</div>
+<div class="form-group">
+<label>Description :</label>
+<textarea id="ruleDescription" placeholder="Expliquez en quelques mots à quoi sert cette règle"></textarea>
+</div>
+<div class="form-group">
+<label style="display:flex;align-items:center;gap:8px">
+<input type="checkbox" id="ruleEnabled" checked style="width:20px;height:20px">
+<span>Règle activée</span>
+</label>
+</div>
+<div class="form-group">
+<label>Applicable aux types de factures :</label>
+<div style="display:flex;flex-direction:column;gap:8px;padding:10px;background:#f9f9f9;border-radius:6px">
+<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
+<input type="checkbox" id="ruleFormSimple" checked style="width:18px;height:18px">
+<span>CART Simple</span>
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
+<input type="checkbox" id="ruleFormGroupee" checked style="width:18px;height:18px">
+<span>CART Groupée</span>
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
+<input type="checkbox" id="ruleFormVentes" checked style="width:18px;height:18px">
+<span>Ventes Diverses</span>
+</label>
+</div>
+<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
+Si aucune case n'est cochée, la règle s'appliquera à tous les types de factures.
+</small>
+</div>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<h3>Conditions (SI...)</h3>
+<p style="font-size:0.9em;color:#666;margin-bottom:12px">Si toutes ces conditions sont remplies, les actions seront déclenchées. Laissez vide pour appliquer toujours.</p>
+<div id="conditionsList"></div>
+<button class="btn-secondary" id="btnAddCondition" style="margin-top:10px">+ Ajouter une condition</button>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<h3>Actions (ALORS...)</h3>
+<p style="font-size:0.9em;color:#666;margin-bottom:12px">Ces actions seront appliquées si les conditions sont remplies.</p>
+<div id="actionsList"></div>
+<button class="btn-secondary" id="btnAddAction" style="margin-top:10px">+ Ajouter une action</button>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<button class="btn" id="btnSaveRule">Enregistrer la règle</button>
 </div>
 </div>
 
@@ -757,6 +1107,13 @@ this.classList.add('active');
 document.getElementById('contentParam').classList.add('active');
 loadMappings();
 });
+document.getElementById('tabRules').addEventListener('click',function(){
+document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
+this.classList.add('active');
+document.getElementById('contentRules').classList.add('active');
+loadRules();
+});
 document.getElementById('tabAide').addEventListener('click',function(){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
 document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
@@ -769,12 +1126,28 @@ function updateHelp(){
 var type=document.getElementById('typeControle').value;
 var help=document.getElementById('helpControle');
 var groupePdf=document.getElementById('groupePdf');
+var groupeCii=document.getElementById('groupeCii');
+var groupeRdi=document.getElementById('groupeRdi');
 if(type==='rdi'){
 help.innerHTML='<strong>Mode RDI</strong><ul><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
 groupePdf.style.display='none';
-}else{
-help.innerHTML='<strong>Mode XML</strong><ul><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
+groupeCii.style.display='none';
+groupeRdi.style.display='flex';
+}else if(type==='cii'){
+help.innerHTML='<strong>Mode CII - GCP</strong><ul><li>Controle du XML CII (Cross Industry Invoice) directement</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
+groupePdf.style.display='none';
+groupeCii.style.display='flex';
+groupeRdi.style.display='none';
+}else if(type==='xmlonly'){
+help.innerHTML='<strong>Mode XML - Vérif facture uniquement</strong><ul><li>Controle du XML encapsule dans le PDF</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Regles metiers</li></ul>';
 groupePdf.style.display='flex';
+groupeCii.style.display='none';
+groupeRdi.style.display='none';
+}else{
+help.innerHTML='<strong>Mode RDI vs XML</strong><ul><li>Comparaison sortie SAP vs sortie Exstream</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
+groupePdf.style.display='flex';
+groupeCii.style.display='none';
+groupeRdi.style.display='flex';
 }
 }
 document.getElementById('typeControle').addEventListener('change',updateHelp);
@@ -785,13 +1158,17 @@ document.getElementById('btnControle').addEventListener('click',async function()
 var typeControle=document.getElementById('typeControle').value;
 var pdf=document.getElementById('pdfFile').files[0];
 var rdi=document.getElementById('rdiFile').files[0];
+var cii=document.getElementById('ciiFile').files[0];
 if(typeControle==='xml'&&!pdf){alert('Selectionnez le fichier PDF ou XML');return}
-if(!rdi){alert('Selectionnez le fichier RDI');return}
+if(typeControle==='xmlonly'&&!pdf){alert('Selectionnez le fichier PDF');return}
+if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
+if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
 document.getElementById('loading').style.display='block';
 document.getElementById('results').style.display='none';
 var fd=new FormData();
 if(pdf)fd.append('pdf',pdf);
-fd.append('rdi',rdi);
+if(cii)fd.append('cii',cii);
+if(rdi)fd.append('rdi',rdi);
 fd.append('type_formulaire',document.getElementById('typeFormulaire').value);
 fd.append('type_controle',typeControle);
 try{
@@ -855,10 +1232,15 @@ html+='<table class="main-table"><thead><tr>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
 cat.champs.forEach(function(r){
-// AMÉLIORATION : Construction simplifiée de la tooltip
-var tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');
-if(data.type_controle==='xml'){
-tooltipContent+='<br><strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');
+var isXmlOnly=(data.type_controle==='cii'||data.type_controle==='xmlonly');
+// Tooltip adapté selon le mode
+var tooltipContent='';
+if(!isXmlOnly){
+tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');
+}
+if(data.type_controle==='xml'||isXmlOnly){
+if(tooltipContent) tooltipContent+='<br>';
+tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');
 }
 var statusIcon=r.status==='OK'?'✅':'❌';
 var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
@@ -913,25 +1295,31 @@ cont.appendChild(div);
 }
 document.getElementById('results').style.display='block';
 
-// Filtrage par BT
+// Filtrage par BT et par erreurs
 var searchInput=document.getElementById('searchBT');
 var clearBtn=document.getElementById('btnClearSearch');
-searchInput.addEventListener('input',function(){
-var searchTerm=this.value.toLowerCase().trim();
+var filterErrorsCheckbox=document.getElementById('filterErrors');
+
+function applyAllFilters(){
+var searchTerm=searchInput.value.toLowerCase().trim();
+var showErrorsOnly=filterErrorsCheckbox.checked;
 if(searchTerm){
 clearBtn.style.display='inline-block';
 }else{
 clearBtn.style.display='none';
 }
-filterResults(searchTerm);
-});
+filterResults(searchTerm,showErrorsOnly);
+}
+
+searchInput.addEventListener('input',applyAllFilters);
+filterErrorsCheckbox.addEventListener('change',applyAllFilters);
 clearBtn.addEventListener('click',function(){
 searchInput.value='';
 clearBtn.style.display='none';
-filterResults('');
+applyAllFilters();
 });
 
-function filterResults(term){
+function filterResults(term,errorsOnly){
 var categories=document.querySelectorAll('.category');
 var visibleCount=0;
 categories.forEach(function(cat){
@@ -939,10 +1327,15 @@ var hasMatch=false;
 var rows=cat.querySelectorAll('.data-row');
 rows.forEach(function(row){
 var btText=row.querySelector('td:nth-child(3) strong').textContent.toLowerCase();
+var statusIcon=row.querySelector('.col-status').textContent.trim();
+var isError=(statusIcon==='❌');
 // Trouver la ligne CEGEDIM suivante (si elle existe)
 var nextRow=row.nextElementSibling;
 var isCegedimRow=nextRow && nextRow.querySelector('.ceg-table');
-if(!term||btText.includes(term)){
+// Vérifier les critères de filtrage
+var matchesSearch=!term||btText.includes(term);
+var matchesErrorFilter=!errorsOnly||isError;
+if(matchesSearch&&matchesErrorFilter){
 row.style.display='';
 // Afficher aussi la ligne CEGEDIM associée si elle existe
 if(isCegedimRow){
@@ -1082,6 +1475,7 @@ categorieValue='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
 document.getElementById('editCategorie').value=categorieValue;
 document.getElementById('editRdi').value=champ.rdi;
 document.getElementById('editXpath').value=(champ.xpath||'').replace(/^\/\//,'');
+document.getElementById('editAttribute').value=champ.attribute||'';
 document.getElementById('editType').value=champ.type;
 document.getElementById('editObligatoire').value=champ.obligatoire;
 document.getElementById('editRdg').value=champ.rdg||'';
@@ -1101,6 +1495,7 @@ document.getElementById('editLibelle').value='';
 document.getElementById('editCategorie').value='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
 document.getElementById('editRdi').value='';
 document.getElementById('editXpath').value='';
+document.getElementById('editAttribute').value='';
 document.getElementById('editType').value='String';
 document.getElementById('editObligatoire').value='Non';
 document.getElementById('editRdg').value='';
@@ -1121,6 +1516,7 @@ balise:document.getElementById('editBalise').value,
 libelle:document.getElementById('editLibelle').value,
 rdi:document.getElementById('editRdi').value,
 xpath:document.getElementById('editXpath').value,
+attribute:document.getElementById('editAttribute').value||undefined,
 type:document.getElementById('editType').value,
 obligatoire:document.getElementById('editObligatoire').value,
 rdg:document.getElementById('editRdg').value,
@@ -1229,6 +1625,405 @@ body:JSON.stringify(currentMapping)
 }
 document.getElementById('btnReload').addEventListener('click',loadMappings);
 document.getElementById('typeFormulaireParam').addEventListener('change',loadMappings);
+
+/* ---- RECHERCHE BT PARAMETRAGE ---- */
+document.getElementById('searchBTParam').addEventListener('input',function(){
+var query=this.value.toLowerCase().trim();
+var btn=document.getElementById('btnClearSearchParam');
+if(query){
+btn.style.display='block';
+var items=document.querySelectorAll('.mapping-item');
+items.forEach(function(item){
+var baliseEl=item.querySelector('.item-main strong');
+var balise=baliseEl?baliseEl.textContent.toLowerCase():'';
+if(balise.includes(query)){
+item.style.display='flex';
+}else{
+item.style.display='none';
+}
+});
+}else{
+btn.style.display='none';
+var items=document.querySelectorAll('.mapping-item');
+items.forEach(function(item){
+item.style.display='flex';
+});
+}
+});
+document.getElementById('btnClearSearchParam').addEventListener('click',function(){
+document.getElementById('searchBTParam').value='';
+this.style.display='none';
+var items=document.querySelectorAll('.mapping-item');
+items.forEach(function(item){
+item.style.display='flex';
+});
+});
+
+/* ---- RÈGLES MÉTIERS ---- */
+var currentRules={rules:[]};
+var availableBTs=[];
+
+async function loadAvailableBTs(){
+// Charger tous les BT depuis tous les mappings
+var types=['simple','groupee','ventesdiverses'];
+var allBTs={};
+for(var i=0;i<types.length;i++){
+try{
+var resp=await fetch('/api/mapping/'+types[i]);
+var mapping=await resp.json();
+if(mapping&&mapping.champs){
+mapping.champs.forEach(function(champ){
+if(champ.balise){
+allBTs[champ.balise]=champ.libelle||champ.balise;
+}
+});
+}
+}catch(e){}
+}
+// Convertir en array et trier par numéro de BT
+availableBTs=Object.keys(allBTs).sort(function(a,b){
+// Extraire les numéros des BT (ex: BT-131-0 -> [131, 0])
+var aMatch=a.match(/BT-(\d+)(?:-(\d+))?/);
+var bMatch=b.match(/BT-(\d+)(?:-(\d+))?/);
+if(!aMatch||!bMatch)return a.localeCompare(b);
+var aNum1=parseInt(aMatch[1]);
+var bNum1=parseInt(bMatch[1]);
+if(aNum1!==bNum1)return aNum1-bNum1;
+// Si même premier numéro, comparer le second
+var aNum2=aMatch[2]?parseInt(aMatch[2]):0;
+var bNum2=bMatch[2]?parseInt(bMatch[2]):0;
+return aNum2-bNum2;
+}).map(function(bt){
+return {value:bt,label:bt+' ('+allBTs[bt]+')'};
+});
+}
+
+async function loadRules(){
+await loadAvailableBTs();
+var resp=await fetch('/api/rules');
+currentRules=await resp.json();
+displayRules();
+}
+
+function displayRules(){
+var container=document.getElementById('rulesList');
+var filter=document.getElementById('filterFormType').value;
+container.innerHTML='';
+if(!currentRules.rules || currentRules.rules.length===0){
+container.innerHTML='<p>Aucune règle définie</p>';
+return;
+}
+var filteredRules=currentRules.rules.filter(function(rule){
+if(filter==='all')return true;
+var forms=rule.applicable_forms||[];
+return forms.length===0||forms.includes(filter);
+});
+if(filteredRules.length===0){
+container.innerHTML='<p>Aucune règle applicable à ce type de factures</p>';
+return;
+}
+filteredRules.forEach(function(rule){
+var index=currentRules.rules.indexOf(rule);
+var div=document.createElement('div');
+div.className='rule-card';
+var enabledClass=rule.enabled?'enabled':'disabled';
+var enabledText=rule.enabled?'✓ Activée':'✗ Désactivée';
+// Afficher les formulaires applicables
+var formsText='';
+var forms=rule.applicable_forms||[];
+if(forms.length===0){
+formsText='<span style="color:#999;font-size:0.85em">Tous les types</span>';
+}else{
+var formLabels={'simple':'CART Simple','groupee':'CART Groupée','ventesdiverses':'Ventes Diverses'};
+formsText='<span style="color:#666;font-size:0.85em">'+forms.map(function(f){return formLabels[f]||f}).join(', ')+'</span>';
+}
+// Construire le texte de la règle
+var conditionsText='';
+if(rule.conditions && rule.conditions.length>0){
+conditionsText='<strong>Si :</strong> ';
+rule.conditions.forEach(function(c,i){
+if(i>0)conditionsText+=' ET ';
+conditionsText+=c.field+' '+getOperatorLabel(c.operator)+' "'+c.value+'"';
+});
+}else{
+conditionsText='<strong>Toujours</strong>';
+}
+var actionsText='<strong>Alors :</strong> ';
+rule.actions.forEach(function(a,i){
+if(i>0)actionsText+=', ';
+if(a.type==='make_mandatory'){
+actionsText+=a.field+' devient obligatoire';
+}else if(a.type==='must_equal'){
+actionsText+=a.field+' doit égaler "'+a.value+'"';
+}else if(a.type==='must_be_negative'){
+actionsText+=a.field+' doit être négatif';
+}
+});
+div.innerHTML='<div class="rule-header '+enabledClass+'">'+
+'<div class="rule-title">'+
+'<strong>'+rule.name+'</strong>'+
+'<span class="rule-status">'+enabledText+'</span>'+
+'</div>'+
+'<div class="rule-actions-btn">'+
+'<button class="btn-toggle" data-index="'+index+'">'+(rule.enabled?'Désactiver':'Activer')+'</button>'+
+'<button class="btn-edit" data-index="'+index+'">Éditer</button>'+
+'<button class="btn-delete" data-index="'+index+'">Supprimer</button>'+
+'</div>'+
+'</div>'+
+'<div class="rule-body">'+
+(rule.description?'<div class="rule-description">'+rule.description+'</div>':'')+
+'<div style="margin-bottom:10px"><strong>Types de factures :</strong> '+formsText+'</div>'+
+'<div class="rule-logic">'+
+'<div>'+conditionsText+'</div>'+
+'<div>'+actionsText+'</div>'+
+'</div>'+
+'</div>';
+container.appendChild(div);
+});
+document.querySelectorAll('.btn-toggle').forEach(function(btn){
+btn.addEventListener('click',function(){
+var idx=parseInt(this.getAttribute('data-index'));
+currentRules.rules[idx].enabled=!currentRules.rules[idx].enabled;
+saveRules();
+});
+});
+document.querySelectorAll('.btn-edit').forEach(function(btn){
+btn.addEventListener('click',function(){
+editRule(parseInt(this.getAttribute('data-index')));
+});
+});
+document.querySelectorAll('.btn-delete').forEach(function(btn){
+btn.addEventListener('click',function(){
+if(confirm('Supprimer cette règle ?')){
+currentRules.rules.splice(parseInt(this.getAttribute('data-index')),1);
+saveRules();
+}
+});
+});
+}
+
+function getOperatorLabel(op){
+var labels={
+'equals':'=',
+'not_equals':'≠',
+'contains':'contient',
+'not_contains':'ne contient pas',
+'starts_with':'commence par',
+'not_starts_with':'ne commence pas par',
+'less_than':'<',
+'greater_than':'>',
+'is_empty':'est vide',
+'is_not_empty':'n\'est pas vide'
+};
+return labels[op]||op;
+}
+
+async function saveRules(){
+await fetch('/api/rules',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify(currentRules)
+});
+displayRules();
+}
+
+document.getElementById('btnReloadRules').addEventListener('click',loadRules);
+document.getElementById('filterFormType').addEventListener('change',displayRules);
+document.getElementById('btnAddRule').addEventListener('click',function(){
+currentRuleIndex=null;
+document.getElementById('ruleModalTitle').textContent='Créer une règle';
+document.getElementById('ruleName').value='';
+document.getElementById('ruleDescription').value='';
+document.getElementById('ruleEnabled').checked=true;
+document.getElementById('ruleFormSimple').checked=true;
+document.getElementById('ruleFormGroupee').checked=true;
+document.getElementById('ruleFormVentes').checked=true;
+editingConditions=[];
+editingActions=[];
+renderConditions();
+renderActions();
+document.getElementById('editRuleModal').style.display='block';
+});
+
+var currentRuleIndex=null;
+var editingConditions=[];
+var editingActions=[];
+
+function editRule(index){
+currentRuleIndex=index;
+var rule=currentRules.rules[index];
+document.getElementById('ruleModalTitle').textContent='Éditer la règle';
+document.getElementById('ruleName').value=rule.name;
+document.getElementById('ruleDescription').value=rule.description||'';
+document.getElementById('ruleEnabled').checked=rule.enabled!==false;
+var forms=rule.applicable_forms||[];
+document.getElementById('ruleFormSimple').checked=forms.length===0||forms.includes('simple');
+document.getElementById('ruleFormGroupee').checked=forms.length===0||forms.includes('groupee');
+document.getElementById('ruleFormVentes').checked=forms.length===0||forms.includes('ventesdiverses');
+editingConditions=JSON.parse(JSON.stringify(rule.conditions||[]));
+editingActions=JSON.parse(JSON.stringify(rule.actions||[]));
+renderConditions();
+renderActions();
+document.getElementById('editRuleModal').style.display='block';
+}
+
+function renderConditions(){
+var container=document.getElementById('conditionsList');
+container.innerHTML='';
+if(editingConditions.length===0){
+container.innerHTML='<p style="color:#999;font-size:0.9em">Aucune condition (la règle s\'appliquera toujours)</p>';
+return;
+}
+editingConditions.forEach(function(cond,i){
+var div=document.createElement('div');
+div.className='condition-item';
+// Construire les options dynamiquement
+var fieldOptions='<option value="">Champ...</option>';
+availableBTs.forEach(function(bt){
+fieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
+});
+div.innerHTML='<select class="cond-field" data-index="'+i+'">'+
+fieldOptions+
+'</select>'+
+'<select class="cond-op" data-index="'+i+'">'+
+'<option value="equals">= (égal)</option>'+
+'<option value="not_equals">≠ (différent)</option>'+
+'<option value="contains">contient</option>'+
+'<option value="not_contains">ne contient pas</option>'+
+'<option value="starts_with">commence par</option>'+
+'<option value="not_starts_with">ne commence pas par</option>'+
+'<option value="less_than">&lt; (inférieur)</option>'+
+'<option value="greater_than">&gt; (supérieur)</option>'+
+'<option value="is_empty">est vide</option>'+
+'<option value="is_not_empty">n\'est pas vide</option>'+
+'</select>'+
+'<input type="text" class="cond-value" data-index="'+i+'" placeholder="Valeur" value="'+cond.value+'">'+
+'<button class="btn-remove" data-index="'+i+'">Supprimer</button>';
+container.appendChild(div);
+div.querySelector('.cond-field').value=cond.field;
+div.querySelector('.cond-op').value=cond.operator;
+});
+document.querySelectorAll('.cond-field').forEach(function(el){
+el.addEventListener('change',function(){
+editingConditions[this.getAttribute('data-index')].field=this.value;
+});
+});
+document.querySelectorAll('.cond-op').forEach(function(el){
+el.addEventListener('change',function(){
+editingConditions[this.getAttribute('data-index')].operator=this.value;
+});
+});
+document.querySelectorAll('.cond-value').forEach(function(el){
+el.addEventListener('input',function(){
+editingConditions[this.getAttribute('data-index')].value=this.value;
+});
+});
+document.querySelectorAll('.condition-item .btn-remove').forEach(function(btn){
+btn.addEventListener('click',function(){
+editingConditions.splice(parseInt(this.getAttribute('data-index')),1);
+renderConditions();
+});
+});
+}
+
+function renderActions(){
+var container=document.getElementById('actionsList');
+container.innerHTML='';
+if(editingActions.length===0){
+container.innerHTML='<p style="color:#999;font-size:0.9em">Aucune action</p>';
+return;
+}
+editingActions.forEach(function(action,i){
+var div=document.createElement('div');
+div.className='action-item';
+// Construire les options dynamiquement avec libellés complets
+var fieldOptions='<option value="">Champ...</option>';
+availableBTs.forEach(function(bt){
+fieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
+});
+var needsValue=(action.type==='must_equal');
+// ORDRE: Champ, Type d'action, Valeur (si nécessaire), Supprimer
+div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'</select>'+
+'<select class="action-type" data-index="'+i+'">'+
+'<option value="make_mandatory">Rendre obligatoire</option>'+
+'<option value="must_equal">Doit égaler</option>'+
+'<option value="must_be_negative">Doit être négatif</option>'+
+'</select>'+
+(needsValue?'<input type="text" class="action-value" data-index="'+i+'" placeholder="Valeur" value="'+(action.value||'')+'">':'')+
+'<button class="btn-remove" data-index="'+i+'">Supprimer</button>';
+container.appendChild(div);
+div.querySelector('.action-field').value=action.field;
+div.querySelector('.action-type').value=action.type;
+});
+document.querySelectorAll('.action-type').forEach(function(el){
+el.addEventListener('change',function(){
+editingActions[this.getAttribute('data-index')].type=this.value;
+renderActions();
+});
+});
+document.querySelectorAll('.action-field').forEach(function(el){
+el.addEventListener('change',function(){
+editingActions[this.getAttribute('data-index')].field=this.value;
+});
+});
+document.querySelectorAll('.action-value').forEach(function(el){
+el.addEventListener('input',function(){
+editingActions[this.getAttribute('data-index')].value=this.value;
+});
+});
+document.querySelectorAll('.action-item .btn-remove').forEach(function(btn){
+btn.addEventListener('click',function(){
+editingActions.splice(parseInt(this.getAttribute('data-index')),1);
+renderActions();
+});
+});
+}
+
+document.getElementById('btnAddCondition').addEventListener('click',function(){
+editingConditions.push({field:'',operator:'equals',value:''});
+renderConditions();
+});
+
+document.getElementById('btnAddAction').addEventListener('click',function(){
+editingActions.push({type:'make_mandatory',field:''});
+renderActions();
+});
+
+document.getElementById('ruleModalClose').addEventListener('click',function(){
+document.getElementById('editRuleModal').style.display='none';
+});
+
+document.getElementById('btnSaveRule').addEventListener('click',function(){
+var applicableForms=[];
+if(document.getElementById('ruleFormSimple').checked)applicableForms.push('simple');
+if(document.getElementById('ruleFormGroupee').checked)applicableForms.push('groupee');
+if(document.getElementById('ruleFormVentes').checked)applicableForms.push('ventesdiverses');
+var rule={
+id:currentRuleIndex!==null?currentRules.rules[currentRuleIndex].id:'rule_'+Date.now(),
+name:document.getElementById('ruleName').value,
+description:document.getElementById('ruleDescription').value,
+enabled:document.getElementById('ruleEnabled').checked,
+applicable_forms:applicableForms,
+conditions:editingConditions.filter(function(c){return c.field}),
+actions:editingActions.filter(function(a){return a.field})
+};
+if(!rule.name){
+alert('Veuillez donner un nom à la règle');
+return;
+}
+if(rule.actions.length===0){
+alert('Veuillez ajouter au moins une action');
+return;
+}
+if(currentRuleIndex!==null){
+currentRules.rules[currentRuleIndex]=rule;
+}else{
+currentRules.rules.push(rule);
+}
+saveRules();
+document.getElementById('editRuleModal').style.display='none';
+});
+
 </script>
 </body>
 </div></div>
@@ -1295,27 +2090,68 @@ def restore_version_route(type_formulaire):
     result = restore_mapping_version(filename, type_formulaire)
     return jsonify(result)
 
+@app.route('/api/rules', methods=['GET'])
+def get_rules():
+    rules = load_business_rules()
+    return jsonify(rules)
+
+@app.route('/api/rules', methods=['POST'])
+def save_rules():
+    rules_data = request.json
+    success = save_business_rules(rules_data)
+    return jsonify({'success': success})
+
 @app.route('/controle', methods=['POST'])
 def controle():
     try:
         pdf_file = request.files.get('pdf')
         rdi_file = request.files.get('rdi')
+        cii_file = request.files.get('cii')
         type_formulaire = request.form.get('type_formulaire', 'simple')
         type_controle = request.form.get('type_controle', 'xml')
 
         print(f"Controle: {type_formulaire}, {type_controle}")
 
-        if not rdi_file:
-            return jsonify({'error': 'Fichier RDI manquant'}), 400
-        if type_controle == 'xml' and not pdf_file:
-            return jsonify({'error': 'Fichier PDF/XML manquant pour le mode XML'}), 400
+        # Validation selon le mode
+        if type_controle == 'cii':
+            if not cii_file:
+                return jsonify({'error': 'Fichier XML CII manquant'}), 400
+        elif type_controle == 'xmlonly':
+            if not pdf_file:
+                return jsonify({'error': 'Fichier PDF manquant'}), 400
+        else:
+            if not rdi_file:
+                return jsonify({'error': 'Fichier RDI manquant'}), 400
+            if type_controle == 'xml' and not pdf_file:
+                return jsonify({'error': 'Fichier PDF/XML manquant pour le mode XML'}), 400
 
-        rdi_path = os.path.join(UPLOAD_FOLDER, rdi_file.filename)
-        rdi_file.save(rdi_path)
+        # Lecture du RDI (pas nécessaire en mode CII)
+        rdi_data = {}
+        rdi_path = None
+        if rdi_file:
+            rdi_path = os.path.join(UPLOAD_FOLDER, rdi_file.filename)
+            rdi_file.save(rdi_path)
+            rdi_data = parse_rdi(rdi_path)
+            print("==== rdi_data ====")
+            print(rdi_data)
 
         xml_doc = None
         pdf_path = None
-        if type_controle == 'xml' and pdf_file:
+        cii_path = None
+
+        if type_controle == 'cii' and cii_file:
+            # Mode CII : lire le XML directement
+            cii_path = os.path.join(UPLOAD_FOLDER, cii_file.filename)
+            cii_file.save(cii_path)
+            with open(cii_path, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+            try:
+                xml_doc = etree.fromstring(xml_content.encode('utf-8'))
+            except:
+                return jsonify({'error': 'XML CII invalide'}), 400
+
+        elif type_controle == 'xmlonly' and pdf_file:
+            # Mode XML only : extraire le XML du PDF et contrôler uniquement le XML
             pdf_path = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
             pdf_file.save(pdf_path)
             if pdf_path.lower().endswith('.pdf'):
@@ -1330,9 +2166,20 @@ def controle():
             except:
                 return jsonify({'error': 'XML invalide'}), 400
 
-        rdi_data = parse_rdi(rdi_path)
-        print("==== rdi_data ====")
-        print(rdi_data)
+        elif type_controle == 'xml' and pdf_file:
+            pdf_path = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
+            pdf_file.save(pdf_path)
+            if pdf_path.lower().endswith('.pdf'):
+                xml_content = extract_xml_from_pdf(pdf_path)
+                if not xml_content:
+                    return jsonify({'error': 'XML introuvable dans le PDF'}), 400
+            else:
+                with open(pdf_path, 'r', encoding='utf-8') as f:
+                    xml_content = f.read()
+            try:
+                xml_doc = etree.fromstring(xml_content.encode('utf-8'))
+            except:
+                return jsonify({'error': 'XML invalide'}), 400
 
         mapping_data = load_mapping(type_formulaire)
         if not mapping_data:
@@ -1344,6 +2191,18 @@ def controle():
             'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
             'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100'
         }
+
+        # Pré-compiler les XPath pour accélérer le traitement
+        xpath_cache = {}
+        if xml_doc is not None:
+            for field in mapping:
+                _xpath_raw = field.get('xpath', '') or ''
+                if _xpath_raw and _xpath_raw not in xpath_cache:
+                    _xpath = _xpath_raw if _xpath_raw.startswith('/') else '//' + _xpath_raw
+                    try:
+                        xpath_cache[_xpath_raw] = etree.XPath(_xpath, namespaces=namespaces)
+                    except:
+                        xpath_cache[_xpath_raw] = None
 
         results = []
         for index, field in enumerate(mapping):
@@ -1359,9 +2218,19 @@ def controle():
             if xml_doc is not None:
                 try:
                     _xpath_raw = field.get('xpath', '') or ''
-                    _xpath = _xpath_raw if _xpath_raw.startswith('/') else ('//' + _xpath_raw) if _xpath_raw else '//none'
-                    elements = xml_doc.xpath(_xpath, namespaces=namespaces)
-                    xml_value = elements[0].text.strip() if elements and hasattr(elements[0], 'text') and elements[0].text else ''
+                    if _xpath_raw:
+                        compiled = xpath_cache.get(_xpath_raw)
+                        if compiled is not None:
+                            elements = compiled(xml_doc)
+                            if elements:
+                                # Vérifier si on doit extraire un attribut
+                                attribute = field.get('attribute')
+                                if attribute and hasattr(elements[0], 'get'):
+                                    # Extraire la valeur de l'attribut
+                                    xml_value = elements[0].get(attribute, '').strip()
+                                elif hasattr(elements[0], 'text') and elements[0].text:
+                                    # Extraire le texte de l'élément
+                                    xml_value = elements[0].text.strip()
                 except:
                     pass
 
@@ -1403,8 +2272,8 @@ def controle():
                 'order_index': index  # Conserver l'ordre du mapping
             })
 
-        # Appliquer les controles conditionnels en dur
-        results = apply_contextual_controls(results)
+        # Appliquer les règles métiers configurables
+        results = apply_business_rules(results, type_formulaire)
 
         stats = {
             'total': len(results),
@@ -1428,9 +2297,12 @@ def controle():
             categories_results[bg_id]['champs'].sort(key=lambda x: x.get('order_index', 9999))
 
         # Nettoyage
-        os.remove(rdi_path)
+        if rdi_path and os.path.exists(rdi_path):
+            os.remove(rdi_path)
         if pdf_path and os.path.exists(pdf_path):
             os.remove(pdf_path)
+        if cii_path and os.path.exists(cii_path):
+            os.remove(cii_path)
 
         return jsonify({
             'results': results,
@@ -1446,7 +2318,7 @@ def controle():
 
 if __name__ == '__main__':
     print("="*60)
-    print("APPLICATION FACTUR-X V12.0")
+    print("APPLICATION FACTUR-X v58")
     print("Ouvrez ce lien dans votre navigateur : http://localhost:5000")
     print("="*60)
     app.run(debug=True, host='0.0.0.0', port=5000)
