@@ -40,6 +40,41 @@ RULES_FILE = os.path.join(SCRIPT_DIR, 'business_rules.json')
 
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
 
+# ============================================
+# COMPTEUR DE VÉRIFICATIONS
+# ============================================
+
+COUNTER_FILE = os.path.join(SCRIPT_DIR, 'verification_counter.json')
+
+def increment_verification_counter():
+    """Incrémente et retourne le compteur de vérifications"""
+    try:
+        if os.path.exists(COUNTER_FILE):
+            with open(COUNTER_FILE, 'r') as f:
+                data = json.load(f)
+                count = data.get('count', 0) + 1
+        else:
+            count = 1
+        
+        with open(COUNTER_FILE, 'w') as f:
+            json.dump({'count': count}, f)
+        
+        return count
+    except Exception as e:
+        print(f"Erreur compteur: {e}")
+        return 0
+
+def get_verification_counter():
+    """Récupère le compteur actuel"""
+    try:
+        if os.path.exists(COUNTER_FILE):
+            with open(COUNTER_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('count', 0)
+        return 0
+    except:
+        return 0
+
 def load_business_rules():
     """Charge les règles métiers depuis le fichier JSON"""
     if not os.path.exists(RULES_FILE):
@@ -294,6 +329,10 @@ def perform_controls(field, rdi_value, xml_value, type_controle):
     details_erreurs = []
     status = 'OK'
     is_xml_only = (type_controle in ['cii', 'xmlonly'])
+    
+    # Si le champ est marqué comme "ignoré", on le met directement en "NON_TESTE"
+    if field.get('ignore') == 'Oui':
+        return 'NON_TESTE', ['Champ ignoré (paramétrage)'], ['Erreurs ignorées pour ce BT']
 
     if field.get('obligatoire') == 'Oui':
         regles_testees.append('Presence obligatoire')
@@ -803,7 +842,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="header">
 <div class="header-left">
 <img class="header-logo" src="/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
-<div class="version">v58 — Made with love by Julien ❤️</div></div>
+<div class="version">v61 — Made with love by Julien ❤️<br><span id="counter-message" style="color:rgba(255,255,255,0.9);font-weight:400;margin-top:5px;display:inline-block;font-size:0.95em">Ils sont fous ces gaulois ! Ils m'ont déjà fait vérifier <span id="verification-count">0</span> factures</span></div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
 <img src="/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
@@ -1015,6 +1054,10 @@ Laissez vide pour extraire le texte de la balise. Indiquez le nom d'attribut (ex
 <div class="form-group"><label>Obligatoire :</label>
 <select id="editObligatoire"><option value="Oui">Oui</option><option value="Non">Non</option><option value="Dependant">Dependant</option></select>
 </div>
+<div class="form-group"><label>Ignorer les erreurs de ce BT :</label>
+<select id="editIgnore"><option value="Non">Non</option><option value="Oui">Oui</option></select>
+<small style="color:#666;font-size:0.85em;margin-top:5px;display:block">Si "Oui", ce champ sera marqué comme "Non testé" (gris) même s'il est en erreur</small>
+</div>
 <div class="form-group"><label>Regle de Gestion (RDG) :</label><textarea id="editRdg"></textarea></div>
 <button class="btn" id="btnSave">Sauvegarder</button>
 </div>
@@ -1092,6 +1135,22 @@ Si aucune case n'est cochée, la règle s'appliquera à tous les types de factur
 var currentMapping=null;
 var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
+
+/* ---- CHARGEMENT DU COMPTEUR AU DÉMARRAGE ---- */
+async function loadCounter() {
+    try {
+        const resp = await fetch('/get_counter');
+        const data = await resp.json();
+        document.getElementById('verification-count').textContent = data.count || 0;
+    } catch(e) {
+        console.log('Compteur non disponible');
+    }
+}
+
+// Charger le compteur au démarrage de la page
+window.addEventListener('DOMContentLoaded', function() {
+    loadCounter();
+});
 
 /* ---- ONGLETS ---- */
 document.getElementById('tabControle').addEventListener('click',function(){
@@ -1175,6 +1234,12 @@ try{
 var resp=await fetch('/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
+
+// Mettre à jour le compteur de vérifications
+if(data.verification_count){
+document.getElementById('verification-count').textContent=data.verification_count;
+}
+
 document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
@@ -1242,9 +1307,9 @@ if(data.type_controle==='xml'||isXmlOnly){
 if(tooltipContent) tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');
 }
-var statusIcon=r.status==='OK'?'✅':'❌';
+var statusIcon=r.status==='OK'?'✅':(r.status==='NON_TESTE'?'⊘':'❌');
 var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
-var rowBg=r.status==='ERREUR'?'background:#fff5f5':'';
+var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='NON_TESTE'?'background:#f5f5f5;color:#999;font-style:italic':'');
 /* Ligne principale */
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
@@ -1478,6 +1543,7 @@ document.getElementById('editXpath').value=(champ.xpath||'').replace(/^\/\//,'')
 document.getElementById('editAttribute').value=champ.attribute||'';
 document.getElementById('editType').value=champ.type;
 document.getElementById('editObligatoire').value=champ.obligatoire;
+document.getElementById('editIgnore').value=champ.ignore||'Non';
 document.getElementById('editRdg').value=champ.rdg||'';
 document.getElementById('editModal').style.display='block';
 }
@@ -1519,6 +1585,7 @@ xpath:document.getElementById('editXpath').value,
 attribute:document.getElementById('editAttribute').value||undefined,
 type:document.getElementById('editType').value,
 obligatoire:document.getElementById('editObligatoire').value,
+ignore:document.getElementById('editIgnore').value,
 rdg:document.getElementById('editRdg').value,
 categorie_bg:categorieBg,
 categorie_titre:categorieTitre,
@@ -2055,6 +2122,11 @@ def serve_image(filename):
     from flask import send_from_directory
     return send_from_directory(SCRIPT_DIR, filename)
 
+@app.route('/get_counter')
+def get_counter():
+    """Retourne le compteur actuel de vérifications"""
+    return jsonify({'count': get_verification_counter()})
+
 @app.route('/')
 def index():
     return render_template_string(HTML)
@@ -2276,7 +2348,7 @@ def controle():
         results = apply_business_rules(results, type_formulaire)
 
         stats = {
-            'total': len(results),
+            'total': len([r for r in results if r['status'] != 'NON_TESTE']),
             'ok': sum(1 for r in results if r['status'] == 'OK'),
             'erreur': sum(1 for r in results if r['status'] == 'ERREUR'),
         }
@@ -2286,7 +2358,8 @@ def controle():
             bg_id = result['categorie_bg']
             categories_results[bg_id]['champs'].append(result)
             categories_results[bg_id]['titre'] = result['categorie_titre']
-            categories_results[bg_id]['stats']['total'] += 1
+            if result['status'] != 'NON_TESTE':
+                categories_results[bg_id]['stats']['total'] += 1
             if result['status'] == 'OK':
                 categories_results[bg_id]['stats']['ok'] += 1
             elif result['status'] == 'ERREUR':
@@ -2304,11 +2377,15 @@ def controle():
         if cii_path and os.path.exists(cii_path):
             os.remove(cii_path)
 
+        # Incrémenter le compteur de vérifications
+        verification_count = increment_verification_counter()
+
         return jsonify({
             'results': results,
             'stats': stats,
             'categories_results': dict(categories_results),
-            'type_controle': type_controle
+            'type_controle': type_controle,
+            'verification_count': verification_count
         })
     except Exception as e:
         print(f"ERREUR: {e}")
@@ -2318,7 +2395,7 @@ def controle():
 
 if __name__ == '__main__':
     print("="*60)
-    print("APPLICATION FACTUR-X v58")
+    print("APPLICATION FACTUR-X v60")
     print("Ouvrez ce lien dans votre navigateur : http://localhost:5000")
     print("="*60)
     app.run(debug=True, host='0.0.0.0', port=5000)
