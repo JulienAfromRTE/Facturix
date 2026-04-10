@@ -10,8 +10,21 @@ from collections import defaultdict
 app = Flask(__name__)
 
 # Préfixe URL pour déploiement derrière un reverse proxy (ex: /facturix)
-# Configurable via variable d'environnement URL_PREFIX
+# Détecté automatiquement via le header SCRIPT_NAME de nginx,
+# ou configurable via la variable d'environnement URL_PREFIX
 URL_PREFIX = os.environ.get('URL_PREFIX', '').rstrip('/')
+
+class ReverseProxied:
+    """Middleware pour gérer SCRIPT_NAME envoyé par nginx."""
+    def __init__(self, app):
+        self.app = app
+    def __call__(self, environ, start_response):
+        script_name = environ.get('HTTP_X_SCRIPT_NAME', '') or environ.get('HTTP_SCRIPT_NAME', '')
+        if script_name:
+            environ['SCRIPT_NAME'] = script_name
+        return self.app(environ, start_response)
+
+app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # Quand PyInstaller crée un .exe (--onefile), le code s'exécute dans un
 # dossier temporaire (sys._MEIPASS). On veut pointer vers le dossier de
@@ -2526,7 +2539,8 @@ def serve_image(filename):
 
 @app.route('/')
 def index():
-    return render_template_string(HTML, url_prefix=URL_PREFIX)
+    prefix = request.script_root or URL_PREFIX
+    return render_template_string(HTML, url_prefix=prefix)
 
 @app.route('/api/mapping/<type_formulaire>')
 def get_mapping(type_formulaire):
