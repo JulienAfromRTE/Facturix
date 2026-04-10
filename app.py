@@ -9,6 +9,10 @@ from collections import defaultdict
 
 app = Flask(__name__)
 
+# Préfixe URL pour déploiement derrière un reverse proxy (ex: /facturix)
+# Configurable via variable d'environnement URL_PREFIX
+URL_PREFIX = os.environ.get('URL_PREFIX', '').rstrip('/')
+
 # Quand PyInstaller crée un .exe (--onefile), le code s'exécute dans un
 # dossier temporaire (sys._MEIPASS). On veut pointer vers le dossier de
 # l'exe lui-même pour trouver les fichiers JSON de mapping.
@@ -689,12 +693,12 @@ def apply_business_rules(results, type_formulaire='simple'):
     return results
 
 
-HTML = r"""<!DOCTYPE html>
+HTML = """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<link rel="icon" type="image/x-icon" href="/img/IcoSite.ico">
-<link rel="icon" type="image/png" href="/img/AppLogo_V2.png">
+<link rel="icon" type="image/x-icon" href="{{ url_prefix }}/img/IcoSite.ico">
+<link rel="icon" type="image/png" href="{{ url_prefix }}/img/AppLogo_V2.png">
 <title>Facturix - La potion magique pour des factures certifiées !</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -895,7 +899,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 
 <div class="konami-overlay" id="konamiOverlay">
   <div class="konami-box">
-    <img src="/img/BigPicture.png" alt="Easter egg !">
+    <img src="{{ url_prefix }}/img/BigPicture.png" alt="Easter egg !">
   </div>
   <div class="konami-close" onclick="document.getElementById('konamiOverlay').classList.remove('visible')">
     ↑↑↓↓←→←→ B A — Cliquez pour fermer
@@ -903,7 +907,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </div>
 <div class="gaulois-overlay" id="gauloisOverlay">
 <div class="gaulois-card">
-<img id="gauloisImg" src="/img/0-25.jpg" alt="Gaulois">
+<img id="gauloisImg" src="{{ url_prefix }}/img/0-25.jpg" alt="Gaulois">
 </div>
 </div>
 <div class="sidebar">
@@ -912,11 +916,11 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="container">
 <div class="header">
 <div class="header-left">
-<img class="header-logo" src="/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
+<img class="header-logo" src="{{ url_prefix }}/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
 <div class="version">V12.0 - Enhanced Mapping Management — Made with love by Julien ❤️</div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
-<img src="/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
+<img src="{{ url_prefix }}/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
 </div>
 </div>
 <div class="tabs">
@@ -1279,6 +1283,7 @@ Assurez-vous d'avoir une sauvegarde si nécessaire.
 
 <div id="tooltip" class="tooltip"></div>
 <script>
+var BASE='{{ url_prefix }}';
 var currentMapping=null;
 var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
@@ -1316,7 +1321,7 @@ document.getElementById('contentAide').classList.add('active');
 
 /* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
 function loadMappingsIndex() {
-    fetch('/api/mappings/index')
+    fetch(BASE+'/api/mappings/index')
         .then(r => r.json())
         .then(data => {
             mappingsIndex = data;
@@ -1421,7 +1426,7 @@ function confirmCreateMapping() {
         payload.copy_from = copyFrom;
     }
     
-    fetch('/api/mappings/create', {
+    fetch(BASE+'/api/mappings/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -1462,7 +1467,7 @@ function closeDeleteMappingModal() {
 function confirmDeleteMapping() {
     if (!mappingToDelete) return;
     
-    fetch('/api/mappings/delete', {
+    fetch(BASE+'/api/mappings/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ id: mappingToDelete.id })
@@ -1486,7 +1491,7 @@ function confirmDeleteMapping() {
 
 // Fonction pour mettre à jour tous les dropdowns de mapping
 function updateAllMappingDropdowns() {
-    fetch('/api/mappings/index')
+    fetch(BASE+'/api/mappings/index')
         .then(r => r.json())
         .then(data => {
             const allMappings = data.mappings || [];
@@ -1631,7 +1636,7 @@ if(rdi)fd.append('rdi',rdi);
 fd.append('type_formulaire',document.getElementById('typeFormulaire').value);
 fd.append('type_controle',typeControle);
 try{
-var resp=await fetch('/controle',{method:'POST',body:fd});
+var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
 document.getElementById('statTotal').textContent=data.stats.total;
@@ -1644,10 +1649,10 @@ document.getElementById('progressPct').textContent=pct+'%';
 fill.style.width=pct+'%';
 fill.className='progress-fill';
 var gSrc,gMsg;
-if(pct<25){gSrc='/img/0-25.jpg';fill.classList.add('pct-0');}
-else if(pct<50){gSrc='/img/25-50.jpg';fill.classList.add('pct-25');}
-else if(pct<75){gSrc='/img/50-75.jpg';fill.classList.add('pct-50');}
-else{gSrc='/img/75-100.jpg';fill.classList.add('pct-75');}
+if(pct<25){gSrc=BASE+'/img/0-25.jpg';fill.classList.add('pct-0');}
+else if(pct<50){gSrc=BASE+'/img/25-50.jpg';fill.classList.add('pct-25');}
+else if(pct<75){gSrc=BASE+'/img/50-75.jpg';fill.classList.add('pct-50');}
+else{gSrc=BASE+'/img/75-100.jpg';fill.classList.add('pct-75');}
 document.getElementById('gauloisImg').src=gSrc;
 // Survol de la barre : afficher overlay
 var track=document.querySelector('.progress-track');
@@ -1830,7 +1835,7 @@ document.getElementById('loading').style.display='none';
 /* ---- PARAMETRAGE ---- */
 async function loadMappings(){
 var type=document.getElementById('typeFormulaireParam').value;
-var resp=await fetch('/api/mapping/'+type);
+var resp=await fetch(BASE+'/api/mapping/'+type);
 currentMapping=await resp.json();
 var list=document.getElementById('mappingList');
 list.innerHTML='';
@@ -2014,7 +2019,7 @@ linkElement.click();
 // Sauvegarder une version horodatée
 document.getElementById('btnSaveVersion').addEventListener('click',async function(){
 var type=document.getElementById('typeFormulaireParam').value;
-var resp=await fetch('/api/mapping/'+type+'/version',{
+var resp=await fetch(BASE+'/api/mapping/'+type+'/version',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify(currentMapping)
@@ -2030,7 +2035,7 @@ alert('Erreur : '+(result.error||'Impossible de sauvegarder'));
 // Restaurer une version
 document.getElementById('btnRestore').addEventListener('click',async function(){
 var type=document.getElementById('typeFormulaireParam').value;
-var resp=await fetch('/api/mapping/'+type+'/versions');
+var resp=await fetch(BASE+'/api/mapping/'+type+'/versions');
 var versions=await resp.json();
 var list=document.getElementById('versionsList');
 list.innerHTML='';
@@ -2057,7 +2062,7 @@ if(!confirm('Restaurer cette version ? La version actuelle sera remplacée.')){
 return;
 }
 var filename=this.getAttribute('data-filename');
-var resp=await fetch('/api/mapping/'+type+'/restore',{
+var resp=await fetch(BASE+'/api/mapping/'+type+'/restore',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({filename:filename})
@@ -2081,7 +2086,7 @@ document.getElementById('restoreModal').style.display='none';
 
 async function saveMapping(){
 var type=document.getElementById('typeFormulaireParam').value;
-await fetch('/api/mapping/'+type,{
+await fetch(BASE+'/api/mapping/'+type,{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify(currentMapping)
@@ -2133,7 +2138,7 @@ var types=['simple','groupee','ventesdiverses'];
 var allBTs={};
 for(var i=0;i<types.length;i++){
 try{
-var resp=await fetch('/api/mapping/'+types[i]);
+var resp=await fetch(BASE+'/api/mapping/'+types[i]);
 var mapping=await resp.json();
 if(mapping&&mapping.champs){
 mapping.champs.forEach(function(champ){
@@ -2164,7 +2169,7 @@ return {value:bt,label:bt+' ('+allBTs[bt]+')'};
 
 async function loadRules(){
 await loadAvailableBTs();
-var resp=await fetch('/api/rules');
+var resp=await fetch(BASE+'/api/rules');
 currentRules=await resp.json();
 displayRules();
 }
@@ -2283,7 +2288,7 @@ return labels[op]||op;
 }
 
 async function saveRules(){
-await fetch('/api/rules',{
+await fetch(BASE+'/api/rules',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify(currentRules)
@@ -2521,7 +2526,7 @@ def serve_image(filename):
 
 @app.route('/')
 def index():
-    return render_template_string(HTML)
+    return render_template_string(HTML, url_prefix=URL_PREFIX)
 
 @app.route('/api/mapping/<type_formulaire>')
 def get_mapping(type_formulaire):
