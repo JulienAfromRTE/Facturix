@@ -917,7 +917,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="header">
 <div class="header-left">
 <img class="header-logo" src="{{ url_prefix }}/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
-<div class="version">V12.0 - Enhanced Mapping Management — Made with love by Julien ❤️</div></div>
+<div class="version">V13.0 — Made with love by Julien ❤️</div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
 <img src="{{ url_prefix }}/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
