@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Factur-X V12.0 - Enhanced Mapping Management"""
+"""Factur-X V12.0"""
 from flask import Flask, render_template_string, request, jsonify
 import os, json, PyPDF2
 import logging
@@ -36,13 +36,44 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 VERSIONS_FOLDER = os.path.join(SCRIPT_DIR, 'mapping_versions')
 os.makedirs(VERSIONS_FOLDER, exist_ok=True)
 
-MAPPINGS_FOLDER = os.path.join(SCRIPT_DIR, 'mappings')
-os.makedirs(MAPPINGS_FOLDER, exist_ok=True)
-
 RULES_FILE = os.path.join(SCRIPT_DIR, 'business_rules.json')
-MAPPINGS_INDEX_FILE = os.path.join(SCRIPT_DIR, 'mappings_index.json')
 
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
+
+# ============================================
+# COMPTEUR DE VÉRIFICATIONS
+# ============================================
+
+COUNTER_FILE = os.path.join(SCRIPT_DIR, 'verification_counter.json')
+
+def increment_verification_counter():
+    """Incrémente et retourne le compteur de vérifications"""
+    try:
+        if os.path.exists(COUNTER_FILE):
+            with open(COUNTER_FILE, 'r') as f:
+                data = json.load(f)
+                count = data.get('count', 0) + 1
+        else:
+            count = 1
+        
+        with open(COUNTER_FILE, 'w') as f:
+            json.dump({'count': count}, f)
+        
+        return count
+    except Exception as e:
+        print(f"Erreur compteur: {e}")
+        return 0
+
+def get_verification_counter():
+    """Récupère le compteur actuel"""
+    try:
+        if os.path.exists(COUNTER_FILE):
+            with open(COUNTER_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('count', 0)
+        return 0
+    except:
+        return 0
 
 def load_business_rules():
     """Charge les règles métiers depuis le fichier JSON"""
@@ -126,87 +157,21 @@ def save_business_rules(rules_data):
     except:
         return False
 
-def load_mappings_index():
-    """Charge l'index des mappings"""
-    if not os.path.exists(MAPPINGS_INDEX_FILE):
-        default_index = {
-            "mappings": [
-                {
-                    "id": "default_simple",
-                    "name": "Mapping CART Simple",
-                    "type": "CART Simple",
-                    "filename": "mapping_v5_simple.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
-                },
-                {
-                    "id": "default_groupee",
-                    "name": "Mapping CART Groupée",
-                    "type": "CART Groupée",
-                    "filename": "mapping_v5_groupee.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
-                },
-                {
-                    "id": "default_ventesdiverses",
-                    "name": "Mapping Ventes Diverses",
-                    "type": "Ventes Diverses",
-                    "filename": "mapping_v5_ventesdiverses.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
-                }
-            ]
-        }
-        save_mappings_index(default_index)
-        return default_index
-    try:
-        with open(MAPPINGS_INDEX_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return {"mappings": []}
-
-def save_mappings_index(index_data):
-    """Sauvegarde l'index des mappings"""
-    try:
-        with open(MAPPINGS_INDEX_FILE, 'w', encoding='utf-8') as f:
-            json.dump(index_data, f, ensure_ascii=False, indent=2)
-        return True
-    except:
-        return False
-
 def load_mapping(type_formulaire='CARTsimple'):
-    # Si c'est un mapping custom (format: custom_type_id)
-    if type_formulaire.startswith('custom_'):
-        # Chercher dans l'index
-        index = load_mappings_index()
-        # Reconstruire le filename
-        filename = f'mapping_{type_formulaire}.json'
-        filepath = os.path.join(SCRIPT_DIR, filename)
-    else:
-        # Mapping par défaut
-        filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
-    
+    filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except Exception as e:
-        print(f"Erreur chargement mapping {filepath}: {e}")
+    except:
         return None
 
 def save_mapping(data, type_formulaire='simple'):
-    # Si c'est un mapping custom
-    if type_formulaire.startswith('custom_'):
-        filename = f'mapping_{type_formulaire}.json'
-        filepath = os.path.join(SCRIPT_DIR, filename)
-    else:
-        filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
-    
+    filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
-    except Exception as e:
-        print(f"Erreur sauvegarde mapping {filepath}: {e}")
+    except:
         return False
 
 def save_mapping_version(data, type_formulaire='simple'):
@@ -360,14 +325,14 @@ def normalize_value(value):
     return value_str.upper()
 
 def perform_controls(field, rdi_value, xml_value, type_controle):
-    # Vérifier si ce champ doit être ignoré
-    if field.get('ignore') == 'Oui':
-        return 'IGNORE', ['Contrôles ignorés'], ['Ce champ est configuré pour ignorer les erreurs']
-    
     regles_testees = []
     details_erreurs = []
     status = 'OK'
     is_xml_only = (type_controle in ['cii', 'xmlonly'])
+    
+    # Si le champ est marqué comme "ignoré", on le met directement en "NON_TESTE"
+    if field.get('ignore') == 'Oui':
+        return 'NON_TESTE', ['Champ ignoré (paramétrage)'], ['Erreurs ignorées pour ce BT']
 
     if field.get('obligatoire') == 'Oui':
         regles_testees.append('Presence obligatoire')
@@ -748,12 +713,11 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .results{display:none}
 /* Stats : 3 colonnes */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:30px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:30px}
 .stat-card{background:#fff;padding:20px;border-radius:10px;text-align:center}
 .stat-value{font-size:2em;font-weight:bold}
 .ok .stat-value{color:#70ad47}
 .erreur .stat-value{color:#c00000}
-.ignore .stat-value{color:#9e9e9e}
 .search-box{display:flex;align-items:center;gap:15px;padding:20px;background:#f0f4ff;border-radius:10px;border-left:4px solid #366092}
 .search-box label{font-weight:600;color:#366092;white-space:nowrap}
 .search-box input{flex:1;padding:12px;border:2px solid #366092;border-radius:8px;font-size:1em}
@@ -804,7 +768,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 .valide-toggle{display:flex;align-items:center;gap:5px;font-size:0.85em;color:#388e3c;font-weight:600;cursor:pointer}
 .valide-toggle input{width:16px;height:16px;cursor:pointer;accent-color:#388e3c}
 .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000}
-.modal-content{background:#fff;margin:3% auto;padding:30px;border-radius:12px;max-width:900px;max-height:92vh;overflow-y:auto}
+.modal-content{background:#fff;margin:3% auto;padding:25px;border-radius:12px;max-width:700px;max-height:92vh;overflow-y:auto}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
 .version-item{padding:12px;margin:8px 0;border-radius:6px;background:#f5f5f5;display:flex;justify-content:space-between;align-items:center}
 .version-item:hover{background:#e8f5e9}
@@ -813,11 +777,10 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 .version-details{font-size:0.85em;color:#666;margin-top:4px}
 .btn-group{display:flex;gap:10px;margin-bottom:15px}
 .modal-close{font-size:2em;cursor:pointer;color:#999;line-height:1}
-.modal .form-group{margin-bottom:18px}
-.modal .form-group label{font-weight:600;margin-bottom:8px;font-size:0.95em;display:block}
-.modal .form-group input,.modal .form-group select{padding:10px 12px;border:2px solid #366092;border-radius:6px;font-size:0.95em;width:100%}
-.modal .form-group textarea{padding:10px 12px;border:2px solid #366092;border-radius:6px;font-size:0.9em;min-height:80px;font-family:monospace;width:100%}
-.modal .form-group small{display:block;margin-top:6px;color:#666;font-size:0.85em;line-height:1.4}
+.modal .form-group{margin-bottom:12px}
+.modal .form-group label{font-weight:600;margin-bottom:5px;font-size:0.9em}
+.modal .form-group input,.modal .form-group select{padding:8px;border:2px solid #366092;border-radius:6px;font-size:0.95em}
+.modal .form-group textarea{padding:8px;border:2px solid #366092;border-radius:6px;font-size:0.85em;min-height:55px;font-family:monospace}
 /* Règles métiers */
 .rule-card{background:#fff;border-radius:10px;margin-bottom:15px;overflow:hidden;border:2px solid #ddd}
 .rule-header{padding:15px;display:flex;justify-content:space-between;align-items:center;background:#f5f5f5}
@@ -846,40 +809,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 .condition-item .cond-value,.action-item .action-value{min-width:120px;flex:0.5}
 .condition-item .btn-remove,.action-item .btn-remove{background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap}
 .condition-item .btn-remove:hover,.action-item .btn-remove:hover{background:#d32f2f}
-
-/* ENHANCED MAPPING MANAGEMENT STYLES */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-.mapping-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:2rem;border-radius:1rem;color:white;margin-bottom:2rem;box-shadow:0 10px 25px rgba(0,0,0,0.15)}
-.mapping-header h2{font-size:1.8rem;font-weight:700;margin-bottom:0.5rem}
-.mapping-header p{opacity:0.9;font-size:1rem}
-.mapping-type-select{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Outfit',Arial,sans-serif;font-size:1rem;background:#fff;transition:all 0.2s}
-.mapping-type-select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.1)}
-.btn-create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:8px}
-.btn-create:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
-.btn-download{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)}
-.btn-save-version{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)}
-.btn-restore{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%)}
-.mappings-list{margin-top:2rem}
-.mapping-card{background:linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%);padding:1.25rem;border-radius:8px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;transition:all 0.3s;border-left:4px solid #667eea}
-.mapping-card:hover{transform:translateX(5px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
-.mapping-info{flex:1}
-.mapping-name{font-weight:600;font-size:1.1rem;color:#1e293b;margin-bottom:0.25rem}
-.mapping-type{font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#64748b;background:rgba(255,255,255,0.7);padding:0.25rem 0.5rem;border-radius:0.25rem;display:inline-block}
-.btn-delete{background:#ef4444;color:#fff;padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px;font-size:0.85rem}
-.btn-delete:hover{background:#dc2626}
-.modal-header.create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:white;border-top-left-radius:1rem;border-top-right-radius:1rem}
-.modal-header.delete{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:white;border-top-left-radius:1rem;border-top-right-radius:1rem}
-.modal-header h2{margin:0;font-size:1.5rem;flex:1}
-.warning-icon{font-size:2rem}
-.warning-text{background:#fef3c7;border-left:4px solid #f59e0b;padding:1rem;border-radius:0.5rem;margin:1rem 0;color:#92400e}
-.warning-text strong{display:block;margin-bottom:0.5rem}
-.empty-state{text-align:center;padding:3rem 1rem;color:#64748b}
-.empty-state-icon{font-size:4rem;margin-bottom:1rem;opacity:0.3}
-.modal-content{background:#fff;margin:5% auto;padding: 20px;border-radius:1rem;width:90%;max-width: 700px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.3s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.modal-body{padding:1.5rem}
-.modal-footer{padding:1.5rem;border-top:2px solid #e2e8f0;display:flex;gap:0.75rem;justify-content:flex-end}
 
 /* Easter egg Konami */
 .konami-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;flex-direction:column}
@@ -913,7 +842,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="header">
 <div class="header-left">
 <img class="header-logo" src="/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
-<div class="version">V12.0 - Enhanced Mapping Management — Made with love by Julien ❤️</div></div>
+<div class="version">v61 — Made with love by Julien ❤️<br><span id="counter-message" style="color:rgba(255,255,255,0.9);font-weight:400;margin-top:5px;display:inline-block;font-size:0.95em">Ils sont fous ces gaulois ! Ils m'ont déjà fait vérifier <span id="verification-count">0</span> factures</span></div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
 <img src="/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
@@ -986,7 +915,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="stat-card"><div>Total</div><div class="stat-value" id="statTotal">0</div></div>
 <div class="stat-card ok"><div>OK</div><div class="stat-value" id="statOk">0</div></div>
 <div class="stat-card erreur"><div>Erreurs</div><div class="stat-value" id="statErreur">0</div></div>
-<div class="stat-card ignore"><div>Ignorés</div><div class="stat-value" id="statIgnore">0</div></div>
 </div>
 </div>
 <div class="section">
@@ -1004,25 +932,26 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </div>
 </div>
 
-<!-- ONGLET PARAMETRAGE - ENHANCED -->
+<!-- ONGLET PARAMETRAGE -->
 <div id="contentParam" class="tab-content">
 <div class="section">
 <h2>Gestion des Mappings</h2>
-<div class="form-group" style="margin-bottom:20px">
+<div class="form-row">
+<div class="form-group">
 <label>Type de formulaire :</label>
-<select id="typeFormulaireParam" class="mapping-type-select">
+<select id="typeFormulaireParam">
 <option value="simple">CART Simple</option>
-<option value="groupee">CART Groupée</option>
+<option value="groupee">CART Groupe</option>
 <option value="ventesdiverses">Ventes Diverses</option>
 </select>
 </div>
+</div>
 <div class="btn-group">
-<button class="btn-secondary" id="btnReload"><span>🔄</span> Actualiser</button>
-<button class="btn-create" id="btnCreateMapping"><span>➕</span> Créer un mapping</button>
-<button class="btn-add" id="btnAdd"><span>➕</span> Ajouter un champ</button>
-<button class="btn-download" id="btnDownload"><span>📥</span> Télécharger JSON</button>
-<button class="btn-save-version" id="btnSaveVersion"><span>💾</span> Sauvegarder version</button>
-<button class="btn-restore" id="btnRestore"><span>🕐</span> Restaurer version</button>
+<button class="btn-secondary" id="btnReload">Actualiser</button>
+<button class="btn-add" id="btnAdd">+ Ajouter un champ</button>
+<button class="btn-download" id="btnDownload">📥 Télécharger JSON</button>
+<button class="btn-save-version" id="btnSaveVersion">💾 Sauvegarder version</button>
+<button class="btn-restore" id="btnRestore">🕐 Restaurer version</button>
 </div>
 <div class="search-box">
 <label for="searchBTParam">🔍 Rechercher un BT :</label>
@@ -1030,14 +959,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <button class="btn-clear" id="btnClearSearchParam" style="display:none">✕ Effacer</button>
 </div>
 </div>
-
 <div class="section">
-<h3 style="margin-bottom:1.5rem;font-size:1.3rem">📋 Mappings existants</h3>
-<div id="mappingsListContainer" class="mappings-list"></div>
-</div>
-
-<div class="section">
-<h3 style="margin-bottom:1rem">Champs du mapping actuel</h3>
 <ul class="mapping-list" id="mappingList"></ul>
 </div>
 </div>
@@ -1134,7 +1056,7 @@ Laissez vide pour extraire le texte de la balise. Indiquez le nom d'attribut (ex
 </div>
 <div class="form-group"><label>Ignorer les erreurs de ce BT :</label>
 <select id="editIgnore"><option value="Non">Non</option><option value="Oui">Oui</option></select>
-<small style="color:#666;font-size:0.85em;margin-top:5px;display:block">Si "Oui", ce champ sera ignoré lors des contrôles et marqué "Ignoré" dans la liste</small>
+<small style="color:#666;font-size:0.85em;margin-top:5px;display:block">Si "Oui", ce champ sera marqué comme "Non testé" (gris) même s'il est en erreur</small>
 </div>
 <div class="form-group"><label>Regle de Gestion (RDG) :</label><textarea id="editRdg"></textarea></div>
 <button class="btn" id="btnSave">Sauvegarder</button>
@@ -1208,82 +1130,27 @@ Si aucune case n'est cochée, la règle s'appliquera à tous les types de factur
 </div>
 </div>
 
-<!-- Create Mapping Modal -->
-<div id="createMappingModal" class="modal">
-<div class="modal-content">
-<div class="modal-header create">
-<span class="warning-icon">➕</span>
-<h2>Créer un nouveau mapping</h2>
-</div>
-<div class="modal-body">
-<div class="form-group" style="margin-bottom:15px">
-<label>Nom du mapping :</label>
-<input type="text" id="newMappingName" placeholder="Ex: Mon nouveau mapping" style="width:100%">
-</div>
-<div class="form-group" style="margin-bottom:15px">
-<label>Type de formulaire :</label>
-<select id="newMappingType" class="mapping-type-select">
-<option value="CART Simple">CART Simple</option>
-<option value="CART Groupée">CART Groupée</option>
-<option value="Ventes Diverses">Ventes Diverses</option>
-</select>
-</div>
-<div class="form-group">
-<label>Créer à partir de :</label>
-<select id="copyFromMapping" class="mapping-type-select">
-<option value="">Mapping vide</option>
-</select>
-<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
-Choisissez un mapping existant pour copier sa configuration, ou créez un mapping vide
-</small>
-</div>
-</div>
-<div class="modal-footer">
-<button class="btn-secondary" onclick="closeCreateMappingModal()">Annuler</button>
-<button class="btn-create" onclick="confirmCreateMapping()">
-<span>✓</span> Créer
-</button>
-</div>
-</div>
-</div>
-
-<!-- Delete Mapping Modal -->
-<div id="deleteMappingModal" class="modal">
-<div class="modal-content">
-<div class="modal-header delete">
-<span class="warning-icon">⚠️</span>
-<h2>Confirmation de suppression</h2>
-</div>
-<div class="modal-body">
-<div class="warning-text">
-<strong>⚠️ ATTENTION - Cette action est irréversible !</strong>
-Vous êtes sur le point de supprimer définitivement le mapping suivant :
-</div>
-<div style="background:#f8fafc;padding:1rem;border-radius:0.5rem;margin:1rem 0">
-<p><strong>Nom :</strong> <span id="deleteMappingName"></span></p>
-<p><strong>Type :</strong> <span id="deleteMappingType"></span></p>
-</div>
-<p style="color:#64748b;font-size:0.9rem">
-Cette suppression supprimera toutes les données associées à ce mapping. 
-Assurez-vous d'avoir une sauvegarde si nécessaire.
-</p>
-</div>
-<div class="modal-footer">
-<button class="btn-secondary" onclick="closeDeleteMappingModal()">Annuler</button>
-<button class="btn-delete" onclick="confirmDeleteMapping()">
-<span>🗑️</span> Supprimer définitivement
-</button>
-</div>
-</div>
-</div>
-
 <div id="tooltip" class="tooltip"></div>
 <script>
 var currentMapping=null;
 var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
-var mappingsIndex = { mappings: [] };
-var mappingToDelete = null;
+
+/* ---- CHARGEMENT DU COMPTEUR AU DÉMARRAGE ---- */
+async function loadCounter() {
+    try {
+        const resp = await fetch('/get_counter');
+        const data = await resp.json();
+        document.getElementById('verification-count').textContent = data.count || 0;
+    } catch(e) {
+        console.log('Compteur non disponible');
+    }
+}
+
+// Charger le compteur au démarrage de la page
+window.addEventListener('DOMContentLoaded', function() {
+    loadCounter();
+});
 
 /* ---- ONGLETS ---- */
 document.getElementById('tabControle').addEventListener('click',function(){
@@ -1298,7 +1165,6 @@ document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove
 this.classList.add('active');
 document.getElementById('contentParam').classList.add('active');
 loadMappings();
-loadMappingsIndex();
 });
 document.getElementById('tabRules').addEventListener('click',function(){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
@@ -1312,272 +1178,6 @@ document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active
 document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
 this.classList.add('active');
 document.getElementById('contentAide').classList.add('active');
-});
-
-/* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
-function loadMappingsIndex() {
-    fetch('/api/mappings/index')
-        .then(r => r.json())
-        .then(data => {
-            mappingsIndex = data;
-            displayMappingsIndex();
-        })
-        .catch(err => console.error('Erreur chargement index:', err));
-}
-
-function displayMappingsIndex() {
-    const container = document.getElementById('mappingsListContainer');
-    const mappings = mappingsIndex.mappings || [];
-    
-    if (mappings.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📭</div>
-                <p>Aucun mapping disponible</p>
-                <p style="font-size:0.9rem;margin-top:0.5rem">Cliquez sur "Créer un mapping" pour commencer</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = mappings.map(mapping => `
-        <div class="mapping-card">
-            <div class="mapping-info">
-                <div class="mapping-name">${mapping.name}</div>
-                <span class="mapping-type">${mapping.type}</span>
-            </div>
-            ${mapping.is_default ? '<span style="color:#10b981;font-weight:600;font-size:0.85rem">✓ Défaut</span>' : `
-            <button class="btn-delete" onclick="openDeleteMappingModal('${mapping.id}')">
-                <span>🗑️</span>
-                Supprimer
-            </button>
-            `}
-        </div>
-    `).join('');
-}
-
-function openCreateMappingModal() {
-    document.getElementById('createMappingModal').style.display = 'block';
-    document.getElementById('newMappingName').value = '';
-    
-    // Peupler la liste des mappings à copier
-    const copySelect = document.getElementById('copyFromMapping');
-    const selectedType = document.getElementById('newMappingType').value;
-    
-    copySelect.innerHTML = '<option value="">Mapping vide</option>';
-    
-    if (mappingsIndex.mappings) {
-        mappingsIndex.mappings
-            .filter(m => m.type === selectedType)
-            .forEach(mapping => {
-                const option = document.createElement('option');
-                option.value = mapping.id;
-                option.textContent = mapping.name + (mapping.is_default ? ' (Défaut)' : '');
-                copySelect.appendChild(option);
-            });
-    }
-}
-
-// Mettre à jour les options de copie quand le type change
-document.addEventListener('DOMContentLoaded', function() {
-    const typeSelect = document.getElementById('newMappingType');
-    if (typeSelect) {
-        typeSelect.addEventListener('change', function() {
-            const copySelect = document.getElementById('copyFromMapping');
-            const selectedType = this.value;
-            
-            copySelect.innerHTML = '<option value="">Mapping vide</option>';
-            
-            if (mappingsIndex.mappings) {
-                mappingsIndex.mappings
-                    .filter(m => m.type === selectedType)
-                    .forEach(mapping => {
-                        const option = document.createElement('option');
-                        option.value = mapping.id;
-                        option.textContent = mapping.name + (mapping.is_default ? ' (Défaut)' : '');
-                        copySelect.appendChild(option);
-                    });
-            }
-        });
-    }
-});
-
-function closeCreateMappingModal() {
-    document.getElementById('createMappingModal').style.display = 'none';
-}
-
-function confirmCreateMapping() {
-    const name = document.getElementById('newMappingName').value.trim();
-    const type = document.getElementById('newMappingType').value;
-    const copyFrom = document.getElementById('copyFromMapping').value;
-    
-    if (!name) {
-        alert('Veuillez entrer un nom pour le mapping');
-        return;
-    }
-    
-    const payload = { name, type };
-    if (copyFrom) {
-        payload.copy_from = copyFrom;
-    }
-    
-    fetch('/api/mappings/create', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const copyMsg = copyFrom ? ' (copié depuis un mapping existant)' : '';
-            alert(`✓ Mapping "${name}" créé avec succès !${copyMsg}`);
-            closeCreateMappingModal();
-            loadMappingsIndex();
-            updateAllMappingDropdowns();
-        } else {
-            alert('Erreur: ' + (data.error || 'Création impossible'));
-        }
-    })
-    .catch(err => {
-        console.error('Erreur:', err);
-        alert('Erreur lors de la création du mapping');
-    });
-}
-
-function openDeleteMappingModal(mappingId) {
-    const mapping = mappingsIndex.mappings.find(m => m.id === mappingId);
-    if (!mapping) return;
-    
-    mappingToDelete = mapping;
-    document.getElementById('deleteMappingName').textContent = mapping.name;
-    document.getElementById('deleteMappingType').textContent = mapping.type;
-    document.getElementById('deleteMappingModal').style.display = 'block';
-}
-
-function closeDeleteMappingModal() {
-    document.getElementById('deleteMappingModal').style.display = 'none';
-    mappingToDelete = null;
-}
-
-function confirmDeleteMapping() {
-    if (!mappingToDelete) return;
-    
-    fetch('/api/mappings/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ id: mappingToDelete.id })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            alert(`✓ Mapping "${mappingToDelete.name}" supprimé avec succès`);
-            closeDeleteMappingModal();
-            loadMappingsIndex();
-            updateAllMappingDropdowns();
-        } else {
-            alert('Erreur: ' + (data.error || 'Suppression impossible'));
-        }
-    })
-    .catch(err => {
-        console.error('Erreur:', err);
-        alert('Erreur lors de la suppression du mapping');
-    });
-}
-
-// Fonction pour mettre à jour tous les dropdowns de mapping
-function updateAllMappingDropdowns() {
-    fetch('/api/mappings/index')
-        .then(r => r.json())
-        .then(data => {
-            const allMappings = data.mappings || [];
-            
-            // Mettre à jour le dropdown dans l'onglet Contrôle
-            const controleSelect = document.getElementById('typeFormulaire');
-            if (controleSelect) {
-                updateSingleDropdown(controleSelect, allMappings);
-            }
-            
-            // Mettre à jour le dropdown dans l'onglet Paramétrage
-            const paramSelect = document.getElementById('typeFormulaireParam');
-            if (paramSelect) {
-                updateSingleDropdown(paramSelect, allMappings);
-            }
-        })
-        .catch(err => console.error('Erreur mise à jour dropdowns:', err));
-}
-
-function updateSingleDropdown(selectElement, mappings) {
-    const currentValue = selectElement.value;
-    selectElement.innerHTML = '';
-    
-    // Ajouter toutes les options sans grouper
-    mappings.forEach(mapping => {
-        const option = document.createElement('option');
-        
-        // Convertir filename en value compatible
-        let value = 'simple';
-        if (mapping.filename.includes('groupee')) value = 'groupee';
-        else if (mapping.filename.includes('ventesdiverses')) value = 'ventesdiverses';
-        else if (mapping.filename.includes('custom')) {
-            const match = mapping.filename.match(/custom_(\w+)_([a-f0-9]+)/);
-            if (match) {
-                value = `custom_${match[1]}_${match[2]}`;
-            }
-        }
-        
-        option.value = value;
-        option.textContent = mapping.name + (mapping.is_default ? '' : ' ✨');
-        option.dataset.filename = mapping.filename;
-        option.dataset.type = mapping.type;
-        
-        selectElement.appendChild(option);
-    });
-    
-    // Restaurer la sélection
-    if (currentValue) {
-        const exists = Array.from(selectElement.options).some(o => o.value === currentValue);
-        if (exists) {
-            selectElement.value = currentValue;
-        }
-    }
-}
-
-// Charger les options au démarrage
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => updateAllMappingDropdowns(), 500);
-});
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    const createModal = document.getElementById('createMappingModal');
-    const deleteModal = document.getElementById('deleteMappingModal');
-    const editModal = document.getElementById('editModal');
-    const restoreModal = document.getElementById('restoreModal');
-    const ruleModal = document.getElementById('editRuleModal');
-    
-    if (event.target === createModal) {
-        closeCreateMappingModal();
-    }
-    if (event.target === deleteModal) {
-        closeDeleteMappingModal();
-    }
-    if (event.target === editModal) {
-        editModal.style.display = 'none';
-    }
-    if (event.target === restoreModal) {
-        restoreModal.style.display = 'none';
-    }
-    if (event.target === ruleModal) {
-        ruleModal.style.display = 'none';
-    }
-}
-
-// Add event listener to create button
-document.addEventListener('DOMContentLoaded', function() {
-    const btnCreate = document.getElementById('btnCreateMapping');
-    if (btnCreate) {
-        btnCreate.addEventListener('click', openCreateMappingModal);
-    }
 });
 
 /* ---- AIDE CONTEXTUELLE + MASQUAGE PDF ---- */
@@ -1634,10 +1234,15 @@ try{
 var resp=await fetch('/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
+
+// Mettre à jour le compteur de vérifications
+if(data.verification_count){
+document.getElementById('verification-count').textContent=data.verification_count;
+}
+
 document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
-document.getElementById('statIgnore').textContent=data.stats.ignore||0;
 var pct=data.stats.total>0?Math.round(data.stats.ok/data.stats.total*100):0;
 var fill=document.getElementById('progressFill');
 document.getElementById('progressPct').textContent=pct+'%';
@@ -1702,9 +1307,9 @@ if(data.type_controle==='xml'||isXmlOnly){
 if(tooltipContent) tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');
 }
-var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
+var statusIcon=r.status==='OK'?'✅':(r.status==='NON_TESTE'?'⊘':'❌');
 var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
-var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='NON_TESTE'?'background:#f5f5f5;color:#999;font-style:italic':'');
 /* Ligne principale */
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
@@ -1838,14 +1443,13 @@ if(!currentMapping||!currentMapping.champs){list.innerHTML='<li>Aucun mapping</l
 currentMapping.champs.forEach(function(champ,index){
 var li=document.createElement('li');
 var isValide=champ.valide===true;
-var isIgnored=(champ.ignore==='Oui');
 li.className='mapping-item'+(isValide?' valide':'');
 li.draggable=true;
 li.setAttribute('data-index',index);
 li.innerHTML=
 '<div class="mapping-item-info">'+
 '<div class="item-main"><strong>'+champ.balise+'</strong> — '+champ.libelle+'</div>'+
-'<div class="item-sub">RDI: <code>'+champ.rdi+'</code> | Type: '+champ.type+' | Oblig.: '+champ.obligatoire+' | Ignoré : '+(isIgnored?'Oui':'Non')+'</div>'+
+'<div class="item-sub">RDI: <code>'+champ.rdi+'</code> | Type: '+champ.type+' | Oblig.: '+champ.obligatoire+'</div>'+
 '<div class="item-xpath">XPath: '+(champ.xpath||'—')+'</div>'+
 '</div>'+
 '<div class="mapping-actions">'+
@@ -1960,7 +1564,6 @@ document.getElementById('editXpath').value='';
 document.getElementById('editAttribute').value='';
 document.getElementById('editType').value='String';
 document.getElementById('editObligatoire').value='Non';
-document.getElementById('editIgnore').value='Non';
 document.getElementById('editRdg').value='';
 document.getElementById('editModal').style.display='block';
 });
@@ -2519,6 +2122,11 @@ def serve_image(filename):
     from flask import send_from_directory
     return send_from_directory(SCRIPT_DIR, filename)
 
+@app.route('/get_counter')
+def get_counter():
+    """Retourne le compteur actuel de vérifications"""
+    return jsonify({'count': get_verification_counter()})
+
 @app.route('/')
 def index():
     return render_template_string(HTML)
@@ -2740,10 +2348,9 @@ def controle():
         results = apply_business_rules(results, type_formulaire)
 
         stats = {
-            'total': len(results),
+            'total': len([r for r in results if r['status'] != 'NON_TESTE']),
             'ok': sum(1 for r in results if r['status'] == 'OK'),
             'erreur': sum(1 for r in results if r['status'] == 'ERREUR'),
-            'ignore': sum(1 for r in results if r['status'] == 'IGNORE'),
         }
 
         categories_results = defaultdict(lambda: {'champs': [], 'stats': {'total': 0, 'ok': 0, 'erreur': 0}})
@@ -2751,7 +2358,8 @@ def controle():
             bg_id = result['categorie_bg']
             categories_results[bg_id]['champs'].append(result)
             categories_results[bg_id]['titre'] = result['categorie_titre']
-            categories_results[bg_id]['stats']['total'] += 1
+            if result['status'] != 'NON_TESTE':
+                categories_results[bg_id]['stats']['total'] += 1
             if result['status'] == 'OK':
                 categories_results[bg_id]['stats']['ok'] += 1
             elif result['status'] == 'ERREUR':
@@ -2769,11 +2377,15 @@ def controle():
         if cii_path and os.path.exists(cii_path):
             os.remove(cii_path)
 
+        # Incrémenter le compteur de vérifications
+        verification_count = increment_verification_counter()
+
         return jsonify({
             'results': results,
             'stats': stats,
             'categories_results': dict(categories_results),
-            'type_controle': type_controle
+            'type_controle': type_controle,
+            'verification_count': verification_count
         })
     except Exception as e:
         print(f"ERREUR: {e}")
@@ -2781,158 +2393,9 @@ def controle():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# ===== NOUVELLES ROUTES API POUR GESTION DES MAPPINGS =====
-
-@app.route('/api/mappings/index', methods=['GET'])
-def api_get_mappings_index():
-    """Retourne la liste de tous les mappings"""
-    return jsonify(load_mappings_index())
-
-@app.route('/api/mappings/options', methods=['GET'])
-def api_get_mappings_options():
-    """Retourne les options de mapping pour les listes déroulantes"""
-    index = load_mappings_index()
-    mappings = index.get('mappings', [])
-    
-    # Grouper par type
-    options = {
-        'CART Simple': [],
-        'CART Groupée': [],
-        'Ventes Diverses': []
-    }
-    
-    for mapping in mappings:
-        mapping_type = mapping.get('type', 'CART Simple')
-        if mapping_type in options:
-            options[mapping_type].append({
-                'id': mapping['id'],
-                'name': mapping['name'],
-                'filename': mapping['filename'],
-                'is_default': mapping.get('is_default', False)
-            })
-    
-    return jsonify(options)
-
-@app.route('/api/mappings/create', methods=['POST'])
-def api_create_mapping():
-    """Crée un nouveau mapping"""
-    try:
-        data = request.json
-        name = data.get('name')
-        mapping_type = data.get('type', 'CART Simple')
-        copy_from = data.get('copy_from', None)  # ID du mapping à copier
-        
-        if not name:
-            return jsonify({'success': False, 'error': 'Nom requis'})
-        
-        # Charger l'index
-        index = load_mappings_index()
-        
-        # Créer un nouvel ID
-        from datetime import datetime
-        import uuid
-        new_id = str(uuid.uuid4())[:8]
-        
-        # Déterminer le filename basé sur le type
-        type_map = {
-            'CART Simple': 'simple',
-            'CART Groupée': 'groupee',
-            'Ventes Diverses': 'ventesdiverses'
-        }
-        type_key = type_map.get(mapping_type, 'simple')
-        
-        # Créer le mapping
-        new_mapping = {
-            "id": new_id,
-            "name": name,
-            "type": mapping_type,
-            "filename": f"mapping_custom_{type_key}_{new_id}.json",
-            "created_date": datetime.now().strftime('%Y-%m-%d'),
-            "is_default": False
-        }
-        
-        # Ajouter à l'index
-        index['mappings'].append(new_mapping)
-        save_mappings_index(index)
-        
-        # Créer le fichier de mapping
-        mapping_data = {"champs": []}
-        
-        if copy_from:
-            # Copier depuis un mapping existant
-            source_mapping = next((m for m in index['mappings'] if m['id'] == copy_from), None)
-            if source_mapping:
-                source_path = os.path.join(SCRIPT_DIR, source_mapping['filename'])
-                if os.path.exists(source_path):
-                    try:
-                        with open(source_path, 'r', encoding='utf-8') as f:
-                            mapping_data = json.load(f)
-                    except:
-                        pass
-        else:
-            # Créer vide ou copier le défaut du type
-            default_mapping_file = f'mapping_v5_{type_key}.json'
-            default_mapping_path = os.path.join(SCRIPT_DIR, default_mapping_file)
-            
-            if os.path.exists(default_mapping_path):
-                try:
-                    with open(default_mapping_path, 'r', encoding='utf-8') as f:
-                        mapping_data = json.load(f)
-                except:
-                    pass
-        
-        mapping_path = os.path.join(SCRIPT_DIR, new_mapping['filename'])
-        with open(mapping_path, 'w', encoding='utf-8') as f:
-            json.dump(mapping_data, f, ensure_ascii=False, indent=2)
-        
-        return jsonify({'success': True, 'mapping': new_mapping})
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/mappings/delete', methods=['POST'])
-def api_delete_mapping():
-    """Supprime un mapping"""
-    try:
-        data = request.json
-        mapping_id = data.get('id')
-        
-        if not mapping_id:
-            return jsonify({'success': False, 'error': 'ID requis'})
-        
-        # Charger l'index
-        index = load_mappings_index()
-        
-        # Trouver le mapping
-        mapping = next((m for m in index['mappings'] if m['id'] == mapping_id), None)
-        if not mapping:
-            return jsonify({'success': False, 'error': 'Mapping non trouvé'})
-        
-        # Interdire suppression du mapping par défaut
-        if mapping.get('is_default'):
-            return jsonify({'success': False, 'error': 'Impossible de supprimer un mapping par défaut'})
-        
-        # Supprimer le fichier
-        mapping_path = os.path.join(SCRIPT_DIR, mapping['filename'])
-        if os.path.exists(mapping_path):
-            os.remove(mapping_path)
-        
-        # Retirer de l'index
-        index['mappings'] = [m for m in index['mappings'] if m['id'] != mapping_id]
-        save_mappings_index(index)
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)})
-
-# ===== FIN NOUVELLES ROUTES API =====
-
 if __name__ == '__main__':
     print("="*60)
-    print("APPLICATION FACTUR-X V12.0 - Enhanced Mapping Management")
+    print("APPLICATION FACTUR-X v60")
     print("Ouvrez ce lien dans votre navigateur : http://localhost:5000")
     print("="*60)
     app.run(debug=True, host='0.0.0.0', port=5000)
