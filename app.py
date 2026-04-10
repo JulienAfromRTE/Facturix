@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Factur-X V12.0 - Enhanced Mapping Management"""
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, request, jsonify
 import os, json, PyPDF2
 import logging
 from lxml import etree
@@ -706,12 +706,12 @@ def apply_business_rules(results, type_formulaire='simple'):
     return results
 
 
-HTML = """<!DOCTYPE html>
+HTML = r"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<link rel="icon" type="image/x-icon" href="{{ url_prefix }}/img/IcoSite.ico">
-<link rel="icon" type="image/png" href="{{ url_prefix }}/img/AppLogo_V2.png">
+<link rel="icon" type="image/x-icon" href="__URL_PREFIX__/img/IcoSite.ico">
+<link rel="icon" type="image/png" href="__URL_PREFIX__/img/AppLogo_V2.png">
 <title>Facturix - La potion magique pour des factures certifiées !</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -912,7 +912,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 
 <div class="konami-overlay" id="konamiOverlay">
   <div class="konami-box">
-    <img src="{{ url_prefix }}/img/BigPicture.png" alt="Easter egg !">
+    <img src="__URL_PREFIX__/img/BigPicture.png" alt="Easter egg !">
   </div>
   <div class="konami-close" onclick="document.getElementById('konamiOverlay').classList.remove('visible')">
     ↑↑↓↓←→←→ B A — Cliquez pour fermer
@@ -920,7 +920,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </div>
 <div class="gaulois-overlay" id="gauloisOverlay">
 <div class="gaulois-card">
-<img id="gauloisImg" src="{{ url_prefix }}/img/0-25.jpg" alt="Gaulois">
+<img id="gauloisImg" src="__URL_PREFIX__/img/0-25.jpg" alt="Gaulois">
 </div>
 </div>
 <div class="sidebar">
@@ -929,11 +929,11 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="container">
 <div class="header">
 <div class="header-left">
-<img class="header-logo" src="{{ url_prefix }}/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
+<img class="header-logo" src="__URL_PREFIX__/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
 <div class="version">V13.0 — Made with love by Julien ❤️</div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
-<img src="{{ url_prefix }}/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
+<img src="__URL_PREFIX__/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
 </div>
 </div>
 <div class="tabs">
@@ -1296,7 +1296,7 @@ Assurez-vous d'avoir une sauvegarde si nécessaire.
 
 <div id="tooltip" class="tooltip"></div>
 <script>
-var BASE='{{ url_prefix }}';
+var BASE='__URL_PREFIX__';
 var currentMapping=null;
 var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
@@ -2540,7 +2540,7 @@ def serve_image(filename):
 @app.route('/')
 def index():
     prefix = request.script_root or URL_PREFIX
-    return render_template_string(HTML, url_prefix=prefix)
+    return HTML.replace('__URL_PREFIX__', prefix)
 
 @app.route('/api/mapping/<type_formulaire>')
 def get_mapping(type_formulaire):
