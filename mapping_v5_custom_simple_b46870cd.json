@@ -60,200 +60,20 @@
   "champs": [
     {
       "balise": "BT-1",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence de l'identifiant de la facture",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Absence d'une donnée obligatoire : Numéro de facture",
-          "nature": "Présence",
-          "ref": "CM_REF_FAC_001",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle du format de l'identifiant du document",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Le format du numéro de facture est invalide",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_002",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle d'unicité de l'identifiant de facture",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Doublon : Une facture a déjà été émise avec ce numéro",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_003",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle du format de l'identifiant de facture",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "L'identifiant de la facture est absent ou invalide",
-          "nature": "Cohérence",
-          "ref": "STD_INV_PAY_001",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence du nombre de transactions",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "Absence d'une donnée obligatoire : Nombre de transactions",
-          "nature": "Présence",
-          "ref": "STD_TRANS_007",
-          "type": "Legal"
-        }
-      ],
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "ignore": "Non",
       "libelle": "Numéro de la facture",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "WNUM_FACT",
+      "rdi": "VBRK-VBELN",
       "type": "String",
       "valide": true,
-      "xpath": "//rsm:ExchangedDocument/ram:ID"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:ID"
     },
     {
       "balise": "BT-2",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence de la date d'émission de la facture",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "La date d'émission est absente ou antérieure à la date de dépôt de la facture",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_034",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence de la date de facture",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "Absence d'une donnée obligatoire : Date facture",
-          "nature": "Présence",
-          "ref": "STD_INV_PAY_002",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence de la date de facture",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "La date de facture doit être comprise entre 2000 et 2099.",
-          "nature": "Cohérence",
-          "ref": "STD_INV_PAY_003",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence de la date de transaction",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "Absence d'une donnée obligatoire : Date transaction",
-          "nature": "Présence",
-          "ref": "STD_TRANS_002",
-          "type": "Legal"
-        }
-      ],
-      "ignore": "Non",
-      "libelle": "Date d'émission facture initiale / facture rectificative",
-      "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "DATE_FACT",
-      "type": "Date",
-      "valide": true,
-      "xpath": "rsm:ExchangedDocument/ram:IssueDateTime/udt:DateTimeString"
-    },
-    {
-      "balise": "BT-3",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de la présence et de la cohérence du code type de facture",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Le type de facture est absent ou invalide",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_005",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence type de facture et type d'échange",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Le type de facture n'est pas cohérent avec le cadre de facturation",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_018",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence du type de document et le code du motif d'exonération",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Le type du document est incohérent avec le code motif d'exonération",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_153",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence de la catégorie de transactions",
-          "e_invoicing": null,
-          "e_reporting": "e-Rep",
-          "message": "Absence d'une donnée obligatoire : Catégorie transactions",
-          "nature": "Présence",
-          "ref": "STD_TRANS_004",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence du type de la facture antérieure au niveau des lignes",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Le type de la facture antérieure de lignes est invalide",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_193",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence du type de la facture initiale",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Le type de la facture initiale (${originalInvoice}) est invalide",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_105",
-          "type": "Legal"
-        }
-      ],
-      "ignore": "Non",
-      "libelle": "Code de type de facture ",
-      "obligatoire": "Oui",
-      "rdg": "ERDK-ERGRD = 01 ou ERDK-ERGRD  = 05 =>  380 (facture)\nERDK-ERGRD = 04 => 381 (avoir)",
-      "rdi": "GS_FECT_EINV-BG0-BT3_CODE_TYPE_FACT",
-      "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:TypeCode"
-    },
-    {
-      "balise": "BT-5",
       "categorie_bg": "BG-INFOS-GENERALES",
       "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [
@@ -309,13 +129,41 @@
         }
       ],
       "ignore": "Non",
+      "libelle": "Date d'émission facture initiale / facture rectificative",
+      "obligatoire": "Oui",
+      "rdg": "",
+      "rdi": "VBRK-FKDAT",
+      "type": "String",
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode"
+    },
+    {
+      "balise": "BT-3",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "ignore": "Non",
+      "libelle": "Code de type de facture ",
+      "obligatoire": "Oui",
+      "rdg": "si facture --> BT-3 = 380\nsi avoir --> BT-3 = 381",
+      "rdi": "GS_FECT_EINV-BG0-BT3_CODE_TYPE_FACT",
+      "type": "String",
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:TypeCode"
+    },
+    {
+      "balise": "BT-5",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
+      "ignore": "Non",
       "libelle": "Code/désignation de devise de la facture",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "WCURR_FACTURE",
+      "rdi": "VBRK-WAERK",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode"
     },
     {
       "balise": "BT-8",
@@ -328,8 +176,8 @@
       "rdg": "Valeur constante \"5\"",
       "rdi": "GS_FECT_EINV-BG0-BT8_TVA_COMMENT",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_8"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:DueDateTypeCode"
     },
     {
       "balise": "BT-9",
@@ -390,28 +238,30 @@
       "ignore": "Non",
       "libelle": "Date d'échéance / Date de versement en cas d'acompte",
       "obligatoire": "",
-      "rdg": "ERDK-FAEDN",
+      "rdg": "est égale à la valeur actuelle remontée G_DATEECH   ",
       "rdi": "GS_FECT_EINV-BG0-BT9_DATE_ECHEANCE",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradePaymentTerms/ram:DueDateDateTime/udt:DateTimeString"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradePaymentTerms/ram:DueDateDateTime/udt:DateTimeString"
     },
     {
       "balise": "BT-10",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "Autres",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [],
+      "ignore": "Non",
       "libelle": "Code service Chorus",
-      "obligatoire": "Non",
+      "obligatoire": "Dependant",
       "rdg": "Cas Chorus uniquement : code service",
       "rdi": "GS_CHORUS_MD-BUYER-REFERENCE",
       "type": "String",
-      "xpath": "BT-10"
+      "valide": false,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerReference"
     },
     {
       "balise": "BT-13",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [
         {
           "categorie": "Bloker",
@@ -424,19 +274,18 @@
           "type": "Legal"
         }
       ],
-      "ignore": "Non",
-      "libelle": "Référence du bon de commande (le n° de marché et le n° d'engagement sont traités plus bas)",
+      "libelle": "N° commande",
       "obligatoire": "Non",
       "rdg": "Attente d'évolution",
       "rdi": "BT13_NUM_COMMANDE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_13"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerOrderReferencedDocument/ram:IssuerAssignedID"
     },
     {
       "balise": "BT-13",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "categorie_bg": "BG-1",
+      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [
         {
           "categorie": "Bloker",
@@ -449,14 +298,13 @@
           "type": "Legal"
         }
       ],
-      "ignore": "Non",
       "libelle": "N° d'engagement (pour CHORUS)",
       "obligatoire": "Non",
       "rdg": "Factures Chorus uniquement",
       "rdi": "GS_CHORUS_MD-ORDER-NUMBER",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_13"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerOrderReferencedDocument/ram:IssuerAssignedID"
     },
     {
       "balise": "BT-20",
@@ -465,273 +313,69 @@
       "controles_cegedim": [],
       "ignore": "Non",
       "libelle": "Conditions de paiement",
-      "obligatoire": "",
-      "rdg": "IF ERDK-FAEDS = 00000000 : \nRechercher dans la table FKKVKP, zone ZAHLKOND est la condition de paiement, afficher le texte dans RG_20 avec la condion correspond",
+      "obligatoire": "Dependant",
+      "rdg": "Si DFKKOP-FAEDN = 00000000 : \nRechercher VBRK-ZTERM, afficher le texte dans RG_20 avec la condition correspond\n",
       "rdi": "BT20_COND_PAIEMENT",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_20"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradePaymentTerms/ram:Description"
     },
     {
-      "balise": "BT-21-BAR",
+      "balise": "BT-21",
       "categorie_bg": "BG-INFOS-GENERALES",
       "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
+      "controles_cegedim": [
+        {
+          "categorie": "Bloker",
+          "description": "Contrôle de cohérence des  codes des notes",
+          "e_invoicing": "e-Inv",
+          "e_reporting": null,
+          "message": "Le sujet des notes est invalide",
+          "nature": "Cohérence",
+          "ref": "CM_REF_FAC_191",
+          "type": "Legal"
+        }
+      ],
       "ignore": "Non",
-      "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur BAR)",
-      "obligatoire": "Non",
+      "libelle": "Code de note de facture",
+      "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "",
+      "rdi": "GS_FECT_EINV-BG1-BT21",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_BAR"
-    },
-    {
-      "balise": "BT-21-SUR",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "dependance": "",
-      "libelle": "Code du sujet des remarques fournisseur (valeur SUR) pour adresses emails supplémentaires",
-      "obligatoire": "Dépendant",
-      "presence": "Non",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_SUR"
-    },
-    {
-      "balise": "BT-21-ADN",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur ADN)",
-      "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_ADN"
-    },
-    {
-      "balise": "BT-21-AAB",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "dependance": "",
-      "libelle": "Code du sujet de la Mention \"Escompte\" (valeur AAB) ",
-      "obligatoire": "Non",
-      "presence": "Oui",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_AAB"
-    },
-    {
-      "balise": "BT-21-PMT",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "dependance": "",
-      "libelle": "Code du sujet de la Mention de l'indemnité forfaitaire pour frais de recouvrement\"40euros\" (valeur PMT)",
-      "obligatoire": "Non",
-      "presence": "Oui",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_PMT"
-    },
-    {
-      "balise": "BT-21-PMD",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Code du sujet de la Mention de pénalités (valeur PMD)",
-      "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_PMD"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote/ram:SubjectCode"
     },
     {
       "balise": "BT-22",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence d'une note dans le cas d'autofacturation",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Absence d'une donnée obligatoire : Mention \"Autofacturation\"",
-          "nature": "Présence",
-          "ref": "CM_REF_FAC_090",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence d'une note dans le cas d'autoliquidation",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Absence d'une donnée obligatoire : Mention \"Autoliquidation\"",
-          "nature": "Présence",
-          "ref": "CM_REF_FAC_091",
-          "type": "Legal"
-        }
-      ],
-      "dependance": "",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "controles_cegedim": [],
       "libelle": "Mention de note de facture",
-      "obligatoire": "Oui",
-      "presence": "",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_22"
-    },
-    {
-      "balise": "BT-22-BAR",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Mention indiquant le traitement attendu sur la facture (E-invoincing / E-Reporting / hors réforme / archive simple…)",
       "obligatoire": "Non",
-      "rdg": "à déterminer, réunion le 14/01",
-      "rdi": "",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_BAR"
-    },
-    {
-      "balise": "BT-22-SUR",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "dependance": "",
-      "libelle": "Remarques fournisseur (pour indication Copiver - si nécessaire) ",
-      "obligatoire": "Dépendant",
-      "presence": "Non",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_22_SUR"
-    },
-    {
-      "balise": "BT-22-ADN",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Mention indiquant si la facture relève du B2G en France (règles additionneles CPRO)",
-      "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_ADN"
-    },
-    {
-      "balise": "BT-22-AAB",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Mention \"Escompte\" ou \"Absence d'escompe\"",
-      "obligatoire": "Non",
-      "rdg": "- Si présence d’escompte : identique à l’existant « Le montant sera prélevé sur votre compte X le X majoré/minoré de X% du montant TTC, seule la taxe correspondant au prix effectivement payé donne droit à déduction. »\n\n- Si absence d’escompte : « Escompte pour paiement anticipé : néant »",
-      "rdi": "",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_AAB"
-    },
-    {
-      "balise": "BT-22-PMT",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "dependance": "",
-      "libelle": "Mention de l'indemnité forfaitaire pour frais de recouvrement \"40euros\"",
-      "obligatoire": "Non",
-      "presence": "Oui",
-      "rdg": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
-      "rdi": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
-      "type": "Date",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_22_PMT"
-    },
-    {
-      "balise": "BT-22-PMD",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Mention de pénalités",
-      "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "GT_PENA_FR",
-      "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_PMD"
+      "rdg": "Sert à indiquer si une facture est Chorus, par ex, avec : <BT-22>B2G</BT-22>",
+      "rdi": "GS_FECT_EINV-BG1-BT22",
+      "type": "String",
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote/ram:Content"
     },
     {
       "balise": "BT-23",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [],
-      "libelle": "Type de processus métier (cadre de facturation)",
-      "obligatoire": "Oui",
-      "rdg": "CART :\nRécupère ADDRNUMBER du BP dans BUT021_FS avec ADR_KIND = 00010\nRechercher le champ COUNTRY dans ADRC\nIF COUNTRY = FR, BT23 = S1\nELSE BT23 = S7",
-      "rdi": "GS_FECT_EINV-BG2-BT23_TYPE_PROC",
-      "type": "Date",
-      "xpath": "//rsm:ExchangedDocumentContext/ram:BusinessProcessSpecifiedDocumentContextParameter/ram:ID"
-    },
-    {
-      "balise": "BT-24",
       "categorie_bg": "BG-INFOS-GENERALES",
       "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de présence et de cohérence du type d'échange",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Le type d'échange est absent ou invalide",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_017",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence type de facture et type d'échange",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Le type de facture n'est pas cohérent avec le cadre de facturation",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_018",
-          "type": "Legal"
-        }
-      ],
+      "controles_cegedim": [],
       "ignore": "Non",
-      "libelle": "Type de profil (à clarifier) EN ATTENTE DE CONFIRMATION PAR CEGEDIM POUR CE BT, IL SEMBLERAIT QUE CEGEDIM GENERE ET COMPLETE LE BT-24",
+      "libelle": "Type de processus métier (cadre de facturation)",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BT24_TYPE_PROFIL",
+      "rdg": "Facture classique = S1\n",
+      "rdi": "GS_FECT_EINV-BG2-BT23_TYPE_PROC",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocumentContext/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocumentContext/ram:BusinessProcessSpecifiedDocumentContextParameter/ram:ID"
     },
     {
       "balise": "BT-25",
-      "categorie_bg": "BG-1",
-      "categorie_titre": "📄 INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [
         {
           "categorie": "Bloker",
@@ -754,12 +398,14 @@
           "type": "Legal"
         }
       ],
+      "ignore": "Non",
       "libelle": "Référence à une facture antérieure (sur avoir faire référence à la facture initiale) ",
       "obligatoire": "",
-      "rdg": "Cas Avoir :\nRécupère champ INTOPBEL dans la table ERDK",
+      "rdg": "BT-25 = VBRK-XBLNR ",
       "rdi": "GS_FECT_EINV-BG3-BT25_NUM_FACT_REF",
       "type": "Date",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_25"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceReferencedDocument/ram:IssuerAssignedID"
     },
     {
       "balise": "BT-26",
@@ -780,13 +426,14 @@
       "ignore": "Non",
       "libelle": "Cas des avoirs : Date d'émission de facture antérieure",
       "obligatoire": "",
-      "rdg": "Table ERDK : \nOPBEL = N° Doc annulé (43*)\nRécupère BLDAT",
-      "rdi": "GS_FECT_EINV-BG3-BT26_DATE_FACT_R",
+      "rdg": "Si type de processus = S4 (facture définitive après acompte ) --> BT-26 = balise GT_ACOMPTE-BLDAT_DZ \nsinon récupérer VBRK-XBLNR (référence), interroger de nouveau la table VBRK avec VBRK-VBELN = VBRK-XBLNR (référence)  et récupérer VBRK-FKDAT pour alimenter la balise\n(date de la facture de référence)\n",
+      "rdi": "GS_FECT_EINV-BG3-BT26_DATE_FACT_REF",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_26"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceReferencedDocument/ram:FormattedIssueDateTime/qdt:DateTimeString"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-26-1",
       "categorie_bg": "BG-INFOS-GENERALES",
       "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
@@ -795,10 +442,10 @@
       "libelle": "Format date (de la date d'émission de la facture antérieur - cas des avoirs)",
       "obligatoire": "",
       "rdg": "",
-      "rdi": "",
+      "rdi": "GS_FECT_EINV-BG3-BT26_DATE_FACT_R",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_26_1"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:InvoiceReferencedDocument/ram:FormattedIssueDateTime/qdt:DateTimeString"
     },
     {
       "balise": "BT-27",
@@ -822,8 +469,8 @@
       "rdg": "Texte : \"RTE Réseau de transport d'électricité\"",
       "rdi": "GS_FECT_EINV-BG4-BT27_RAISON_SOC",
       "type": "Date",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:Name"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:Name"
     },
     {
       "balise": "BT-29",
@@ -882,15 +529,16 @@
         }
       ],
       "ignore": "Non",
-      "libelle": "Identifiant privé du vendeur (flux vers Chorus Pro uniquement)",
+      "libelle": "Identifiant privé du vendeur (CHORUS uniquement)",
       "obligatoire": "",
       "rdg": "",
       "rdi": "",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_29"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:ID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-29-1",
       "categorie_bg": "BG-VENDEUR",
       "categorie_titre": "INFORMATIONS VENDEUR",
@@ -902,7 +550,7 @@
       "rdi": "",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_29_1"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:ID"
     },
     {
       "balise": "BT-30",
@@ -1064,25 +712,24 @@
       "libelle": "Numéro de SIREN - vendeur",
       "obligatoire": "Oui",
       "rdg": "Table DFKKBPTAXNUM\nPARTNER = 10000\nTAXTYPE  = FR02\nRécupère le TAXNUM",
-      "rdi": "BT30_SIREN_RTE",
+      "rdi": "GS_FECT_EINV-BG4-BT30_SIREN_RTE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_30"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-30-1",
-      "categorie_bg": "BG-4",
-      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [],
-      "dependance": "Condition : SIREN du vendeur est transmis",
       "libelle": "Identifiant du schéma - vendeur",
       "obligatoire": "Oui",
-      "presence": "Non",
       "rdg": "Valeur constante : 0002",
-      "rdi": "BT30_1_ID_SCHEMA_RTE",
+      "rdi": "GS_FECT_EINV-BG4-BT30_1_ID_SCHEMA_RTE",
       "type": "String",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_30_1"
+      "valide": false,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
     },
     {
       "balise": "BT-31",
@@ -1116,10 +763,11 @@
       "rdg": "",
       "rdi": "MENTION_ID_TVA",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-31-0",
       "categorie_bg": "BG-VENDEUR",
       "categorie_titre": "INFORMATIONS VENDEUR",
@@ -1128,15 +776,15 @@
       "libelle": "Qualifiant d'Identifiant à la TVA du Vendeur",
       "obligatoire": "Oui",
       "rdg": "Valeur constante : VA",
-      "rdi": "BT31_0_QUAL_ID_TVA_RTE",
+      "rdi": "GS_FECT_EINV-BG4-BT31_0_QUAL_ID_TVA_RTE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_31_0"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID"
     },
     {
       "balise": "BT-40",
-      "categorie_bg": "BG-4",
-      "categorie_titre": "🏢 INFORMATIONS VENDEUR",
+      "categorie_bg": "BG-VENDEUR",
+      "categorie_titre": "INFORMATIONS VENDEUR",
       "controles_cegedim": [
         {
           "categorie": "Warning",
@@ -1179,12 +827,14 @@
           "type": "Legal"
         }
       ],
+      "ignore": "Non",
       "libelle": "Pays du vendeur (fournisseur)",
       "obligatoire": "Oui",
       "rdg": "",
       "rdi": "ADRC_ORG-COUNTRY",
       "type": "String",
-      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
     },
     {
       "balise": "BT-44",
@@ -1205,11 +855,11 @@
       "ignore": "Non",
       "libelle": "Raison sociale de l'acheteur",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "ADRC_DE-NAME1",
+      "rdg": "Récupérer le code du partenaire Donneur d’ordre et récupérer son nom dans la table BUT000",
+      "rdi": "GS_FECT_EINV-BG7-BT44_RAISON_SOCIALE_CLT",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:Name"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:Name"
     },
     {
       "balise": "BT-47",
@@ -1280,13 +930,14 @@
       "ignore": "Non",
       "libelle": "Numéro de SIREN ",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "ADRC_DO-RCS",
+      "rdg": "La balise actuelle, G_RCS, contient le Siren du Payeur \nil faut récupérer le Siren de donneur d'ordre",
+      "rdi": "GS_FECT_EINV-BG7-BT47_SIREN",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-47-1",
       "categorie_bg": "BG-ACHETEUR",
       "categorie_titre": "INFORMATIONS ACHETEUR",
@@ -1297,8 +948,8 @@
       "rdg": "Valeur constante : 0002",
       "rdi": "GS_FECT_EINV-BG7-BT47_1_ID_SCHEMA_CLT",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_47_1"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedLegalOrganization/ram:ID"
     },
     {
       "balise": "BT-48",
@@ -1329,13 +980,14 @@
       "ignore": "Non",
       "libelle": "Identifiant à la TVA  de l'acheteur (n°TVA intracommunautaire)",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": " balise G_STCEG dans le RDI",
       "rdi": "ADRC_DO-IDTVA",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-48-0",
       "categorie_bg": "BG-ACHETEUR",
       "categorie_titre": "INFORMATIONS ACHETEUR",
@@ -1346,8 +998,8 @@
       "rdg": "Valeur constante : VA",
       "rdi": "GS_FECT_EINV-BG7-BT48_0_QUAL_ID_TVA_CLT",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_48_0"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID"
     },
     {
       "balise": "BT-49",
@@ -1378,13 +1030,14 @@
       "ignore": "Non",
       "libelle": "Identifiant d'adressage",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "\"Deux possibilités : \nClient soumis à la réforme (B2B France) et existant dans l'annuaire: Identifiant d'adressage \nClient hors réforme (B2B International) ou français pas existant dans l'annuaire : e-mail \"\t",
       "rdi": "RG_BT-49",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_49"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:URIUniversalCommunication/ram:URIID"
     },
     {
+      "attribute": "schemeID",
       "balise": "BT-49-1",
       "categorie_bg": "BG-ACHETEUR",
       "categorie_titre": "INFORMATIONS ACHETEUR",
@@ -1392,11 +1045,11 @@
       "ignore": "Non",
       "libelle": "Identifiant du schéma de l'identifiant d'adressage",
       "obligatoire": "",
-      "rdg": "",
+      "rdg": "Code : \n- 0225 : pour identifiant d'adressage\n- EM : pour adresse email\"",
       "rdi": "",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_49_1"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:URIUniversalCommunication/ram:URIID"
     },
     {
       "balise": "BT-50",
@@ -1407,15 +1060,15 @@
       "libelle": "Adresse de l'acheteur (Ligne 1)",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "ADRC_ORG-STREET",
+      "rdi": "MAIN_GS_FECT_EINV-BG8-BT50_ADRESSE_RUE_ACHETEUR",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:LineOne"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:LineOne"
     },
     {
       "balise": "BT-52",
-      "categorie_bg": "BG-7",
-      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "categorie_bg": "BG-ACHETEUR",
+      "categorie_titre": "INFORMATIONS ACHETEUR",
       "controles_cegedim": [
         {
           "categorie": 0,
@@ -1428,24 +1081,28 @@
           "type": "Legal"
         }
       ],
+      "ignore": "Non",
       "libelle": "Localité de l'acheteur",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "ADRC_ORG-STREET",
+      "rdi": "MAIN_GS_FECT_EINV-BG8-BT52_ADRESSE_LOCALITE_ACHETEUR",
       "type": "String",
-      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CityName"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CityName"
     },
     {
       "balise": "BT-53",
-      "categorie_bg": "BG-7",
-      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
+      "categorie_bg": "BG-ACHETEUR",
+      "categorie_titre": "INFORMATIONS ACHETEUR",
       "controles_cegedim": [],
+      "ignore": "Non",
       "libelle": "Code postal de l'acheteur ",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "ADRC_ORG-STREET",
+      "rdi": "MAIN_GS_FECT_EINV-BG8-BT53_ADRESSE_CP_ACHETEUR",
       "type": "String",
-      "xpath": "//rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:PostcodeCode"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:PostcodeCode"
     },
     {
       "balise": "BT-55",
@@ -1477,24 +1134,23 @@
       "libelle": "Pays de l'acheteur (client)",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "ADRC_DE-COUNTRY",
+      "rdi": "MAIN_GS_FECT_EINV-BG8-BT55_ADRESSE_PAYS_ACHETEUR",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID"
     },
     {
       "balise": "BT-58",
-      "categorie_bg": "BG-ACHETEUR",
-      "categorie_titre": "INFORMATIONS ACHETEUR",
+      "categorie_bg": "BG-7",
+      "categorie_titre": "🏪 INFORMATIONS ACHETEUR",
       "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Adresse électronique du contact de l’acheteur (email supplémentaire destinataire factures HORS REFORME) - 50 caractères max",
+      "libelle": "Adresse électronique du contact de l’acheteur (email destinataire factures)",
       "obligatoire": "Non",
-      "rdg": "",
+      "rdg": "Client HORS REFORME / 50 caractères max",
       "rdi": "",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_58"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:DefinedTradeContact/ram:EmailURIUniversalCommunication/ram:URIID"
     },
     {
       "balise": "BT-106",
@@ -1535,11 +1191,11 @@
       "ignore": "Non",
       "libelle": "Somme des montants nets des lignes de facture (montant hors TVA)",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BT106 : correspond à l’addition de toutes les lignes, sans tenir compte des remises, frais globaux ou même l'escompteBT-116 : correspond à la somme du montant net des lignes de facture, moins les remises plus les charges ou frais au niveau du document",
+      "rdg": "BT-106 : Addition de toutes les lignes, sans tenir compte des remises, frais globaux ou même l'escompte\nBT-116 : Somme du montant net des lignes de facture, moins les remises plus les charges ou frais au niveau du document",
+      "rdi": "G_MNTHT_CHAR",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount"
     },
     {
       "balise": "BT-109",
@@ -1600,11 +1256,11 @@
       "ignore": "Non",
       "libelle": "Montant total de la facture hors TVA",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "WMNT_HT",
+      "rdg": "= BT-106",
+      "rdi": " G_MNTHT_CHAR",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxBasisTotalAmount"
     },
     {
       "balise": "BT-110",
@@ -1646,24 +1302,10 @@
       "libelle": "Montant total de TVA de la facture",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "WMNT_TVA",
+      "rdi": "G_MNTTVA_CHAR",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount"
-    },
-    {
-      "balise": "BT-110-1",
-      "categorie_bg": "BG-TOTAUX",
-      "categorie_titre": "TOTAUX DE LA FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Code devise du montant total de TVA",
-      "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "",
-      "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_110_1"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxTotalAmount"
     },
     {
       "balise": "BT-112",
@@ -1705,10 +1347,24 @@
       "libelle": "Montant total de la Facture, avec la TVA.",
       "obligatoire": "Oui",
       "rdg": "BT-112 = BT-109 + BT-110",
-      "rdi": "WMNT_NAP",
+      "rdi": "G_MNTTTC_CHAR",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+    },
+    {
+      "balise": "BT-113",
+      "categorie_bg": "BG-TOTAUX",
+      "categorie_titre": "TOTAUX DE LA FACTURE",
+      "controles_cegedim": [],
+      "ignore": "Non",
+      "libelle": "Montant payé",
+      "obligatoire": "Dependant",
+      "rdg": "Si type S2 (BT-23=S2), alors BT-113 = BT-112     (Cas d’usage 2 – Facture déjà payée), \nOu si type S4 (BT-23=S4), alors BT-113 = somme des acomptes = G_TOTAL_ACOMPTE_CHAR (Cas d’usage 21 - Facture définitive (ou finale) après acompte) \n",
+      "rdi": "GS_FECT_EINV-BG22-BT113_MONTANT_PAYE",
+      "type": "Decimal",
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
     },
     {
       "balise": "BT-115",
@@ -1760,10 +1416,10 @@
       "libelle": "Montant à payer",
       "obligatoire": "Oui",
       "rdg": "BT-115 = BT-112 - BT-113 + BT-114",
-      "rdi": "MNT_A_PAYER",
+      "rdi": "GS_FECT_EINV-BG22-BT115_MONTANT_A_PAYER",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
     },
     {
       "balise": "BT-116",
@@ -1794,11 +1450,11 @@
       "ignore": "Non",
       "libelle": "Base d'imposition du type de TVA (Total HT par taux d'imposition de la taxe)",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "GT_TVA-MNT_HT",
+      "rdg": "BT116 = Somme des montants nets (VBRP-NETWR) des postes pour chaque code TVA\n",
+      "rdi": "GS_FECT_EINV-BG23-BT116_TVA_CODE_MONANT_BASE ",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:BasisAmount"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:BasisAmount"
     },
     {
       "balise": "BT-117",
@@ -1879,16 +1535,16 @@
       "ignore": "Non",
       "libelle": "Montant de la TVA pour chaque type de TVA",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "GT_TVA-MNT_TVA",
+      "rdg": "BT117 = Somme des montants de TVA (VBRP-MWSBP) des postes pour chaque code TVA\n",
+      "rdi": "GS_FECT_EINV-BG23-BT117_TVA_CODE_MONTANT ",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_117"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount"
     },
     {
       "balise": "BT-118",
-      "categorie_bg": "BG-TVA",
-      "categorie_titre": "DÉTAIL DE LA TVA",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [],
       "ignore": "Non",
       "libelle": "Code de type de TVA (mention \"Autoliquidation\" sur la facture) ",
@@ -1896,22 +1552,22 @@
       "rdg": "Création d'une table de paramétrage\nZFACTUREX_CODE_TVA",
       "rdi": "GS_FECT_EINV-BG23-BT118_TVA_CODE_TYPE",
       "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
     },
     {
       "balise": "BT-118-0",
-      "categorie_bg": "BG-INFOS-GENERALES",
-      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
+      "categorie_bg": "BG-TVA",
+      "categorie_titre": "DÉTAIL DE LA TVA",
       "controles_cegedim": [],
       "ignore": "Non",
       "libelle": "Qualifiant d'identifiant du code type TVA",
       "obligatoire": "Non",
       "rdg": "",
-      "rdi": "",
-      "type": "Decimal",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_118_0"
+      "rdi": "GS_FECT_EINV-BG23-BT118_0_ID_CODE_TVA",
+      "type": "String",
+      "valide": true,
+      "xpath": "rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:TypeCode"
     },
     {
       "balise": "BT-119",
@@ -1975,8 +1631,8 @@
       "rdg": "",
       "rdi": "GT_TVA-TAUX",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:RateApplicablePercent"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:RateApplicablePercent"
     },
     {
       "balise": "BT-120",
@@ -1984,13 +1640,13 @@
       "categorie_titre": "DÉTAIL DE LA TVA",
       "controles_cegedim": [],
       "ignore": "Non",
-      "libelle": "Motifs d'exonération de la TVA (référence à la disposition légale + référence à un régime particulier visé aux 15 et 16 du I de l’article 242 nonies A de l'annexe II du CGI)",
-      "obligatoire": "Non",
-      "rdg": "",
+      "libelle": "Motifs d'exonération de la TVA ",
+      "obligatoire": "Oui",
+      "rdg": "Avec le Code TVA du poste (VBRP_MWSK1), lire la table spécifique ZFACT_CODE_TVA \nSi ZFACT_CODE_TVA- CODE_TVA_SAP= VBRP_MWSK1 \n\tet si ZFACT_CODE_TVA- CODE_TVA = « S » (Taux de TVA Standard ), alors BT120 = Vide\n\tSinon BT120 = MENTION_FACT de la table ZFACT_CODE_TVA\n",
       "rdi": "GS_FECT_EINV-BG23-BT120_TVA_EXO_COMMENT",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:TypeCode"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:ExemptionReasonCode"
     },
     {
       "balise": "BT-121",
@@ -2030,12 +1686,12 @@
       ],
       "ignore": "Non",
       "libelle": "Code de motif d'exonération de la TVA",
-      "obligatoire": "",
-      "rdg": "",
+      "obligatoire": "Dependant",
+      "rdg": "Avec le Code TVA du poste (VBRP_MWSK1), lire la table spécifique ZFACT_CODE_TVA \nSi ZFACT_CODE_TVA- CODE_TVA_SAP= VBRP_MWSK1 \n\tet si ZFACT_CODE_TVA- CODE_TVA = « S » (Taux de TVA Standard ), alors BT121 = Vide\n\tSinon BT121 = ZISU_AFNOR de la table ZFACT_CODE_TVA\n",
       "rdi": "GS_FECT_EINV-BG23-BT121_TVA_EXO_CODE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_121"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:ExemptionReasonCode"
     },
     {
       "balise": "BT-126",
@@ -2077,10 +1733,10 @@
       "libelle": "Identifiant de ligne de facture (numéro de la ligne de facture, par ex. 001, 002, 003)",
       "obligatoire": "Oui",
       "rdg": "Indiquer le numéro de ligne de facture",
-      "rdi": "BG25_BT126",
+      "rdi": "GT_PAGE2-POSTE ",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_126"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:AssociatedDocumentLineDocument/ram:LineID"
     },
     {
       "balise": "BT-129",
@@ -2111,16 +1767,17 @@
       "ignore": "Non",
       "libelle": "Quantité facturée",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BG25_BT129",
+      "rdg": "Rechercher la quantité facturée par poste dans la table VBRP avec VBRP_VBELN = numéro de facture, récupérer la quantité dans VBRP-FKIMG et alimenter la balise BT-129 avec cette valeur.\n",
+      "rdi": "GS_FECT_EINV-BG25-BT129_INVOICED_QUANTITE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_129"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity"
     },
     {
+      "attribute": "unitCode",
       "balise": "BT-130",
-      "categorie_bg": "BG-25",
-      "categorie_titre": "📋 LIGNES DE FACTURE",
+      "categorie_bg": "BG-LIGNES",
+      "categorie_titre": "LIGNES DE FACTURE",
       "controles_cegedim": [
         {
           "categorie": "Bloker",
@@ -2143,15 +1800,14 @@
           "type": "Legal"
         }
       ],
-      "dependance": "",
+      "ignore": "Non",
       "libelle": "Code de l'unité de mesure de la quantité facturée",
       "obligatoire": "Oui",
-      "presence": "Non",
-      "rdg": "",
-      "rdi": "BG25_BT130",
+      "rdg": "Valeurs possibles (formulaire générique) :\nFOR\nUNI\n",
+      "rdi": "GT_PAGE2-COL5",
       "type": "String",
-      "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_130"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity"
     },
     {
       "balise": "BT-131",
@@ -2182,11 +1838,11 @@
       "ignore": "Non",
       "libelle": "Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "BT-131 Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
+      "rdi": "GT_PAGE2-COL8",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_131"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount"
     },
     {
       "balise": "BT-134",
@@ -2215,15 +1871,16 @@
         }
       ],
       "ignore": "Non",
-      "libelle": "   - Date du début de la période de facturation d'une ligne",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
+      "libelle": "Date du début de la période de facturation d'une ligne",
+      "obligatoire": "Oui",
+      "rdg": "au format 01/07/2023",
+      "rdi": "GT_PAGE2-COL2 ",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_134"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString"
     },
     {
+      "attribute": "format",
       "balise": "BT-134-1",
       "categorie_bg": "BG-LIGNES",
       "categorie_titre": "LIGNES DE FACTURE",
@@ -2235,7 +1892,7 @@
       "rdi": "",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_134_1"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString"
     },
     {
       "balise": "BT-135",
@@ -2264,27 +1921,27 @@
         }
       ],
       "ignore": "Non",
-      "libelle": "   - Date de fin de la période de facturation d'une ligne",
-      "obligatoire": "",
+      "libelle": "Date de fin de la période de facturation d'une ligne",
+      "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "",
+      "rdi": "GT_PAGE2-COL4 ",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_135"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString"
     },
     {
+      "attribute": "format",
       "balise": "BT-135-1",
       "categorie_bg": "BG-LIGNES",
       "categorie_titre": "LIGNES DE FACTURE",
       "controles_cegedim": [],
-      "ignore": "Non",
       "libelle": "Format date",
       "obligatoire": "",
       "rdg": "",
       "rdi": "",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_135_1"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString"
     },
     {
       "balise": "BT-146",
@@ -2345,46 +2002,11 @@
       "ignore": "Non",
       "libelle": "Prix net de l'article",
       "obligatoire": "Oui",
-      "rdg": "x",
-      "rdi": "BG29_BT146",
+      "rdg": "GT_PAGE2-COL2 ",
+      "rdi": "GS_FECT_EINV-BG29-BT146_PRIX_NET",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_146"
-    },
-    {
-      "balise": "BT-148",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
-      "controles_cegedim": [
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence du prix brut de l'article",
-          "e_invoicing": "e-Inv",
-          "e_reporting": null,
-          "message": "Le Prix brut d'article est invalide (montant négatif non autorisé)",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_032",
-          "type": "Legal"
-        },
-        {
-          "categorie": "Bloker",
-          "description": "Contrôle de cohérence du prix unitaire brut des lignes de facture",
-          "e_invoicing": "e-Inv",
-          "e_reporting": "e-Rep",
-          "message": "Le format du prix unitaire brut de la ligne de facture est invalide (doit contenir au max 14 chiffres, un point, puis 4 décimales.)",
-          "nature": "Cohérence",
-          "ref": "CM_REF_FAC_103",
-          "type": "Legal"
-        }
-      ],
-      "ignore": "Non",
-      "libelle": "Prix brut de l'article",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "BG29_BT148",
-      "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_148"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount"
     },
     {
       "balise": "BT-151",
@@ -2425,16 +2047,16 @@
       "ignore": "Non",
       "libelle": "Code de type de TVA de l'article facturé",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BG30_BT151",
+      "rdg": "\n",
+      "rdi": "GS_FECT_EINV-BG30-BT151_CODE_TVA_ARTICLE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
     },
     {
       "balise": "BT-153",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
+      "categorie_bg": "BG-INFOS-GENERALES",
+      "categorie_titre": "INFORMATIONS GÉNÉRALES DE LA FACTURE",
       "controles_cegedim": [
         {
           "categorie": "Bloker",
@@ -2460,11 +2082,11 @@
       "ignore": "Non",
       "libelle": "Nom de l'article (dénomination du bien livré ou du service rendu) ",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BG31_BT153",
+      "rdg": "2 Articles :\n*Régularisation de la correction \n*Régularisation du résidu financier  ",
+      "rdi": "GS_FECT_EINV-BG31-BT153_NOM_ARTICLE",
       "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_153"
+      "valide": true,
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedTradeProduct/ram:Name"
     }
   ],
   "description": "Mapping généré automatiquement V5.0",
