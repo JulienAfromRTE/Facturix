@@ -854,7 +854,7 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .results{display:none}
 /* Stats : 3 colonnes */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:30px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:30px}
 .stat-card{background:#fff;padding:20px;border-radius:10px;text-align:center}
 .stat-value{font-size:2em;font-weight:bold}
 .ok .stat-value{color:#70ad47}
@@ -1093,7 +1093,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="stat-card ok"><div>OK</div><div class="stat-value" id="statOk">0</div></div>
 <div class="stat-card erreur"><div>Erreurs</div><div class="stat-value" id="statErreur">0</div></div>
 <div class="stat-card ignore"><div>Ignorés</div><div class="stat-value" id="statIgnore">0</div></div>
-<div class="stat-card" style="display:none;background:#1a3a5a"><div>📦 Articles</div><div class="stat-value" id="statArticles">0</div></div>
+<div class="stat-card" style="background:#1a3a5a;color:#fff"><div>📦 Articles</div><div class="stat-value" id="statArticles" style="color:#fff">—</div></div>
 </div>
 </div>
 <div class="section">
@@ -1105,6 +1105,14 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <input type="checkbox" id="filterErrors" style="width:18px;height:18px">
 <span>Afficher uniquement les erreurs</span>
 </label>
+<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="showCegedim" style="width:18px;height:18px">
+<span>Afficher contrôles CEGEDIM</span>
+</label>
+<div style="margin-left:auto;display:flex;gap:8px">
+<button class="btn-clear" id="btnExpandAll" style="display:inline-block;font-size:12px;padding:4px 10px">▼ Tout déplier</button>
+<button class="btn-clear" id="btnCollapseAll" style="display:inline-block;font-size:12px;padding:4px 10px">▲ Tout replier</button>
+</div>
 </div>
 </div>
 <div class="section"><div id="categoriesContainer"></div></div>
@@ -1747,8 +1755,7 @@ document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
 document.getElementById('statIgnore').textContent=data.stats.ignore||0;
 var artInfo=document.getElementById('statArticles');
-if(artInfo && data.stats.nb_articles>0){artInfo.textContent=data.stats.nb_articles;artInfo.parentElement.style.display='';}
-else if(artInfo){artInfo.parentElement.style.display='none';}
+if(artInfo){artInfo.textContent=data.stats.nb_articles>0?data.stats.nb_articles:'—';}
 var pct=data.stats.total>0?Math.round(data.stats.ok/data.stats.total*100):0;
 var fill=document.getElementById('progressFill');
 document.getElementById('progressPct').textContent=pct+'%';
@@ -1945,6 +1952,27 @@ searchInput.value='';
 clearBtn.style.display='none';
 applyAllFilters();
 });
+
+// Tout déplier / Tout replier
+document.getElementById('btnExpandAll').addEventListener('click',function(){
+document.querySelectorAll('.category-content').forEach(function(c){c.classList.add('open');});
+document.querySelectorAll('.article-content').forEach(function(c){c.style.display='block';});
+});
+document.getElementById('btnCollapseAll').addEventListener('click',function(){
+document.querySelectorAll('.category-content').forEach(function(c){c.classList.remove('open');});
+document.querySelectorAll('.article-content').forEach(function(c){c.style.display='none';});
+});
+
+// Afficher/masquer les contrôles CEGEDIM
+var cegedimCheckbox=document.getElementById('showCegedim');
+function toggleCegedim(){
+var show=cegedimCheckbox.checked;
+document.querySelectorAll('.ceg-table').forEach(function(t){
+t.closest('tr').style.display=show?'':'none';
+});
+}
+cegedimCheckbox.addEventListener('change',toggleCegedim);
+toggleCegedim();
 
 function filterResults(term,errorsOnly){
 var categories=document.querySelectorAll('.category');
