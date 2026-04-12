@@ -480,11 +480,11 @@
       "ignore": "Non",
       "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur BAR)",
       "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante BAR",
+      "rdi": "GS_FECT_EINV-BG1-BT21-BAR",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_BAR"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='BAR']/ram:SubjectCode"
     },
     {
       "balise": "BT-21-SUR",
@@ -493,13 +493,13 @@
       "controles_cegedim": [],
       "dependance": "",
       "libelle": "Code du sujet des remarques fournisseur (valeur SUR) pour adresses emails supplémentaires",
-      "obligatoire": "Dépendant",
+      "obligatoire": "Oui",
       "presence": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante SUR",
+      "rdi": "GS_FECT_EINV-BG1-BT21-SUR",
       "type": "Date",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_SUR"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='SUR']/ram:SubjectCode"
     },
     {
       "balise": "BT-21-ADN",
@@ -509,11 +509,11 @@
       "ignore": "Non",
       "libelle": "Code du sujet de la mention indiquant le traitement attendu sur la facture (Valeur ADN)",
       "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante ADN",
+      "rdi": "GS_FECT_EINV-BG1-BT21-ADN",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_ADN"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='ADN']/ram:SubjectCode"
     },
     {
       "balise": "BT-21-AAB",
@@ -524,11 +524,11 @@
       "libelle": "Code du sujet de la Mention \"Escompte\" (valeur AAB) ",
       "obligatoire": "Non",
       "presence": "Oui",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante AAB",
+      "rdi": "GS_FECT_EINV-BG1-BT21-AAB",
       "type": "Date",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_AAB"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='AAB']/ram:SubjectCode"
     },
     {
       "balise": "BT-21-PMT",
@@ -539,11 +539,11 @@
       "libelle": "Code du sujet de la Mention de l'indemnité forfaitaire pour frais de recouvrement\"40euros\" (valeur PMT)",
       "obligatoire": "Non",
       "presence": "Oui",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante PMT",
+      "rdi": "GS_FECT_EINV-BG1-BT21-PMT",
       "type": "Date",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_21_PMT"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='PMT']/ram:SubjectCode"
     },
     {
       "balise": "BT-21-PMD",
@@ -553,11 +553,11 @@
       "ignore": "Non",
       "libelle": "Code du sujet de la Mention de pénalités (valeur PMD)",
       "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante PMD",
+      "rdi": "GS_FECT_EINV-BG1-BT21-PMD",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_21_PMD"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='PMD']/ram:SubjectCode"
     },
     {
       "balise": "BT-22",
@@ -604,10 +604,10 @@
       "libelle": "Mention indiquant le traitement attendu sur la facture (E-invoincing / E-Reporting / hors réforme / archive simple…)",
       "obligatoire": "Non",
       "rdg": "à déterminer, réunion le 14/01",
-      "rdi": "",
+      "rdi": "GS_FECT_EINV-BG1-BT22-BAR",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_BAR"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='BAR']/ram:Content"
     },
     {
       "balise": "BT-22-SUR",
@@ -616,13 +616,13 @@
       "controles_cegedim": [],
       "dependance": "",
       "libelle": "Remarques fournisseur (pour indication Copiver - si nécessaire) ",
-      "obligatoire": "Dépendant",
+      "obligatoire": "Oui",
       "presence": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur obligatoire ISU",
+      "rdi": "GS_FECT_EINV-BG1-BT22-SUR",
       "type": "Date",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_22_SUR"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='SUR']/ram:Content"
     },
     {
       "balise": "BT-22-ADN",
@@ -633,10 +633,10 @@
       "libelle": "Mention indiquant si la facture relève du B2G en France (règles additionneles CPRO)",
       "obligatoire": "Non",
       "rdg": "",
-      "rdi": "",
+      "rdi": "GS_FECT_EINV-BG1-BT22-ADN",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_ADN"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='ADN']/ram:Content"
     },
     {
       "balise": "BT-22-AAB",
@@ -647,10 +647,10 @@
       "libelle": "Mention \"Escompte\" ou \"Absence d'escompe\"",
       "obligatoire": "Non",
       "rdg": "- Si présence d’escompte : identique à l’existant « Le montant sera prélevé sur votre compte X le X majoré/minoré de X% du montant TTC, seule la taxe correspondant au prix effectivement payé donne droit à déduction. »\n\n- Si absence d’escompte : « Escompte pour paiement anticipé : néant »",
-      "rdi": "",
+      "rdi": "GS_FECT_EINV-BG1-BT22-AAB",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_AAB"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='AAB']/ram:Content"
     },
     {
       "balise": "BT-22-PMT",
@@ -662,10 +662,10 @@
       "obligatoire": "Non",
       "presence": "Oui",
       "rdg": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
-      "rdi": "(nouveau RDI à créer : reprendre une partie du texte du GT_PENA_FR, voir fiche S4U-738)",
+      "rdi": "GS_FECT_EINV-BG1-BT22-PMT",
       "type": "Date",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_22_PMT"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='PMT']/ram:Content"
     },
     {
       "balise": "BT-22-PMD",
@@ -676,10 +676,10 @@
       "libelle": "Mention de pénalités",
       "obligatoire": "Non",
       "rdg": "",
-      "rdi": "GT_PENA_FR",
+      "rdi": "GS_FECT_EINV-BG1-BT22-PMD",
       "type": "Date",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_22_PMD"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='PMD']/ram:Content"
     },
     {
       "balise": "BT-23",

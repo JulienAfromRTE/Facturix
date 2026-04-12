@@ -276,6 +276,7 @@ def restore_mapping_version(filename, type_formulaire='simple'):
 
 def parse_rdi(rdi_path):
     data = {}
+    last_bt21_value = None  # Pour suivre les paires BT21/BT22
     try:
         with open(rdi_path, 'r', encoding='cp1252') as f:
             for line in f:
@@ -289,7 +290,17 @@ def parse_rdi(rdi_path):
                             tag_parts = tag_section.split()
                             if tag_parts:
                                 tag = tag_parts[-1]
-                                if tag not in data:
+                                # Gestion spéciale des paires BT21/BT22 (multiples occurrences)
+                                if tag == 'GS_FECT_EINV-BG1-BT21':
+                                    suffix = value.strip().upper()
+                                    last_bt21_value = suffix
+                                    suffixed_tag = f'{tag}-{suffix}'
+                                    data[suffixed_tag] = value
+                                elif tag == 'GS_FECT_EINV-BG1-BT22' and last_bt21_value:
+                                    suffixed_tag = f'{tag}-{last_bt21_value}'
+                                    data[suffixed_tag] = value
+                                    last_bt21_value = None
+                                elif tag not in data:
                                     data[tag] = value
                         except:
                             pass
@@ -603,7 +614,58 @@ def apply_business_rules(results, type_formulaire='simple'):
             for action in rule.get('actions', []):
                 action['reason'] = rule.get('name', 'Règle métier')
                 apply_action(action, by_balise)
-    
+
+    # -------------------------------------------------------
+    # Règle BT-21-SUR / BT-22-SUR obligatoire avec valeur ISU
+    # Toutes les factures doivent avoir un BT-21-SUR avec BT-22 = ISU
+    # -------------------------------------------------------
+    bt21_sur = by_balise.get('BT-21-SUR')
+    if bt21_sur:
+        regle_label = 'Présence obligatoire de BT-21-SUR'
+        if regle_label not in bt21_sur['regles_testees']:
+            bt21_sur['regles_testees'].insert(0, regle_label)
+        if not bt21_sur.get('rdi', '').strip() and not bt21_sur.get('xml', '').strip():
+            bt21_sur['status'] = 'ERREUR'
+            if 'RAS' in bt21_sur['details_erreurs']:
+                bt21_sur['details_erreurs'].remove('RAS')
+            bt21_sur['details_erreurs'].insert(0, 'BT-21-SUR obligatoire : valeur SUR attendue')
+
+    bt22_sur = by_balise.get('BT-22-SUR')
+    if bt22_sur:
+        regle_label = 'BT-22-SUR doit valoir ISU'
+        if regle_label not in bt22_sur['regles_testees']:
+            bt22_sur['regles_testees'].insert(0, regle_label)
+        val = bt22_sur.get('rdi', '').strip() or bt22_sur.get('xml', '').strip()
+        if val.upper() != 'ISU':
+            bt22_sur['status'] = 'ERREUR'
+            if 'RAS' in bt22_sur['details_erreurs']:
+                bt22_sur['details_erreurs'].remove('RAS')
+            msg = f'BT-22-SUR doit valoir "ISU", trouvé : "{val}"'
+            if msg not in bt22_sur['details_erreurs']:
+                bt22_sur['details_erreurs'].insert(0, msg)
+
+    # -------------------------------------------------------
+    # Règle BT-22-BAR B2G (Chorus) -> champs obligatoires
+    # Si BT-22-BAR = "B2G", BT-10, BT-13, BT-29, BT-29-1 obligatoires
+    # -------------------------------------------------------
+    bt22_bar = by_balise.get('BT-22-BAR')
+    if bt22_bar and bt22_bar.get('rdi', '').strip().upper() == 'B2G':
+        def force_obligatoire_bg1(balise, raison):
+            r = by_balise.get(balise)
+            if r is None:
+                return
+            r['obligatoire'] = 'Oui'
+            regle_label = f'Regle specifique : {raison}'
+            if regle_label not in r['regles_testees']:
+                r['regles_testees'].insert(0, regle_label)
+            if not r.get('rdi', '').strip() and not r.get('xml', '').strip():
+                r['status'] = 'ERREUR'
+                if 'RAS' in r['details_erreurs']:
+                    r['details_erreurs'].remove('RAS')
+                r['details_erreurs'].insert(0, f'Champ obligatoire selon regle : {raison}')
+        for balise in ['BT-10', 'BT-13', 'BT-29', 'BT-29-1']:
+            force_obligatoire_bg1(balise, 'Facture B2G (Chorus)')
+
     return results
     """
     Controles conditionnels en dur :
