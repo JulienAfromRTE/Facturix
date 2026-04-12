@@ -1846,10 +1846,11 @@
       "libelle": "Identifiant de ligne de facture (numéro de la ligne de facture, par ex. 001, 002, 003)",
       "obligatoire": "Oui",
       "rdg": "Indiquer le numéro de ligne de facture",
-      "rdi": "GT_PAGE2-POSTE ",
+      "rdi": "GS_FECT_EINV-BG25-BT126_ID_LIGNE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:AssociatedDocumentLineDocument/ram:LineID"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:AssociatedDocumentLineDocument/ram:LineID",
+      "is_article": true
     },
     {
       "balise": "BT-129",
@@ -1884,7 +1885,8 @@
       "rdi": "GS_FECT_EINV-BG25-BT129_INVOICED_QUANTITE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+      "is_article": true
     },
     {
       "attribute": "unitCode",
@@ -1917,10 +1919,11 @@
       "libelle": "Code de l'unité de mesure de la quantité facturée",
       "obligatoire": "Oui",
       "rdg": "Valeurs possibles (formulaire générique) :\nFOR\nUNI\n",
-      "rdi": "GT_PAGE2-COL5",
+      "rdi": "GS_FECT_EINV-BG25-BT130_INVOICED_UNITE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+      "is_article": true
     },
     {
       "balise": "BT-131",
@@ -1952,10 +1955,11 @@
       "libelle": "Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
       "obligatoire": "Oui",
       "rdg": "BT-131 Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
-      "rdi": "GT_PAGE2-COL8",
+      "rdi": "GS_FECT_EINV-BG25-BT131_MNT_NET",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount",
+      "is_article": true
     },
     {
       "balise": "BT-134",
@@ -1987,25 +1991,11 @@
       "libelle": "Date du début de la période de facturation d'une ligne",
       "obligatoire": "Oui",
       "rdg": "au format 01/07/2023",
-      "rdi": "GT_PAGE2-COL2 ",
+      "rdi": "GS_FECT_EINV-BG26-BT134_DATE_DEBUT_ARTICLE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString"
-    },
-    {
-      "attribute": "format",
-      "balise": "BT-134-1",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Format date",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
-      "type": "String",
-      "valide": false,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString",
+      "is_article": true
     },
     {
       "balise": "BT-135",
@@ -2037,24 +2027,11 @@
       "libelle": "Date de fin de la période de facturation d'une ligne",
       "obligatoire": "Oui",
       "rdg": "",
-      "rdi": "GT_PAGE2-COL4 ",
+      "rdi": "GS_FECT_EINV-BG26-BT135_DATE_FIN_ARTICLE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString"
-    },
-    {
-      "attribute": "format",
-      "balise": "BT-135-1",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
-      "controles_cegedim": [],
-      "libelle": "Format date",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
-      "type": "String",
-      "valide": false,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString",
+      "is_article": true
     },
     {
       "balise": "BT-146",
@@ -2119,7 +2096,8 @@
       "rdi": "GS_FECT_EINV-BG29-BT146_PRIX_NET",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount",
+      "is_article": true
     },
     {
       "balise": "BT-151",
@@ -2164,7 +2142,8 @@
       "rdi": "GS_FECT_EINV-BG30-BT151_CODE_TVA_ARTICLE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode",
+      "is_article": true
     },
     {
       "balise": "BT-153",
@@ -2199,7 +2178,8 @@
       "rdi": "GS_FECT_EINV-BG31-BT153_NOM_ARTICLE",
       "type": "String",
       "valide": true,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedTradeProduct/ram:Name"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedTradeProduct/ram:Name",
+      "is_article": true
     }
   ],
   "description": "Mapping généré automatiquement V5.0",

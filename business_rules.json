@@ -1,0 +1,105 @@
+{
+  "rules": [
+    {
+      "id": "rule_1",
+      "name": "Facture B2G Chorus",
+      "enabled": true,
+      "conditions": [
+        {
+          "field": "BT-22",
+          "operator": "equals",
+          "value": "B2G"
+        }
+      ],
+      "actions": [
+        {
+          "type": "make_mandatory",
+          "field": "BT-10"
+        },
+        {
+          "type": "make_mandatory",
+          "field": "BT-13"
+        },
+        {
+          "type": "make_mandatory",
+          "field": "BT-29"
+        },
+        {
+          "type": "make_mandatory",
+          "field": "BT-29-1"
+        }
+      ]
+    },
+    {
+      "id": "rule_2",
+      "name": "Facture avoir",
+      "enabled": true,
+      "conditions": [
+        {
+          "field": "BT-3",
+          "operator": "equals",
+          "value": "381"
+        }
+      ],
+      "actions": [
+        {
+          "type": "make_mandatory",
+          "field": "BT-25"
+        },
+        {
+          "type": "make_mandatory",
+          "field": "BT-26"
+        }
+      ]
+    },
+    {
+      "id": "rule_3",
+      "name": "BT-8 doit valoir 5",
+      "enabled": true,
+      "conditions": [],
+      "actions": [
+        {
+          "type": "must_equal",
+          "field": "BT-8",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "id": "rule_4",
+      "name": "Client étranger",
+      "enabled": true,
+      "conditions": [
+        {
+          "field": "BT-48",
+          "operator": "not_starts_with",
+          "value": "FR"
+        }
+      ],
+      "actions": [
+        {
+          "type": "make_mandatory",
+          "field": "BT-58"
+        }
+      ]
+    },
+    {
+      "id": "rule_5",
+      "name": "Facture négative - quantité",
+      "enabled": true,
+      "conditions": [
+        {
+          "field": "BT-131",
+          "operator": "less_than",
+          "value": "0"
+        }
+      ],
+      "actions": [
+        {
+          "type": "must_be_negative",
+          "field": "BT-129"
+        }
+      ]
+    }
+  ]
+}

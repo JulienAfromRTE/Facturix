@@ -1535,11 +1535,11 @@
       "ignore": "Non",
       "libelle": "Somme des montants nets des lignes de facture (montant hors TVA)",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BT106 : correspond à l’addition de toutes les lignes, sans tenir compte des remises, frais globaux ou même l'escompteBT-116 : correspond à la somme du montant net des lignes de facture, moins les remises plus les charges ou frais au niveau du document",
+      "rdg": "BT106 : correspond a l'addition de toutes les lignes, sans tenir compte des remises, frais globaux ou meme l'escompte",
+      "rdi": "WMNT_HT",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount"
     },
     {
       "balise": "BT-109",
@@ -1600,11 +1600,11 @@
       "ignore": "Non",
       "libelle": "Montant total de la facture hors TVA",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "Montant total de la facture hors TVA",
       "rdi": "WMNT_HT",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxBasisTotalAmount"
     },
     {
       "balise": "BT-110",
@@ -1645,11 +1645,11 @@
       "ignore": "Non",
       "libelle": "Montant total de TVA de la facture",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "Montant total de TVA de la facture",
       "rdi": "WMNT_TVA",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxTotalAmount"
     },
     {
       "balise": "BT-110-1",
@@ -1704,11 +1704,11 @@
       "ignore": "Non",
       "libelle": "Montant total de la Facture, avec la TVA.",
       "obligatoire": "Oui",
-      "rdg": "BT-112 = BT-109 + BT-110",
+      "rdg": "Montant total de la facture avec TVA",
       "rdi": "WMNT_NAP",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount"
     },
     {
       "balise": "BT-115",
@@ -1759,11 +1759,11 @@
       "ignore": "Non",
       "libelle": "Montant à payer",
       "obligatoire": "Oui",
-      "rdg": "BT-115 = BT-112 - BT-113 + BT-114",
+      "rdg": "BT-115 = BT-112",
       "rdi": "MNT_A_PAYER",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
     },
     {
       "balise": "BT-116",
@@ -1794,11 +1794,11 @@
       "ignore": "Non",
       "libelle": "Base d'imposition du type de TVA (Total HT par taux d'imposition de la taxe)",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "Somme des montants nets (VBRP-NETWR) des postes pour chaque code TVA",
       "rdi": "GT_TVA-MNT_HT",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:BasisAmount"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:BasisAmount"
     },
     {
       "balise": "BT-117",
@@ -1879,11 +1879,11 @@
       "ignore": "Non",
       "libelle": "Montant de la TVA pour chaque type de TVA",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "Somme des montants de TVA (VBRP-MWSBP) des postes pour chaque code TVA",
       "rdi": "GT_TVA-MNT_TVA",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_117"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount"
     },
     {
       "balise": "BT-118",
@@ -1892,12 +1892,12 @@
       "controles_cegedim": [],
       "ignore": "Non",
       "libelle": "Code de type de TVA (mention \"Autoliquidation\" sur la facture) ",
-      "obligatoire": "Oui",
-      "rdg": "Création d'une table de paramétrage\nZFACTUREX_CODE_TVA",
+      "obligatoire": "Non",
+      "rdg": "Creation d'une table de parametrage ZFACTUREX_CODE_TVA",
       "rdi": "GS_FECT_EINV-BG23-BT118_TVA_CODE_TYPE",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
     },
     {
       "balise": "BT-118-0",
@@ -1907,11 +1907,11 @@
       "ignore": "Non",
       "libelle": "Qualifiant d'identifiant du code type TVA",
       "obligatoire": "Non",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Valeur constante : VAT",
+      "rdi": "GS_FECT_EINV-BG23-BT118_0_ID_CODE_TVA",
       "type": "Decimal",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_118_0"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:TypeCode"
     },
     {
       "balise": "BT-119",
@@ -1972,11 +1972,11 @@
       "ignore": "Non",
       "libelle": "Taux de TVA applicable (à différencier si multiples)",
       "obligatoire": "Oui",
-      "rdg": "",
+      "rdg": "Taux de TVA applicable",
       "rdi": "GT_TVA-TAUX",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:RateApplicablePercent"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:RateApplicablePercent"
     },
     {
       "balise": "BT-120",
@@ -1990,7 +1990,7 @@
       "rdi": "GS_FECT_EINV-BG23-BT120_TVA_EXO_COMMENT",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:TypeCode"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:ExemptionReason"
     },
     {
       "balise": "BT-121",
@@ -2030,12 +2030,12 @@
       ],
       "ignore": "Non",
       "libelle": "Code de motif d'exonération de la TVA",
-      "obligatoire": "",
+      "obligatoire": "Non",
       "rdg": "",
       "rdi": "GS_FECT_EINV-BG23-BT121_TVA_EXO_CODE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_121"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:ExemptionReasonCode"
     },
     {
       "balise": "BT-126",
@@ -2075,12 +2075,13 @@
       ],
       "ignore": "Non",
       "libelle": "Identifiant de ligne de facture (numéro de la ligne de facture, par ex. 001, 002, 003)",
-      "obligatoire": "Oui",
-      "rdg": "Indiquer le numéro de ligne de facture",
-      "rdi": "BG25_BT126",
+      "obligatoire": "Non",
+      "rdg": "Numero de ligne de facture",
+      "rdi": "GS_FECT_EINV-BG25-BT126_ID_LIGNE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_126"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:AssociatedDocumentLineDocument/ram:LineID",
+      "is_article": true
     },
     {
       "balise": "BT-129",
@@ -2110,12 +2111,13 @@
       ],
       "ignore": "Non",
       "libelle": "Quantité facturée",
-      "obligatoire": "Oui",
+      "obligatoire": "Non",
       "rdg": "",
-      "rdi": "BG25_BT129",
+      "rdi": "GS_FECT_EINV-BG25-BT129_INVOICED_QUANTITE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_129"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+      "is_article": true
     },
     {
       "balise": "BT-130",
@@ -2145,13 +2147,15 @@
       ],
       "dependance": "",
       "libelle": "Code de l'unité de mesure de la quantité facturée",
-      "obligatoire": "Oui",
+      "obligatoire": "Non",
       "presence": "Non",
       "rdg": "",
-      "rdi": "BG25_BT130",
+      "rdi": "GS_FECT_EINV-BG25-BT130_INVOICED_UNITE",
       "type": "String",
       "type_formulaire": "CART Simple",
-      "xpath": "//rsm:ExchangedDocument/ram:BT_130"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+      "attribute": "unitCode",
+      "is_article": true
     },
     {
       "balise": "BT-131",
@@ -2182,11 +2186,12 @@
       "ignore": "Non",
       "libelle": "Montant net de ligne de facture (montant HT de l'article multiplié par la quantité)     ",
       "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "",
+      "rdg": "Montant net de ligne de facture",
+      "rdi": "GS_FECT_EINV-BG25-BT131_MNT_NET",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_131"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount",
+      "is_article": true
     },
     {
       "balise": "BT-134",
@@ -2216,26 +2221,13 @@
       ],
       "ignore": "Non",
       "libelle": "   - Date du début de la période de facturation d'une ligne",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
+      "obligatoire": "Oui",
+      "rdg": "Premier jour du mois de consommation",
+      "rdi": "GS_FECT_EINV-BG26-BT134_DATE_DEBUT_ARTICLE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_134"
-    },
-    {
-      "balise": "BT-134-1",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Format date",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
-      "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_134_1"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString",
+      "is_article": true
     },
     {
       "balise": "BT-135",
@@ -2265,26 +2257,13 @@
       ],
       "ignore": "Non",
       "libelle": "   - Date de fin de la période de facturation d'une ligne",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
+      "obligatoire": "Oui",
+      "rdg": "Dernier jour du mois de consommation",
+      "rdi": "GS_FECT_EINV-BG26-BT135_DATE_FIN_ARTICLE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_135"
-    },
-    {
-      "balise": "BT-135-1",
-      "categorie_bg": "BG-LIGNES",
-      "categorie_titre": "LIGNES DE FACTURE",
-      "controles_cegedim": [],
-      "ignore": "Non",
-      "libelle": "Format date",
-      "obligatoire": "",
-      "rdg": "",
-      "rdi": "",
-      "type": "String",
-      "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_135_1"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString",
+      "is_article": true
     },
     {
       "balise": "BT-146",
@@ -2344,12 +2323,13 @@
       ],
       "ignore": "Non",
       "libelle": "Prix net de l'article",
-      "obligatoire": "Oui",
-      "rdg": "x",
-      "rdi": "BG29_BT146",
+      "obligatoire": "Non",
+      "rdg": "Prix net de l'article",
+      "rdi": "GS_FECT_EINV-BG29-BT146_PRIX_NET",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_146"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount",
+      "is_article": true
     },
     {
       "balise": "BT-148",
@@ -2424,12 +2404,13 @@
       ],
       "ignore": "Non",
       "libelle": "Code de type de TVA de l'article facturé",
-      "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BG30_BT151",
+      "obligatoire": "Non",
+      "rdg": "Code TVA par article",
+      "rdi": "GS_FECT_EINV-BG30-BT151_CODE_TVA_ARTICLE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax/ram:CategoryCode",
+      "is_article": true
     },
     {
       "balise": "BT-153",
@@ -2459,12 +2440,13 @@
       ],
       "ignore": "Non",
       "libelle": "Nom de l'article (dénomination du bien livré ou du service rendu) ",
-      "obligatoire": "Oui",
-      "rdg": "",
-      "rdi": "BG31_BT153",
+      "obligatoire": "Non",
+      "rdg": "Nom de l'article",
+      "rdi": "GS_FECT_EINV-BG31-BT153_NOM_ARTICLE",
       "type": "String",
       "valide": false,
-      "xpath": "rsm:ExchangedDocument/ram:BT_153"
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedTradeProduct/ram:Name",
+      "is_article": true
     }
   ],
   "description": "Mapping généré automatiquement V5.0",

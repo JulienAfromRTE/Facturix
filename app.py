@@ -275,8 +275,24 @@ def restore_mapping_version(filename, type_formulaire='simple'):
         return {'success': False, 'error': str(e)}
 
 def parse_rdi(rdi_path):
+    """
+    Parse le fichier RDI et retourne (data, articles).
+    - data : dict des champs d'en-tête (hors articles)
+    - articles : liste de dicts, un par bloc article (BG25/BG26/BG29/BG30/BG31)
+    """
     data = {}
+    articles = []
+    current_article = None
     last_bt21_value = None  # Pour suivre les paires BT21/BT22
+
+    # Tags qui appartiennent aux blocs articles (lignes de facture)
+    ARTICLE_TAG_PREFIXES = ('GS_FECT_EINV-BG25-', 'GS_FECT_EINV-BG26-',
+                            'GS_FECT_EINV-BG29-', 'GS_FECT_EINV-BG30-',
+                            'GS_FECT_EINV-BG31-',
+                            'MAIN_GS_FECT_EINV-BG25-', 'MAIN_GS_FECT_EINV-BG26-',
+                            'MAIN_GS_FECT_EINV-BG29-', 'MAIN_GS_FECT_EINV-BG30-',
+                            'MAIN_GS_FECT_EINV-BG31-')
+
     try:
         with open(rdi_path, 'r', encoding='cp1252') as f:
             for line in f:
@@ -290,6 +306,7 @@ def parse_rdi(rdi_path):
                             tag_parts = tag_section.split()
                             if tag_parts:
                                 tag = tag_parts[-1]
+
                                 # Gestion spéciale des paires BT21/BT22 (multiples occurrences)
                                 if tag == 'GS_FECT_EINV-BG1-BT21':
                                     suffix = value.strip().upper()
@@ -300,13 +317,22 @@ def parse_rdi(rdi_path):
                                     suffixed_tag = f'{tag}-{last_bt21_value}'
                                     data[suffixed_tag] = value
                                     last_bt21_value = None
+
+                                # Gestion des blocs articles (BG25/BG26/BG29/BG30/BG31)
+                                elif any(tag.startswith(p) or tag.upper().startswith(p) for p in ARTICLE_TAG_PREFIXES):
+                                    # BT126 = début d'un nouveau bloc article
+                                    if 'BT126' in tag:
+                                        current_article = {}
+                                        articles.append(current_article)
+                                    if current_article is not None:
+                                        current_article[tag] = value
                                 elif tag not in data:
                                     data[tag] = value
                         except:
                             pass
     except:
         pass
-    return data
+    return data, articles
 
 def extract_xml_from_pdf(pdf_path):
     try:
@@ -371,6 +397,9 @@ def normalize_value(value):
     # Si ce n'est pas une date, traiter comme avant
     if any(char.isdigit() for char in value_str):
         value_str = value_str.replace(' ', '')
+        # Gérer le signe négatif en suffixe (format SAP : "1,000-" -> "-1,000")
+        if value_str.endswith('-'):
+            value_str = '-' + value_str[:-1]
         if '.' in value_str and ',' in value_str:
             value_str = value_str.replace('.', '').replace(',', '.')
         elif ',' in value_str and '.' not in value_str:
@@ -379,10 +408,8 @@ def normalize_value(value):
             value_str = value_str.replace('.', '')
         try:
             num_value = float(value_str)
-            if '.' in value_str:
-                return f"{num_value:.10f}".rstrip('0').rstrip('.')
-            else:
-                return str(num_value)
+            # Toujours formater de la même façon pour comparaison
+            return f"{num_value:.10f}".rstrip('0').rstrip('.')
         except ValueError:
             pass
     return value_str.upper()
@@ -1066,6 +1093,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="stat-card ok"><div>OK</div><div class="stat-value" id="statOk">0</div></div>
 <div class="stat-card erreur"><div>Erreurs</div><div class="stat-value" id="statErreur">0</div></div>
 <div class="stat-card ignore"><div>Ignorés</div><div class="stat-value" id="statIgnore">0</div></div>
+<div class="stat-card" style="display:none;background:#1a3a5a"><div>📦 Articles</div><div class="stat-value" id="statArticles">0</div></div>
 </div>
 </div>
 <div class="section">
@@ -1718,6 +1746,9 @@ document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
 document.getElementById('statIgnore').textContent=data.stats.ignore||0;
+var artInfo=document.getElementById('statArticles');
+if(artInfo && data.stats.nb_articles>0){artInfo.textContent=data.stats.nb_articles;artInfo.parentElement.style.display='';}
+else if(artInfo){artInfo.parentElement.style.display='none';}
 var pct=data.stats.total>0?Math.round(data.stats.ok/data.stats.total*100):0;
 var fill=document.getElementById('progressFill');
 document.getElementById('progressPct').textContent=pct+'%';
@@ -1763,6 +1794,13 @@ var html='<div class="category-header" data-cat="'+bgId+'" style="'+headerBg+'">
 '<div>'+cat.titre+'</div>'+
 '<div>'+cat.stats.total+' champs | OK: '+cat.stats.ok+' | Err: '+errCount+'</div></div>'+
 '<div class="category-content" id="cat-'+bgId+'">';
+// Séparer champs non-article et champs article
+var hasArticles=cat.champs.some(function(r){return r.article_index!==undefined;});
+var nonArticleChamps=cat.champs.filter(function(r){return r.article_index===undefined;});
+var articleChamps=cat.champs.filter(function(r){return r.article_index!==undefined;});
+
+// 1. Rendu des champs non-article dans un tableau classique
+if(nonArticleChamps.length>0){
 html+='<table class="main-table"><thead><tr>'+
 '<th class="col-status"></th>'+
 '<th class="col-oblig">Oblig.</th>'+
@@ -1771,21 +1809,14 @@ html+='<table class="main-table"><thead><tr>'+
 '<th class="col-regles">Regles testees</th>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
-cat.champs.forEach(function(r){
+nonArticleChamps.forEach(function(r){
 var isXmlOnly=(data.type_controle==='cii'||data.type_controle==='xmlonly');
-// Tooltip adapté selon le mode
 var tooltipContent='';
-if(!isXmlOnly){
-tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');
-}
-if(data.type_controle==='xml'||isXmlOnly){
-if(tooltipContent) tooltipContent+='<br>';
-tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');
-}
+if(!isXmlOnly){tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');}
+if(data.type_controle==='xml'||isXmlOnly){if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');}
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
 var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
-/* Ligne principale */
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-oblig">'+obligIcon+'</td>'+
@@ -1796,27 +1827,83 @@ r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
 html+='</ul></td><td><ul>';
 r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
 html+='</ul></td></tr>';
-/* Sous-ligne CEGEDIM si des controles existent */
 if(r.controles_cegedim&&r.controles_cegedim.length>0){
 html+='<tr><td colspan="6" style="padding:0 12px 12px 40px;background:#faf8ff">'+
 '<table class="ceg-table">'+
 '<thead><tr><th>Ref</th><th>Categorie</th><th>Nature</th><th>Controle</th><th>Message</th></tr></thead><tbody>';
 r.controles_cegedim.forEach(function(c){
-html+='<tr>'+
-'<td>'+( c.ref||'')+'</td>'+
-'<td>'+(c.categorie||'')+'</td>'+
-'<td>'+(c.nature||'')+'</td>'+
-'<td>'+(c.description||c.controle||'')+'</td>'+
-'<td>'+(c.message||'')+'</td>'+
-'</tr>';
+html+='<tr><td>'+(c.ref||'')+'</td><td>'+(c.categorie||'')+'</td><td>'+(c.nature||'')+'</td><td>'+(c.description||c.controle||'')+'</td><td>'+(c.message||'')+'</td></tr>';
 });
 html+='</tbody></table></td></tr>';
 }
 });
-html+='</tbody></table></div>';
+html+='</tbody></table>';
+}
+
+// 2. Rendu des articles en blocs dépliables
+if(articleChamps.length>0){
+var articleGroups={};
+var articleOrder=[];
+articleChamps.forEach(function(r){
+var key=r.article_index;
+if(!articleGroups[key]){articleGroups[key]=[];articleOrder.push(key);}
+articleGroups[key].push(r);
+});
+html+='<div style="margin-top:8px;padding:4px 10px;font-size:12px;color:#aaa;border-top:1px solid #333">'+articleOrder.length+' article(s) détecté(s) — cliquez pour déplier</div>';
+articleOrder.forEach(function(artIdx){
+var artChamps=articleGroups[artIdx];
+var artLineId=artChamps[0].article_line_id||'?';
+var artName=artChamps[0].article_name||'';
+var artErrCount=artChamps.filter(function(r){return r.status==='ERREUR'}).length;
+var artOkCount=artChamps.filter(function(r){return r.status==='OK'}).length;
+var artHeaderBg=artErrCount>0?'background:#5a1a1a':'background:#1a3a1a';
+html+='<div class="article-block" style="margin:4px 0;border:1px solid #444;border-radius:6px;overflow:hidden">'+
+'<div class="article-header" data-art="art-'+artIdx+'" style="'+artHeaderBg+';padding:8px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px">'+
+'<div><strong>📦 Ligne '+artLineId+'</strong>'+(artName?' — '+artName:'')+'</div>'+
+'<div>'+artChamps.length+' champs | ✅ '+artOkCount+' | ❌ '+artErrCount+'</div></div>'+
+'<div class="article-content" id="art-'+artIdx+'" style="display:none">';
+html+='<table class="main-table"><thead><tr>'+
+'<th class="col-status"></th>'+
+'<th class="col-oblig">Oblig.</th>'+
+'<th class="col-bt">BT</th>'+
+'<th class="col-libelle">Libelle</th>'+
+'<th class="col-regles">Regles testees</th>'+
+'<th class="col-erreurs">Details erreurs</th>'+
+'</tr></thead><tbody>';
+artChamps.forEach(function(r){
+var isXmlOnly=(data.type_controle==='cii'||data.type_controle==='xmlonly');
+var tooltipContent='';
+if(!isXmlOnly){tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');}
+if(data.type_controle==='xml'||isXmlOnly){if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');}
+var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
+var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
+var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+'<td class="col-status">'+statusIcon+'</td>'+
+'<td class="col-oblig">'+obligIcon+'</td>'+
+'<td><strong>'+r.balise+'</strong></td>'+
+'<td>'+r.libelle+'</td>'+
+'<td><ul>';
+r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
+html+='</ul></td><td><ul>';
+r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
+html+='</ul></td></tr>';
+});
+html+='</tbody></table></div></div>';
+});
+}
+html+='</div>';
 div.innerHTML=html;
 div.querySelector('.category-header').addEventListener('click',function(){
 document.getElementById('cat-'+this.getAttribute('data-cat')).classList.toggle('open');
+});
+// Event listeners pour les headers d'articles
+div.querySelectorAll('.article-header').forEach(function(hdr){
+hdr.addEventListener('click',function(){
+var contentId=this.getAttribute('data-art');
+var content=document.getElementById(contentId);
+if(content){content.style.display=content.style.display==='none'?'block':'none';}
+});
 });
 div.querySelectorAll('.data-row').forEach(function(row){
 row.addEventListener('mouseenter',function(e){
@@ -1864,30 +1951,52 @@ var categories=document.querySelectorAll('.category');
 var visibleCount=0;
 categories.forEach(function(cat){
 var hasMatch=false;
-var rows=cat.querySelectorAll('.data-row');
+// Filtrer les lignes standard (hors articles)
+var rows=cat.querySelectorAll('.main-table > tbody > .data-row, table.main-table > tbody > .data-row');
 rows.forEach(function(row){
-var btText=row.querySelector('td:nth-child(3) strong').textContent.toLowerCase();
+var btStrong=row.querySelector('td:nth-child(3) strong');
+if(!btStrong) return;
+var btText=btStrong.textContent.toLowerCase();
 var statusIcon=row.querySelector('.col-status').textContent.trim();
 var isError=(statusIcon==='❌');
-// Trouver la ligne CEGEDIM suivante (si elle existe)
 var nextRow=row.nextElementSibling;
 var isCegedimRow=nextRow && nextRow.querySelector('.ceg-table');
-// Vérifier les critères de filtrage
 var matchesSearch=!term||btText.includes(term);
 var matchesErrorFilter=!errorsOnly||isError;
 if(matchesSearch&&matchesErrorFilter){
 row.style.display='';
-// Afficher aussi la ligne CEGEDIM associée si elle existe
-if(isCegedimRow){
-nextRow.style.display='';
-}
+if(isCegedimRow){nextRow.style.display='';}
 hasMatch=true;
 }else{
 row.style.display='none';
-// Cacher aussi la ligne CEGEDIM associée si elle existe
-if(isCegedimRow){
-nextRow.style.display='none';
+if(isCegedimRow){nextRow.style.display='none';}
 }
+});
+// Filtrer les blocs articles
+var artBlocks=cat.querySelectorAll('.article-block');
+artBlocks.forEach(function(block){
+var artHasMatch=false;
+var artRows=block.querySelectorAll('.data-row');
+artRows.forEach(function(row){
+var btStrong=row.querySelector('td:nth-child(3) strong');
+if(!btStrong) return;
+var btText=btStrong.textContent.toLowerCase();
+var statusIcon=row.querySelector('.col-status').textContent.trim();
+var isError=(statusIcon==='❌');
+var matchesSearch=!term||btText.includes(term);
+var matchesErrorFilter=!errorsOnly||isError;
+if(matchesSearch&&matchesErrorFilter){
+row.style.display='';
+artHasMatch=true;
+}else{
+row.style.display='none';
+}
+});
+if(artHasMatch){
+block.style.display='';
+hasMatch=true;
+}else{
+block.style.display=errorsOnly||term?'none':'';
 }
 });
 if(hasMatch){
@@ -2672,13 +2781,17 @@ def controle():
 
         # Lecture du RDI (pas nécessaire en mode CII)
         rdi_data = {}
+        rdi_articles = []
         rdi_path = None
         if rdi_file:
             rdi_path = os.path.join(UPLOAD_FOLDER, rdi_file.filename)
             rdi_file.save(rdi_path)
-            rdi_data = parse_rdi(rdi_path)
+            rdi_data, rdi_articles = parse_rdi(rdi_path)
             print("==== rdi_data ====")
             print(rdi_data)
+            print(f"==== rdi_articles ({len(rdi_articles)} articles) ====")
+            for i, art in enumerate(rdi_articles):
+                print(f"  Article {i}: {art}")
 
         xml_doc = None
         pdf_path = None
@@ -2749,8 +2862,58 @@ def controle():
                     except:
                         xpath_cache[_xpath_raw] = None
 
+        # Extraire les articles XML (IncludedSupplyChainTradeLineItem)
+        xml_articles = []
+        if xml_doc is not None:
+            try:
+                line_items_xpath = etree.XPath(
+                    '/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem',
+                    namespaces=namespaces)
+                xml_line_items = line_items_xpath(xml_doc)
+                for item in xml_line_items:
+                    xml_art = {}
+                    # Pour chaque champ article du mapping, extraire la valeur de cet item XML
+                    for field in mapping:
+                        if not field.get('is_article'):
+                            continue
+                        _xpath_raw = field.get('xpath', '') or ''
+                        if not _xpath_raw:
+                            continue
+                        # Convertir le XPath absolu en relatif à l'item
+                        rel_xpath = _xpath_raw
+                        # Retirer le préfixe jusqu'à IncludedSupplyChainTradeLineItem
+                        marker = 'ram:IncludedSupplyChainTradeLineItem/'
+                        idx = rel_xpath.find(marker)
+                        if idx >= 0:
+                            rel_xpath = './' + rel_xpath[idx + len(marker):]
+                        else:
+                            continue
+                        try:
+                            compiled_rel = etree.XPath(rel_xpath, namespaces=namespaces)
+                            elements = compiled_rel(item)
+                            if elements:
+                                attribute = field.get('attribute')
+                                if attribute and hasattr(elements[0], 'get'):
+                                    xml_art[field['balise']] = elements[0].get(attribute, '').strip()
+                                elif hasattr(elements[0], 'text') and elements[0].text:
+                                    xml_art[field['balise']] = elements[0].text.strip()
+                        except:
+                            pass
+                    xml_articles.append(xml_art)
+                print(f"==== xml_articles ({len(xml_articles)} articles) ====")
+                for i, art in enumerate(xml_articles):
+                    print(f"  XML Art {i}: {art}")
+            except Exception as e:
+                print(f"Erreur extraction articles XML: {e}")
+
+        # Séparer les champs articles des champs non-articles dans le mapping
+        article_fields = [f for f in mapping if f.get('is_article')]
+        header_fields = [f for f in mapping if not f.get('is_article')]
+
         results = []
-        for index, field in enumerate(mapping):
+
+        # 1. Traiter les champs d'en-tête (non-articles) normalement
+        for index, field in enumerate(header_fields):
             rdi_field_name = field.get('rdi', '')
             rdi_value = rdi_data.get(rdi_field_name, '').strip()
             if not rdi_value and rdi_field_name:
@@ -2768,13 +2931,10 @@ def controle():
                         if compiled is not None:
                             elements = compiled(xml_doc)
                             if elements:
-                                # Vérifier si on doit extraire un attribut
                                 attribute = field.get('attribute')
                                 if attribute and hasattr(elements[0], 'get'):
-                                    # Extraire la valeur de l'attribut
                                     xml_value = elements[0].get(attribute, '').strip()
                                 elif hasattr(elements[0], 'text') and elements[0].text:
-                                    # Extraire le texte de l'élément
                                     xml_value = elements[0].text.strip()
                 except:
                     pass
@@ -2783,12 +2943,10 @@ def controle():
             xml_short_name = get_xml_short_name(field.get('xpath', ''))
             xml_tag_name = get_xml_tag_name(field.get('xpath', ''))
 
-            # Normaliser la catégorie pour éviter les doublons
             categorie_bg_raw = field.get('categorie_bg', 'BG-OTHER')
             categorie_titre_raw = field.get('categorie_titre', 'Autres')
             categorie_bg, categorie_titre = normalize_category(categorie_bg_raw, categorie_titre_raw)
 
-            # Construire la liste CEGEDIM détaillée pour le tableau dédié
             ceg_details = []
             for c in field.get('controles_cegedim', []):
                 ceg_details.append({
@@ -2814,8 +2972,100 @@ def controle():
                 'categorie_bg': categorie_bg,
                 'categorie_titre': categorie_titre,
                 'obligatoire': field.get('obligatoire', 'Non'),
-                'order_index': index  # Conserver l'ordre du mapping
+                'order_index': index
             })
+
+        # 2. Traiter les articles (blocs répétitifs)
+        # Rapprocher les articles RDI et XML par BT-126 (numéro de ligne)
+        # Un même BT-126 peut apparaître plusieurs fois (ex: régularisation multi-périodes)
+
+        def get_rdi_art_line_id(rdi_art):
+            for k, v in rdi_art.items():
+                if 'BT126' in k:
+                    return v.strip().lstrip('0') or '0'
+            return ''
+
+        def get_rdi_art_name(rdi_art):
+            for k, v in rdi_art.items():
+                if 'BT153' in k:
+                    return v.strip()
+            return ''
+
+        # Construire la liste de paires (rdi_art, xml_art) rapprochées par BT-126
+        # Pour les articles ayant le même BT-126 (multi-périodes), on les matche dans l'ordre
+        matched_pairs = []
+        xml_used = set()
+
+        # Index des articles XML par line ID (numérique, sans zéros)
+        xml_by_line_id = {}
+        for xi, xa in enumerate(xml_articles):
+            lid = xa.get('BT-126', '').strip().lstrip('0') or '0'
+            xml_by_line_id.setdefault(lid, []).append((xi, xa))
+
+        for _, rdi_art in enumerate(rdi_articles):
+            rdi_lid = get_rdi_art_line_id(rdi_art)
+            # Chercher un article XML avec le même BT-126 non encore utilisé
+            xml_art = {}
+            if rdi_lid in xml_by_line_id:
+                for xi, xa in xml_by_line_id[rdi_lid]:
+                    if xi not in xml_used:
+                        xml_art = xa
+                        xml_used.add(xi)
+                        break
+            matched_pairs.append((rdi_art, xml_art, rdi_lid))
+
+        # Ajouter les articles XML qui n'ont pas de correspondance RDI
+        for xi, xa in enumerate(xml_articles):
+            if xi not in xml_used:
+                xml_lid = xa.get('BT-126', '').strip().lstrip('0') or '0'
+                matched_pairs.append(({}, xa, xml_lid))
+
+        nb_articles = len(matched_pairs)
+
+        articles_results = []
+        for art_idx, (rdi_art, xml_art, line_id) in enumerate(matched_pairs):
+            display_line_id = line_id or str(art_idx + 1)
+            article_name = get_rdi_art_name(rdi_art) or xml_art.get('BT-153', '').strip() or ''
+
+            for field in article_fields:
+                rdi_field_name = field.get('rdi', '')
+                rdi_value = ''
+                if rdi_art:
+                    rdi_value = rdi_art.get(rdi_field_name, '').strip()
+                    if not rdi_value and rdi_field_name:
+                        for key in rdi_art.keys():
+                            if key.upper() == rdi_field_name.upper():
+                                rdi_value = rdi_art[key].strip()
+                                break
+
+                xml_value = xml_art.get(field.get('balise', ''), '').strip()
+
+                status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
+                xml_short_name = get_xml_short_name(field.get('xpath', ''))
+                xml_tag_name = get_xml_tag_name(field.get('xpath', ''))
+
+                articles_results.append({
+                    'balise': field.get('balise', ''),
+                    'libelle': field.get('libelle', ''),
+                    'rdi': rdi_value,
+                    'xml': xml_value,
+                    'rdi_field': rdi_field_name,
+                    'xml_short_name': xml_short_name,
+                    'xml_tag_name': xml_tag_name,
+                    'status': status,
+                    'regles_testees': regles_testees,
+                    'details_erreurs': details_erreurs,
+                    'controles_cegedim': [],
+                    'categorie_bg': 'BG-LIGNES',
+                    'categorie_titre': '📋 LIGNES DE FACTURE',
+                    'obligatoire': field.get('obligatoire', 'Non'),
+                    'order_index': 1000 + art_idx * 100 + article_fields.index(field),
+                    'article_index': art_idx,
+                    'article_line_id': display_line_id,
+                    'article_name': article_name,
+                })
+
+        results.extend(articles_results)
 
         # Appliquer les règles métiers configurables
         results = apply_business_rules(results, type_formulaire)
@@ -2825,6 +3075,7 @@ def controle():
             'ok': sum(1 for r in results if r['status'] == 'OK'),
             'erreur': sum(1 for r in results if r['status'] == 'ERREUR'),
             'ignore': sum(1 for r in results if r['status'] == 'IGNORE'),
+            'nb_articles': nb_articles,
         }
 
         categories_results = defaultdict(lambda: {'champs': [], 'stats': {'total': 0, 'ok': 0, 'erreur': 0}})
