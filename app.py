@@ -295,7 +295,6 @@ def parse_rdi(rdi_path):
     articles = []
     current_article = None
     last_bt21_value = None  # Pour suivre les paires BT21/BT22
-    text_blocks = {}  # Pour accumuler les blocs de texte référencés (PENALITE-TEXT, TTAUX-TEXT, etc.)
 
     # Tags qui appartiennent aux blocs articles (lignes de facture)
     ARTICLE_TAG_PREFIXES = ('GS_FECT_EINV-BG25-', 'GS_FECT_EINV-BG26-',
@@ -305,6 +304,8 @@ def parse_rdi(rdi_path):
                             'MAIN_GS_FECT_EINV-BG29-', 'MAIN_GS_FECT_EINV-BG30-',
                             'MAIN_GS_FECT_EINV-BG31-')
 
+    # Lire toutes les lignes parsées en une seule passe
+    parsed_lines = []
     try:
         with open(rdi_path, 'r', encoding='cp1252') as f:
             for line in f:
@@ -318,44 +319,54 @@ def parse_rdi(rdi_path):
                             tag_parts = tag_section.split()
                             if tag_parts:
                                 tag = tag_parts[-1]
-
-                                # Gestion spéciale des paires BT21/BT22 (multiples occurrences)
-                                if tag == 'GS_FECT_EINV-BG1-BT21':
-                                    suffix = value.strip().upper()
-                                    last_bt21_value = suffix
-                                    suffixed_tag = f'{tag}-{suffix}'
-                                    data[suffixed_tag] = value
-                                elif tag == 'GS_FECT_EINV-BG1-BT22' and last_bt21_value:
-                                    suffixed_tag = f'{tag}-{last_bt21_value}'
-                                    data[suffixed_tag] = value
-                                    last_bt21_value = None
-
-                                # Gestion des blocs articles (BG25/BG26/BG29/BG30/BG31)
-                                elif any(tag.startswith(p) or tag.upper().startswith(p) for p in ARTICLE_TAG_PREFIXES):
-                                    # BT126 = début d'un nouveau bloc article
-                                    if 'BT126' in tag:
-                                        current_article = {}
-                                        articles.append(current_article)
-                                    if current_article is not None:
-                                        current_article[tag] = value
-                                # Accumulation des blocs de texte multi-lignes (PENALITE-TEXT, TTAUX-TEXT, etc.)
-                                elif not tag.startswith('GS_FECT_EINV-') and not tag.startswith('MAIN_GS_FECT_EINV-'):
-                                    if tag not in text_blocks:
-                                        text_blocks[tag] = []
-                                    text_blocks[tag].append(value)
-                                elif tag not in data:
-                                    data[tag] = value
+                                parsed_lines.append((tag, value))
                         except:
                             pass
     except:
         pass
 
-    # Résolution des références BT-22 vers les blocs de texte concaténés
-    for key in list(data.keys()):
-        if 'BT22' in key:
-            val = data[key].strip()
-            if val in text_blocks:
-                data[key] = ' '.join(text_blocks[val])
+    # Passe 1 : construire data normalement et collecter les valeurs BT-22 qui sont des références
+    bt22_refs = set()  # Noms de tags référencés par les BT-22 (ex: "PENALITE-TEXT", "TTAUX-TEXT")
+    for tag, value in parsed_lines:
+        # Gestion spéciale des paires BT21/BT22 (multiples occurrences)
+        if tag == 'GS_FECT_EINV-BG1-BT21':
+            suffix = value.strip().upper()
+            last_bt21_value = suffix
+            suffixed_tag = f'{tag}-{suffix}'
+            data[suffixed_tag] = value
+        elif tag == 'GS_FECT_EINV-BG1-BT22' and last_bt21_value:
+            suffixed_tag = f'{tag}-{last_bt21_value}'
+            data[suffixed_tag] = value
+            last_bt21_value = None
+            # Détecter si la valeur est une référence vers un bloc de texte
+            val_stripped = value.strip()
+            if val_stripped and not val_stripped.startswith('GS_FECT_EINV') and val_stripped.replace('-', '').replace('_', '').isalpha():
+                bt22_refs.add(val_stripped)
+        # Gestion des blocs articles (BG25/BG26/BG29/BG30/BG31)
+        elif any(tag.startswith(p) or tag.upper().startswith(p) for p in ARTICLE_TAG_PREFIXES):
+            if 'BT126' in tag:
+                current_article = {}
+                articles.append(current_article)
+            if current_article is not None:
+                current_article[tag] = value
+        elif tag not in data:
+            data[tag] = value
+
+    # Passe 2 : accumuler les blocs de texte référencés par les BT-22
+    if bt22_refs:
+        text_blocks = {}
+        for tag, value in parsed_lines:
+            if tag in bt22_refs:
+                if tag not in text_blocks:
+                    text_blocks[tag] = []
+                text_blocks[tag].append(value)
+
+        # Résolution : remplacer les valeurs BT-22 par le texte concaténé
+        for key in list(data.keys()):
+            if 'BT22' in key:
+                val = data[key].strip()
+                if val in text_blocks:
+                    data[key] = ' '.join(text_blocks[val])
 
     return data, articles
 
