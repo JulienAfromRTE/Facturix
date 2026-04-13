@@ -896,7 +896,7 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 .category-content{max-height:0;overflow:hidden;transition:max-height 0.3s}
 .category-content.open{max-height:50000px}
 table.main-table{width:100%;border-collapse:collapse;margin-top:10px}
-table.main-table{font-size:0.88em}
+table.main-table{font-size:0.92em}
 table.main-table th{background:#366092;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:0.95em}
 table.main-table td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle;line-height:1.35}
 table.main-table tr.data-row:hover{background:#f0f4ff}
@@ -1881,13 +1881,13 @@ var valHtml='';
 if(!isXmlOnly){
 var rdiVal=r.rdi||'(vide)';
 tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+rdiVal;
-valHtml+='<div class="val-line" title="RDI: '+rdiVal.replace(/"/g,'&quot;')+'"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
+valHtml+='<div class="val-line"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
 }
 if(data.type_controle==='xml'||isXmlOnly){
 var xmlVal=r.xml||'(vide)';
 if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
-valHtml+='<div class="val-line" title="XML: '+xmlVal.replace(/"/g,'&quot;')+'"><span class="val-label">XML:</span> '+xmlVal+'</div>';
+valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
 }
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
@@ -1953,13 +1953,13 @@ var valHtml='';
 if(!isXmlOnly){
 var rdiVal=r.rdi||'(vide)';
 tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+rdiVal;
-valHtml+='<div class="val-line" title="RDI: '+rdiVal.replace(/"/g,'&quot;')+'"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
+valHtml+='<div class="val-line"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
 }
 if(data.type_controle==='xml'||isXmlOnly){
 var xmlVal=r.xml||'(vide)';
 if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
-valHtml+='<div class="val-line" title="XML: '+xmlVal.replace(/"/g,'&quot;')+'"><span class="val-label">XML:</span> '+xmlVal+'</div>';
+valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
 }
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
