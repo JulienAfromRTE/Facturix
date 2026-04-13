@@ -9,6 +9,17 @@ from collections import defaultdict
 
 app = Flask(__name__)
 
+# ════════════════════════════════════════════
+# CONFIGURATION PROJECTIX — NE PAS SUPPRIMER
+# ════════════════════════════════════════════
+APP_NAME = "FacturixV2"
+APP_SLUG = "facturixv2"
+APP_RELEASE = "v2.0"
+APP_DESCRIPTION = "La potion magique pour des factures certifiées"
+APP_ICON = "💵"
+APP_COLOR = "#3b82f6"
+
+
 # Préfixe URL pour déploiement derrière un reverse proxy (ex: /facturix)
 # Détecté automatiquement via le header SCRIPT_NAME de nginx,
 # ou configurable via la variable d'environnement URL_PREFIX
