@@ -12,9 +12,9 @@ app = Flask(__name__)
 # ════════════════════════════════════════════
 # CONFIGURATION PROJECTIX — NE PAS SUPPRIMER
 # ════════════════════════════════════════════
-APP_NAME = "FacturixV2"
-APP_SLUG = "facturixv2"
-APP_RELEASE = "v2.0"
+APP_NAME = "facturix"
+APP_SLUG = "facturix"
+APP_RELEASE = "v2.1"
 APP_DESCRIPTION = "La potion magique pour des factures certifiées"
 APP_ICON = "💵"
 APP_COLOR = "#3b82f6"
