@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Factur-X V12.0 - Enhanced Mapping Management"""
-from flask import Flask, request, jsonify
-import os, json, PyPDF2
+from flask import Flask, request, jsonify, send_file
+import os, json, PyPDF2, io
 import logging
 from lxml import etree
 from collections import defaultdict
@@ -295,6 +295,7 @@ def parse_rdi(rdi_path):
     articles = []
     current_article = None
     last_bt21_value = None  # Pour suivre les paires BT21/BT22
+    text_blocks = {}  # Pour accumuler les blocs de texte référencés (PENALITE-TEXT, TTAUX-TEXT, etc.)
 
     # Tags qui appartiennent aux blocs articles (lignes de facture)
     ARTICLE_TAG_PREFIXES = ('GS_FECT_EINV-BG25-', 'GS_FECT_EINV-BG26-',
@@ -337,12 +338,25 @@ def parse_rdi(rdi_path):
                                         articles.append(current_article)
                                     if current_article is not None:
                                         current_article[tag] = value
+                                # Accumulation des blocs de texte multi-lignes (PENALITE-TEXT, TTAUX-TEXT, etc.)
+                                elif not tag.startswith('GS_FECT_EINV-') and not tag.startswith('MAIN_GS_FECT_EINV-'):
+                                    if tag not in text_blocks:
+                                        text_blocks[tag] = []
+                                    text_blocks[tag].append(value)
                                 elif tag not in data:
                                     data[tag] = value
                         except:
                             pass
     except:
         pass
+
+    # Résolution des références BT-22 vers les blocs de texte concaténés
+    for key in list(data.keys()):
+        if 'BT22' in key:
+            val = data[key].strip()
+            if val in text_blocks:
+                data[key] = ' '.join(text_blocks[val])
+
     return data, articles
 
 def extract_xml_from_pdf(pdf_path):
@@ -436,7 +450,7 @@ def perform_controls(field, rdi_value, xml_value, type_controle):
     is_xml_only = (type_controle in ['cii', 'xmlonly'])
 
     if field.get('obligatoire') == 'Oui':
-        regles_testees.append('Presence obligatoire')
+        regles_testees.append('Présence obligatoire')
         if is_xml_only:
             # En mode CII ou XML only : présence vérifiée dans le XML uniquement
             if not xml_value:
@@ -461,7 +475,6 @@ def perform_controls(field, rdi_value, xml_value, type_controle):
                     details_erreurs.append(f"{controle.get('ref')}: {controle.get('message', 'Controle CEGEDIM echoue')}")
 
     if type_controle == 'xml':
-        regles_testees.append('Comparaison RDI vs XML')
         if not xml_value and field.get('obligatoire') == 'Oui':
             status = 'ERREUR'
             details_erreurs.append('Absent du XML (obligatoire)')
@@ -706,7 +719,7 @@ def apply_business_rules(results, type_formulaire='simple'):
 
     return results
     """
-    Controles conditionnels en dur :
+    Contrôles conditionnels en dur :
     1. BT-22 = "B2G" (Chorus) -> BT-10, BT-13, BT-29, BT-29-1 obligatoires
     2. Avoir (BT-3 = "381")   -> BT-25, BT-26 obligatoires
     3. BT-8 doit toujours valoir "5"
@@ -883,15 +896,22 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 .category-content{max-height:0;overflow:hidden;transition:max-height 0.3s}
 .category-content.open{max-height:50000px}
 table.main-table{width:100%;border-collapse:collapse;margin-top:10px}
-table.main-table th{background:#366092;color:#fff;padding:12px;text-align:left;font-weight:600;font-size:1em}
-table.main-table td{padding:12px;border-bottom:1px solid #eee;vertical-align:top}
+table.main-table{font-size:0.88em}
+table.main-table th{background:#366092;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:0.95em}
+table.main-table td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle;line-height:1.35}
 table.main-table tr.data-row:hover{background:#f0f4ff}
-.col-status{width:32px;text-align:center;font-size:1.4em;padding:6px!important}
-.col-oblig{width:38px;text-align:center;font-size:1.2em;padding:6px!important}
-.col-bt{width:85px}
-.col-libelle{width:200px}
-.col-regles{width:330px}
-.col-erreurs{width:230px}
+table.main-table ul{margin:0;padding-left:14px}
+table.main-table li{margin:1px 0}
+.col-status{width:28px;text-align:center;font-size:1.2em;padding:4px!important}
+.col-bt{width:70px}
+.col-bt .bt-oblig{border:1.5px solid #c0392b;border-radius:6px;padding:2px 5px;color:#c0392b;display:inline-block;text-align:center;font-size:0.85em;line-height:1.3}
+.col-libelle{width:190px}
+.col-valeurs{width:180px}
+.col-valeurs .val-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;line-height:1.4}
+.col-valeurs .val-line .val-label{color:#888;font-weight:600;font-size:0.9em}
+.col-regles{max-width:200px}
+.col-erreurs{max-width:200px}
+.col-erreurs-hidden{display:none}
 /* Sous-tableau CEGEDIM */
 table.ceg-table{width:100%;border-collapse:collapse;margin:6px 0 0 0;font-size:0.85em}
 table.ceg-table th{background:#5b3fa0;color:#fff;padding:6px 10px;text-align:left}
@@ -1037,8 +1057,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </div>
 </div>
 <div class="tabs">
-<button class="tab active" id="tabControle">Controle</button>
-<button class="tab" id="tabParam">Parametrage</button>
+<button class="tab active" id="tabControle">Contrôle</button>
+<button class="tab" id="tabParam">Paramétrage</button>
 <button class="tab" id="tabRules">Règles Métiers</button>
 <button class="tab" id="tabAide">Aide</button>
 </div>
@@ -1057,7 +1077,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </select>
 </div>
 <div class="form-group">
-<label>Type de Controle :</label>
+<label>Type de Contrôle :</label>
 <select id="typeControle">
 <option value="xml">RDI vs XML - Comparaison sortie SAP / Exstream</option>
 <option value="rdi">RDI - Sortie SAP</option>
@@ -1074,6 +1094,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="form-group" id="groupePdf">
 <label>PDF ou XML :</label>
 <input type="file" id="pdfFile" accept=".pdf,.xml">
+<button class="btn-secondary" id="btnDownloadXml" style="display:none;margin-top:6px;font-size:12px;padding:4px 10px"><span>📄</span> Télécharger XML</button>
 </div>
 <div class="form-group" id="groupeCii" style="display:none">
 <label>Fichier XML CII :</label>
@@ -1084,13 +1105,13 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <input type="file" id="rdiFile" accept=".txt,.rdi">
 </div>
 </div>
-<button class="btn" id="btnControle">LANCER LE CONTROLE</button>
+<button class="btn" id="btnControle">LANCER LE CONTRÔLE</button>
 </div>
 <div class="loading" id="loading"><div class="spinner"></div><p>Controle en cours...</p></div>
 <div class="results" id="results">
 <div class="progress-section">
 <div class="progress-label-row">
-<h3>Taux de conformite</h3>
+<h3>Taux de conformité</h3>
 <span class="progress-pct" id="progressPct">0%</span>
 </div>
 
@@ -1206,16 +1227,16 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 </ul>
 <h3>Nouveautes V11</h3>
 <ul>
-<li>Case a cocher "Valide" dans le parametrage, fond vert</li>
+<li>Case a cocher "Valide" dans le paramétrage, fond vert</li>
 <li>Tableau CEGEDIM detaille par BT dans les resultats</li>
-<li>XPath visible dans le parametrage</li>
+<li>XPath visible dans le paramétrage</li>
 <li>Stats simplifiees : Total / OK / Erreurs</li>
 <li>Upload PDF masque en mode RDI</li>
 </ul>
 <h3>Mode RDI - Sortie SAP</h3>
-<ol><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ol>
+<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ol>
 <h3>Mode XML - Sortie Exstream</h3>
-<ol><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ol>
+<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ol>
 <h3>Extraction XML avec attributs</h3>
 <p>Pour les champs comme <code>&lt;udt:DateTimeString format="102"&gt;20250103&lt;/udt:DateTimeString&gt;</code>, 
 utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</code></p>
@@ -1715,22 +1736,22 @@ var groupePdf=document.getElementById('groupePdf');
 var groupeCii=document.getElementById('groupeCii');
 var groupeRdi=document.getElementById('groupeRdi');
 if(type==='rdi'){
-help.innerHTML='<strong>Mode RDI</strong><ul><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
+help.innerHTML='<strong>Mode RDI</strong><ul><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
 groupePdf.style.display='none';
 groupeCii.style.display='none';
 groupeRdi.style.display='flex';
 }else if(type==='cii'){
-help.innerHTML='<strong>Mode CII - GCP</strong><ul><li>Controle du XML CII (Cross Industry Invoice) directement</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
+help.innerHTML='<strong>Mode CII - GCP</strong><ul><li>Controle du XML CII (Cross Industry Invoice) directement</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
 groupePdf.style.display='none';
 groupeCii.style.display='flex';
 groupeRdi.style.display='none';
 }else if(type==='xmlonly'){
-help.innerHTML='<strong>Mode XML - Vérif facture uniquement</strong><ul><li>Controle du XML encapsule dans le PDF</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Regles metiers</li></ul>';
+help.innerHTML='<strong>Mode XML - Vérif facture uniquement</strong><ul><li>Controle du XML encapsule dans le PDF</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Regles metiers</li></ul>';
 groupePdf.style.display='flex';
 groupeCii.style.display='none';
 groupeRdi.style.display='none';
 }else{
-help.innerHTML='<strong>Mode RDI vs XML</strong><ul><li>Comparaison sortie SAP vs sortie Exstream</li><li>Presence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
+help.innerHTML='<strong>Mode RDI vs XML</strong><ul><li>Comparaison sortie SAP vs sortie Exstream</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
 groupePdf.style.display='flex';
 groupeCii.style.display='none';
 groupeRdi.style.display='flex';
@@ -1738,6 +1759,32 @@ groupeRdi.style.display='flex';
 }
 document.getElementById('typeControle').addEventListener('change',updateHelp);
 updateHelp();
+
+/* ---- AFFICHER/MASQUER BOUTON TELECHARGER XML ---- */
+document.getElementById('pdfFile').addEventListener('change',function(){
+var btn=document.getElementById('btnDownloadXml');
+var file=this.files[0];
+btn.style.display=(file && file.name.toLowerCase().endsWith('.pdf'))?'inline-block':'none';
+});
+document.getElementById('btnDownloadXml').addEventListener('click',async function(){
+var pdf=document.getElementById('pdfFile').files[0];
+if(!pdf){alert('Selectionnez un fichier PDF');return}
+var fd=new FormData();
+fd.append('pdf',pdf);
+try{
+var resp=await fetch(BASE+'/api/extract-xml',{method:'POST',body:fd});
+if(!resp.ok){var err=await resp.json();alert('Erreur: '+(err.error||'Extraction impossible'));return}
+var blob=await resp.blob();
+var url=URL.createObjectURL(blob);
+var a=document.createElement('a');
+a.href=url;
+a.download=pdf.name.replace(/\.pdf$/i,'.xml');
+document.body.appendChild(a);
+a.click();
+a.remove();
+URL.revokeObjectURL(url);
+}catch(e){alert('Erreur: '+e.message)}
+});
 
 /* ---- LANCER CONTROLE ---- */
 document.getElementById('btnControle').addEventListener('click',async function(){
@@ -1821,28 +1868,40 @@ var articleChamps=cat.champs.filter(function(r){return r.article_index!==undefin
 if(nonArticleChamps.length>0){
 html+='<table class="main-table"><thead><tr>'+
 '<th class="col-status"></th>'+
-'<th class="col-oblig">Oblig.</th>'+
 '<th class="col-bt">BT</th>'+
 '<th class="col-libelle">Libelle</th>'+
-'<th class="col-regles">Regles testees</th>'+
+'<th class="col-valeurs">Valeurs</th>'+
+'<th class="col-regles">Règles testées</th>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
 nonArticleChamps.forEach(function(r){
 var isXmlOnly=(data.type_controle==='cii'||data.type_controle==='xmlonly');
 var tooltipContent='';
-if(!isXmlOnly){tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');}
-if(data.type_controle==='xml'||isXmlOnly){if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');}
+var valHtml='';
+if(!isXmlOnly){
+var rdiVal=r.rdi||'(vide)';
+tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+rdiVal;
+valHtml+='<div class="val-line" title="RDI: '+rdiVal.replace(/"/g,'&quot;')+'"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
+}
+if(data.type_controle==='xml'||isXmlOnly){
+var xmlVal=r.xml||'(vide)';
+if(tooltipContent)tooltipContent+='<br>';
+tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
+valHtml+='<div class="val-line" title="XML: '+xmlVal.replace(/"/g,'&quot;')+'"><span class="val-label">XML:</span> '+xmlVal+'</div>';
+}
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
-var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
+var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
+var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
-'<td class="col-oblig">'+obligIcon+'</td>'+
-'<td><strong>'+r.balise+'</strong></td>'+
+'<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
+'<td class="col-valeurs">'+valHtml+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
-html+='</ul></td><td><ul>';
+html+='</ul></td><td class="'+errClass+'"><ul>';
 r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
 html+='</ul></td></tr>';
 if(r.controles_cegedim&&r.controles_cegedim.length>0){
@@ -1882,28 +1941,40 @@ html+='<div class="article-block" style="margin:4px 0;border:1px solid #444;bord
 '<div class="article-content" id="art-'+artIdx+'" style="display:none">';
 html+='<table class="main-table"><thead><tr>'+
 '<th class="col-status"></th>'+
-'<th class="col-oblig">Oblig.</th>'+
 '<th class="col-bt">BT</th>'+
-'<th class="col-libelle">Libelle</th>'+
-'<th class="col-regles">Regles testees</th>'+
+'<th class="col-libelle">Libellé</th>'+
+'<th class="col-valeurs">Valeurs</th>'+
+'<th class="col-regles">Règles testées</th>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
 artChamps.forEach(function(r){
 var isXmlOnly=(data.type_controle==='cii'||data.type_controle==='xmlonly');
 var tooltipContent='';
-if(!isXmlOnly){tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+(r.rdi||'(vide)');}
-if(data.type_controle==='xml'||isXmlOnly){if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+(r.xml||'(vide)');}
+var valHtml='';
+if(!isXmlOnly){
+var rdiVal=r.rdi||'(vide)';
+tooltipContent='<strong>RDI:</strong> '+r.rdi_field+' = '+rdiVal;
+valHtml+='<div class="val-line" title="RDI: '+rdiVal.replace(/"/g,'&quot;')+'"><span class="val-label">RDI:</span> '+rdiVal+'</div>';
+}
+if(data.type_controle==='xml'||isXmlOnly){
+var xmlVal=r.xml||'(vide)';
+if(tooltipContent)tooltipContent+='<br>';
+tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
+valHtml+='<div class="val-line" title="XML: '+xmlVal.replace(/"/g,'&quot;')+'"><span class="val-label">XML:</span> '+xmlVal+'</div>';
+}
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
-var obligIcon=r.obligatoire==='Oui'?'⚠️':'';
+var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
+var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
-'<td class="col-oblig">'+obligIcon+'</td>'+
-'<td><strong>'+r.balise+'</strong></td>'+
+'<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
+'<td class="col-valeurs">'+valHtml+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
-html+='</ul></td><td><ul>';
+html+='</ul></td><td class="'+errClass+'"><ul>';
 r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
 html+='</ul></td></tr>';
 });
@@ -1993,7 +2064,7 @@ var hasMatch=false;
 // Filtrer les lignes standard (hors articles)
 var rows=cat.querySelectorAll('.main-table > tbody > .data-row, table.main-table > tbody > .data-row');
 rows.forEach(function(row){
-var btStrong=row.querySelector('td:nth-child(3) strong');
+var btStrong=row.querySelector('td:nth-child(2) strong');
 if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
 var statusIcon=row.querySelector('.col-status').textContent.trim();
@@ -2017,7 +2088,7 @@ artBlocks.forEach(function(block){
 var artHasMatch=false;
 var artRows=block.querySelectorAll('.data-row');
 artRows.forEach(function(row){
-var btStrong=row.querySelector('td:nth-child(3) strong');
+var btStrong=row.querySelector('td:nth-child(2) strong');
 if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
 var statusIcon=row.querySelector('.col-status').textContent.trim();
@@ -3151,6 +3222,31 @@ def controle():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/extract-xml', methods=['POST'])
+def api_extract_xml():
+    """Extrait le XML embarqué dans un PDF et le renvoie en téléchargement"""
+    pdf_file = request.files.get('pdf')
+    if not pdf_file:
+        return jsonify({'error': 'Fichier PDF manquant'}), 400
+    pdf_path = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
+    pdf_file.save(pdf_path)
+    try:
+        xml_content = extract_xml_from_pdf(pdf_path)
+        if not xml_content:
+            return jsonify({'error': 'Aucun XML trouvé dans ce PDF'}), 400
+        # Nom du fichier XML basé sur le nom du PDF
+        xml_filename = os.path.splitext(pdf_file.filename)[0] + '.xml'
+        xml_bytes = xml_content.encode('utf-8') if isinstance(xml_content, str) else xml_content
+        return send_file(
+            io.BytesIO(xml_bytes),
+            mimetype='application/xml',
+            as_attachment=True,
+            download_name=xml_filename
+        )
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
 
 # ===== NOUVELLES ROUTES API POUR GESTION DES MAPPINGS =====
 

@@ -1741,7 +1741,7 @@
       "controles_cegedim": [],
       "libelle": "Code de type de TVA (mention \"Autoliquidation\" sur la facture) ",
       "obligatoire": "Non",
-      "rdg": "Creation d'une table de parametrage ZFACTUREX_CODE_TVA",
+      "rdg": "Creation d'une table de paramétrage ZFACTUREX_CODE_TVA",
       "rdi": "GS_FECT_EINV-BG23-BT118_TVA_CODE_TYPE",
       "type": "Decimal",
       "valide": true,
