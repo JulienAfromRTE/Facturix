@@ -905,11 +905,11 @@ table.main-table li{margin:1px 0}
 .col-status{width:28px;text-align:center;font-size:1.2em;padding:4px!important}
 .col-bt{width:70px}
 .col-bt .bt-oblig{border:1.5px solid #c0392b;border-radius:6px;padding:2px 5px;color:#c0392b;display:inline-block;text-align:center;font-size:0.85em;line-height:1.3}
-.col-libelle{width:190px}
+.col-libelle{width:300px}
+.col-regles{width:300px}
 .col-valeurs{width:180px}
 .col-valeurs .val-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;line-height:1.4}
 .col-valeurs .val-line .val-label{color:#888;font-weight:600;font-size:0.9em}
-.col-regles{max-width:200px}
 .col-erreurs{max-width:200px}
 .col-erreurs-hidden{display:none}
 /* Sous-tableau CEGEDIM */
@@ -1870,8 +1870,8 @@ html+='<table class="main-table"><thead><tr>'+
 '<th class="col-status"></th>'+
 '<th class="col-bt">BT</th>'+
 '<th class="col-libelle">Libelle</th>'+
+'<th class="col-regles">Regles testees</th>'+
 '<th class="col-valeurs">Valeurs</th>'+
-'<th class="col-regles">Règles testées</th>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
 nonArticleChamps.forEach(function(r){
@@ -1898,10 +1898,9 @@ html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;'
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
-'<td class="col-valeurs">'+valHtml+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
-html+='</ul></td><td class="'+errClass+'"><ul>';
+html+='</ul></td><td class="col-valeurs">'+valHtml+'</td><td class="'+errClass+'"><ul>';
 r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
 html+='</ul></td></tr>';
 if(r.controles_cegedim&&r.controles_cegedim.length>0){
@@ -1942,9 +1941,9 @@ html+='<div class="article-block" style="margin:4px 0;border:1px solid #444;bord
 html+='<table class="main-table"><thead><tr>'+
 '<th class="col-status"></th>'+
 '<th class="col-bt">BT</th>'+
-'<th class="col-libelle">Libellé</th>'+
+'<th class="col-libelle">Libelle</th>'+
+'<th class="col-regles">Regles testees</th>'+
 '<th class="col-valeurs">Valeurs</th>'+
-'<th class="col-regles">Règles testées</th>'+
 '<th class="col-erreurs">Details erreurs</th>'+
 '</tr></thead><tbody>';
 artChamps.forEach(function(r){
@@ -1971,10 +1970,9 @@ html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;'
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
-'<td class="col-valeurs">'+valHtml+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
-html+='</ul></td><td class="'+errClass+'"><ul>';
+html+='</ul></td><td class="col-valeurs">'+valHtml+'</td><td class="'+errClass+'"><ul>';
 r.details_erreurs.forEach(function(err){html+='<li>'+err+'</li>'});
 html+='</ul></td></tr>';
 });
