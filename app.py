@@ -649,22 +649,17 @@ def apply_business_rules(results, type_formulaire='simple'):
                     target['details_erreurs'].append(msg)
         
         elif action_type == 'make_optional':
-            _ERREURS_PRESENCE = {
-                'Champ obligatoire absent du RDI',
-                'Champ obligatoire absent du XML',
-                'Absent du XML (obligatoire)',
-            }
             target['obligatoire'] = 'Non'
             regle_label = f'Règle: {rule_name}'
             if regle_label not in target['regles_testees']:
                 target['regles_testees'].insert(0, regle_label)
-            # Annuler les erreurs de présence déjà posées par perform_controls
-            target['details_erreurs'] = [
-                e for e in target['details_erreurs'] if e not in _ERREURS_PRESENCE
-            ]
-            if not target['details_erreurs']:
+            # Si le champ est vide (RDI et XML), toutes les erreurs sont
+            # des erreurs de présence — on les efface intégralement.
+            # Si le champ est renseigné, on conserve les éventuelles erreurs
+            # de valeur (divergence RDI/XML, etc.).
+            if not target.get('rdi', '').strip() and not target.get('xml', '').strip():
                 target['details_erreurs'] = ['RAS']
-                target['status'] = 'RAS'
+                target['status'] = 'OK'
 
         elif action_type == 'must_be_negative':
             try:
@@ -703,8 +698,16 @@ def apply_business_rules(results, type_formulaire='simple'):
         
         # Si conditions remplies, appliquer les actions
         if conditions_met or len(rule.get('conditions', [])) == 0:
+            rule_name = rule.get('name', 'Règle métier')
+            # Annoter les champs déclencheurs (conditions) avec le nom de la règle
+            for cond in rule.get('conditions', []):
+                trigger = by_balise.get(cond.get('field'))
+                if trigger is not None:
+                    regle_label = f'Règle déclenchée : {rule_name}'
+                    if regle_label not in trigger['regles_testees']:
+                        trigger['regles_testees'].append(regle_label)
             for action in rule.get('actions', []):
-                action['reason'] = rule.get('name', 'Règle métier')
+                action['reason'] = rule_name
                 apply_action(action, by_balise)
 
     # -------------------------------------------------------

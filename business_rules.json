@@ -1,9 +1,24 @@
 {
   "rules": [
     {
-      "id": "rule_1",
-      "name": "Facture B2G Chorus",
-      "enabled": true,
+      "actions": [
+        {
+          "field": "BT-10",
+          "type": "make_mandatory"
+        },
+        {
+          "field": "BT-13",
+          "type": "make_mandatory"
+        },
+        {
+          "field": "BT-29",
+          "type": "make_mandatory"
+        },
+        {
+          "field": "BT-29-1",
+          "type": "make_mandatory"
+        }
+      ],
       "conditions": [
         {
           "field": "BT-22",
@@ -11,29 +26,21 @@
           "value": "B2G"
         }
       ],
-      "actions": [
-        {
-          "type": "make_mandatory",
-          "field": "BT-10"
-        },
-        {
-          "type": "make_mandatory",
-          "field": "BT-13"
-        },
-        {
-          "type": "make_mandatory",
-          "field": "BT-29"
-        },
-        {
-          "type": "make_mandatory",
-          "field": "BT-29-1"
-        }
-      ]
+      "enabled": true,
+      "id": "rule_1",
+      "name": "Facture B2G Chorus"
     },
     {
-      "id": "rule_2",
-      "name": "Facture avoir",
-      "enabled": true,
+      "actions": [
+        {
+          "field": "BT-25",
+          "type": "make_mandatory"
+        },
+        {
+          "field": "BT-26",
+          "type": "make_mandatory"
+        }
+      ],
       "conditions": [
         {
           "field": "BT-3",
@@ -41,34 +48,30 @@
           "value": "381"
         }
       ],
-      "actions": [
-        {
-          "type": "make_mandatory",
-          "field": "BT-25"
-        },
-        {
-          "type": "make_mandatory",
-          "field": "BT-26"
-        }
-      ]
+      "enabled": true,
+      "id": "rule_2",
+      "name": "Facture avoir"
     },
     {
-      "id": "rule_3",
-      "name": "BT-8 doit valoir 5",
-      "enabled": true,
-      "conditions": [],
       "actions": [
         {
-          "type": "must_equal",
           "field": "BT-8",
+          "type": "must_equal",
           "value": "5"
         }
-      ]
+      ],
+      "conditions": [],
+      "enabled": true,
+      "id": "rule_3",
+      "name": "BT-8 doit valoir 5"
     },
     {
-      "id": "rule_4",
-      "name": "Client étranger",
-      "enabled": true,
+      "actions": [
+        {
+          "field": "BT-58",
+          "type": "make_mandatory"
+        }
+      ],
       "conditions": [
         {
           "field": "BT-48",
@@ -76,17 +79,17 @@
           "value": "FR"
         }
       ],
-      "actions": [
-        {
-          "type": "make_mandatory",
-          "field": "BT-58"
-        }
-      ]
+      "enabled": true,
+      "id": "rule_4",
+      "name": "Client étranger"
     },
     {
-      "id": "rule_5",
-      "name": "Facture négative - quantité",
-      "enabled": true,
+      "actions": [
+        {
+          "field": "BT-129",
+          "type": "must_be_negative"
+        }
+      ],
       "conditions": [
         {
           "field": "BT-131",
@@ -94,10 +97,35 @@
           "value": "0"
         }
       ],
+      "enabled": true,
+      "id": "rule_5",
+      "name": "Facture négative - quantité"
+    },
+    {
+      "id": "rule_1776259271494",
+      "name": "BT47 BT48",
+      "description": "",
+      "enabled": true,
+      "applicable_forms": [
+        "simple",
+        "groupee",
+        "ventesdiverses"
+      ],
+      "conditions": [
+        {
+          "field": "BT-22-BAR",
+          "operator": "equals",
+          "value": "B2BINT"
+        }
+      ],
       "actions": [
         {
-          "type": "must_be_negative",
-          "field": "BT-129"
+          "type": "make_optional",
+          "field": "BT-47"
+        },
+        {
+          "type": "make_optional",
+          "field": "BT-48"
         }
       ]
     }

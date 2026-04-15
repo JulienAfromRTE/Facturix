@@ -3,3 +3,7 @@
 *.xlsx
 *.txt
 4300225657.txt
+*.json
+__pycache__/
+*.pyc
+*.pyo
