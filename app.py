@@ -421,11 +421,11 @@ def parse_rdi(rdi_path):
                             'MAIN_GS_FECT_EINV-BG31-')
 
     # Lire toutes les lignes parsées en une seule passe
-    parsed_lines = []
+    parsed_lines = []  # (record_type, tag, value)
     try:
         with open(rdi_path, 'r', encoding='cp1252') as f:
             for line in f:
-                if line.startswith('DHEADER') or line.startswith('DMAIN'):
+                if line.startswith('DHEADER') or line.startswith('DMAIN') or line.startswith('DZREGLT'):
                     if len(line) >= 176:
                         try:
                             length_str = line[172:175]
@@ -435,15 +435,24 @@ def parse_rdi(rdi_path):
                             tag_parts = tag_section.split()
                             if tag_parts:
                                 tag = tag_parts[-1]
-                                parsed_lines.append((tag, value))
+                                record_type = line.split()[0]
+                                parsed_lines.append((record_type, tag, value))
                         except:
                             pass
     except:
         pass
 
+    # Construire data_multi : {tag_upper: [(record_type, value), ...]} pour toutes les occurrences
+    data_multi = {}
+    for record_type, tag, value in parsed_lines:
+        tag_upper = tag.upper()
+        if tag_upper not in data_multi:
+            data_multi[tag_upper] = []
+        data_multi[tag_upper].append((record_type, value))
+
     # Passe 1 : construire data normalement et collecter les valeurs BT-22 qui sont des références
     bt22_refs = set()  # Noms de tags référencés par les BT-22 (ex: "PENALITE-TEXT", "TTAUX-TEXT")
-    for tag, value in parsed_lines:
+    for record_type, tag, value in parsed_lines:
         # Gestion spéciale des paires BT21/BT22 (multiples occurrences)
         if tag == 'GS_FECT_EINV-BG1-BT21':
             suffix = value.strip().upper()
@@ -471,7 +480,7 @@ def parse_rdi(rdi_path):
     # Passe 2 : accumuler les blocs de texte référencés par les BT-22
     if bt22_refs:
         text_blocks = {}
-        for tag, value in parsed_lines:
+        for record_type, tag, value in parsed_lines:
             if tag in bt22_refs:
                 if tag not in text_blocks:
                     text_blocks[tag] = []
@@ -484,7 +493,7 @@ def parse_rdi(rdi_path):
                 if val in text_blocks:
                     data[key] = ' '.join(text_blocks[val])
 
-    return data, articles
+    return data, articles, data_multi
 
 def extract_xml_from_pdf(pdf_path):
     try:
@@ -721,7 +730,9 @@ def apply_business_rules(results, type_formulaire='simple'):
         target = by_balise.get(target_field)
         if not target:
             return
-        
+        if target.get('status') in ('AMBIGU', 'IGNORE'):
+            return
+
         rule_name = action.get('reason', 'Règle métier')
         
         if action_type == 'make_mandatory':
@@ -772,12 +783,79 @@ def apply_business_rules(results, type_formulaire='simple'):
                 regle_label = 'Doit être négatif'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                
+
                 if value >= 0:
                     target['status'] = 'ERREUR'
                     if 'RAS' in target['details_erreurs']:
                         target['details_erreurs'].remove('RAS')
                     msg = f'Règle métier "{rule_name}" non respectée : valeur doit être négative (trouvée: {value})'
+                    if msg not in target['details_erreurs']:
+                        target['details_erreurs'].append(msg)
+            except:
+                pass
+
+        elif action_type == 'must_equal_sum':
+            field1 = action.get('field1', '')
+            field2 = action.get('field2', '')
+            src1 = by_balise.get(field1)
+            src2 = by_balise.get(field2)
+            try:
+                def _to_float(obj):
+                    if not obj:
+                        return 0.0
+                    s = obj.get('rdi', '').strip() or obj.get('xml', '').strip() or '0'
+                    return float(s.replace(',', '.').replace(' ', ''))
+                val1 = _to_float(src1)
+                val2 = _to_float(src2)
+                expected = round(val1 + val2, 10)
+                val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
+                val_target = float(val_target_str.replace(',', '.').replace(' ', ''))
+                regle_label = f'Doit égaler {field1} + {field2}'
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                if abs(val_target - expected) > 0.005:
+                    target['status'] = 'ERREUR'
+                    if 'RAS' in target['details_erreurs']:
+                        target['details_erreurs'].remove('RAS')
+                    msg = (f'Règle métier "{rule_name}" non respectée : '
+                           f'attendu {expected} ({field1}={val1} + {field2}={val2}), '
+                           f'trouvé {val_target}')
+                    if msg not in target['details_erreurs']:
+                        target['details_erreurs'].append(msg)
+            except:
+                pass
+
+        elif action_type == 'must_equal_sum_of_all':
+            # Additionne toutes les occurrences de sum_field (ex: tous les BT-129 de chaque article)
+            sum_field = action.get('sum_field', '')
+            try:
+                tolerance = float(str(action.get('tolerance', '0.01')).replace(',', '.') or '0.01')
+            except:
+                tolerance = 0.01
+            try:
+                all_items = [r for r in results if r.get('balise') == sum_field]
+                total = 0.0
+                for item in all_items:
+                    s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
+                    try:
+                        total += float(s.replace(',', '.').replace(' ', ''))
+                    except:
+                        pass
+                total = round(total, 10)
+                val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
+                val_target = float(val_target_str.replace(',', '.').replace(' ', ''))
+                n = len(all_items)
+                regle_label = f'Doit égaler la somme des {n} {sum_field}'
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                if abs(val_target - total) > tolerance:
+                    target['status'] = 'ERREUR'
+                    if 'RAS' in target['details_erreurs']:
+                        target['details_erreurs'].remove('RAS')
+                    msg = (f'Règle métier "{rule_name}" non respectée : '
+                           f'somme des {n} {sum_field} = {total}, '
+                           f'trouvé {val_target} '
+                           f'(écart {abs(val_target - total):.4f}, tolérance {tolerance})')
                     if msg not in target['details_erreurs']:
                         target['details_erreurs'].append(msg)
             except:
@@ -852,6 +930,8 @@ def apply_business_rules(results, type_formulaire='simple'):
         def force_obligatoire_bg1(balise, raison):
             r = by_balise.get(balise)
             if r is None:
+                return
+            if r.get('status') in ('AMBIGU', 'IGNORE'):
                 return
             r['obligatoire'] = 'Oui'
             regle_label = f'Regle specifique : {raison}'
@@ -975,7 +1055,7 @@ HTML = r"""<!DOCTYPE html>
 <link rel="icon" type="image/png" href="__URL_PREFIX__/img/AppLogo_V2.png">
 <title>Facturix - La potion magique pour des factures certifiées !</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Bangers&display=swap');
 /* === RESET & BASE === */
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;display:flex;align-items:stretch;gap:0}
@@ -990,7 +1070,9 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .header-banner{flex-shrink:0;cursor:pointer;margin-bottom:0;margin-top:0;transition:transform 0.2s;align-self:flex-end;display:flex;align-items:flex-end}
 .header-banner:hover{transform:scale(1.05)}
 .header-banner img{height:100px;width:auto;display:block}
-.header-text h1{font-size:1.35em;margin:0;font-weight:400;letter-spacing:0.01em}
+.header-text h1{font-size:1.35em;margin:0;font-weight:400;letter-spacing:0.01em;display:flex;align-items:flex-end;gap:0.15em}
+.header-text h1 .title-facturix{font-family:'Bangers',cursive;font-size:2em;letter-spacing:0.08em;text-shadow:1px 1px 0 rgba(0,0,0,0.25);line-height:1}
+.header-text h1 .title-subtitle{font-size:0.75em;padding-bottom:0.07em}
 .version{font-size:0.78em;opacity:0.65;margin-top:4px;font-weight:400}
 /* === TABS === */
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 20px;gap:2px}
@@ -1047,12 +1129,13 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .pct-50{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
 .pct-75{background:linear-gradient(90deg,#10b981,#34d399)}
 /* === STAT CARDS === */
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}
 .stat-card{background:#fff;padding:13px 10px;border-radius:10px;text-align:center;border:1px solid #e2e8f0;font-size:0.8em;color:#64748b;font-weight:500;transition:transform 0.18s,box-shadow 0.18s;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.08)}
 .stat-value{font-size:1.7em;font-weight:700;margin-top:4px;display:block}
 .ok .stat-value{color:#10b981}
 .erreur .stat-value{color:#ef4444}
+.ambigu .stat-value{color:#d97706}
 .ignore .stat-value{color:#94a3b8}
 /* === SEARCH BOX === */
 .search-box{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;flex-wrap:nowrap}
@@ -1245,8 +1328,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <div class="container">
 <div class="header">
 <div class="header-left">
-<img class="header-logo" src="__URL_PREFIX__/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1>Facturix - La potion magique pour des factures certifiées !</h1>
-<div class="version">V13.0 — Made with love by Julien ❤️</div></div>
+<img class="header-logo" src="__URL_PREFIX__/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1><span class="title-facturix">Facturix</span><span class="title-subtitle"> &nbsp;&nbsp;&nbsp;&nbsp;   La potion magique pour des factures certifiées !</span></h1>
+<div class="version">v15 — Made with love by Julien ❤️</div></div>
 </div>
 <div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
 <img src="__URL_PREFIX__/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
@@ -1321,6 +1404,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <div class="stat-card ok"><div>OK</div><div class="stat-value" id="statOk">0</div></div>
 <div class="stat-card erreur"><div>Erreurs</div><div class="stat-value" id="statErreur">0</div></div>
 <div class="stat-card ignore"><div>Ignorés</div><div class="stat-value" id="statIgnore">0</div></div>
+<div class="stat-card ambigu"><div>Ambigus</div><div class="stat-value" id="statAmbigu">0</div></div>
 <div class="stat-card" style="background:#1a3a5a;color:#fff"><div>📦 Articles</div><div class="stat-value" id="statArticles" style="color:#fff">—</div></div>
 </div>
 </div>
@@ -1332,6 +1416,10 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterErrors" style="width:18px;height:18px">
 <span>Afficher uniquement les erreurs</span>
+</label>
+<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="filterAmbigus" style="width:18px;height:18px">
+<span>Afficher uniquement les ambigus</span>
 </label>
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="showCegedim" style="width:18px;height:18px">
@@ -1487,9 +1575,16 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 <!-- Mapping technique -->
 <div class="edit-section">
 <div class="edit-section-title">Mapping technique</div>
+<div class="edit-row-2">
 <div class="edit-fg">
 <label class="edit-lbl">Champ RDI</label>
 <input type="text" id="editRdi" class="edit-inp mono" placeholder="ex : GS_FECT_EINV-BG1-BT21-BAR">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Type d'enregistrement <span class="edit-opt">optionnel</span></label>
+<input type="text" id="editTypeEnreg" class="edit-inp mono" placeholder="ex : DMAIN">
+<span class="edit-hint">Si le même tag RDI existe dans plusieurs types de lignes, précisez lequel utiliser.</span>
+</div>
 </div>
 <div class="edit-fg">
 <label class="edit-lbl">XPath</label>
@@ -2010,6 +2105,7 @@ document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
 document.getElementById('statIgnore').textContent=data.stats.ignore||0;
+document.getElementById('statAmbigu').textContent=data.stats.ambigu||0;
 var artInfo=document.getElementById('statArticles');
 if(artInfo){artInfo.textContent=data.stats.nb_articles>0?data.stats.nb_articles:'—';}
 var pct=data.stats.total>0?Math.round(data.stats.ok/data.stats.total*100):0;
@@ -2087,9 +2183,9 @@ if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
 valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
 }
-var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
+var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
-var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
 var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
 var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
@@ -2159,9 +2255,9 @@ if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
 valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
 }
-var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':'❌');
+var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
-var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':'');
+var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
 var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
 var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
 html+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
@@ -2211,22 +2307,26 @@ document.getElementById('results').style.display='block';
 var searchInput=document.getElementById('searchBT');
 var clearBtn=document.getElementById('btnClearSearch');
 var filterErrorsCheckbox=document.getElementById('filterErrors');
+var filterAmbigusCheckbox=document.getElementById('filterAmbigus');
 
 function applyAllFilters(){
 var searchTerm=searchInput.value.toLowerCase().trim();
 var showErrorsOnly=filterErrorsCheckbox.checked;
+var showAmbigusOnly=filterAmbigusCheckbox.checked;
 if(searchTerm){
 clearBtn.style.display='inline-block';
 }else{
 clearBtn.style.display='none';
 }
-filterResults(searchTerm,showErrorsOnly);
+filterResults(searchTerm,showErrorsOnly,showAmbigusOnly);
 }
 
 searchInput.removeEventListener('input',applyAllFilters);
 searchInput.addEventListener('input',applyAllFilters);
 filterErrorsCheckbox.removeEventListener('change',applyAllFilters);
 filterErrorsCheckbox.addEventListener('change',applyAllFilters);
+filterAmbigusCheckbox.removeEventListener('change',applyAllFilters);
+filterAmbigusCheckbox.addEventListener('change',applyAllFilters);
 clearBtn.onclick=function(){
 searchInput.value='';
 clearBtn.style.display='none';
@@ -2255,7 +2355,7 @@ cegedimCheckbox.addEventListener('change',toggleCegedim);
 toggleCegedim();
 applyAllFilters();
 
-function filterResults(term,errorsOnly){
+function filterResults(term,errorsOnly,ambigusOnly){
 var categories=document.querySelectorAll('.category');
 var visibleCount=0;
 categories.forEach(function(cat){
@@ -2268,11 +2368,13 @@ if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
 var statusIcon=row.querySelector('.col-status').textContent.trim();
 var isError=(statusIcon==='❌');
+var isAmbigu=(statusIcon==='⚠️');
 var nextRow=row.nextElementSibling;
 var isCegedimRow=nextRow && nextRow.querySelector('.ceg-table');
 var matchesSearch=!term||btText.includes(term);
 var matchesErrorFilter=!errorsOnly||isError;
-if(matchesSearch&&matchesErrorFilter){
+var matchesAmbigusFilter=!ambigusOnly||isAmbigu;
+if(matchesSearch&&matchesErrorFilter&&matchesAmbigusFilter){
 row.style.display='';
 if(isCegedimRow){nextRow.style.display=cegedimCheckbox.checked?'':'none';}
 hasMatch=true;
@@ -2292,9 +2394,11 @@ if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
 var statusIcon=row.querySelector('.col-status').textContent.trim();
 var isError=(statusIcon==='❌');
+var isAmbigu=(statusIcon==='⚠️');
 var matchesSearch=!term||btText.includes(term);
 var matchesErrorFilter=!errorsOnly||isError;
-if(matchesSearch&&matchesErrorFilter){
+var matchesAmbigusFilter=!ambigusOnly||isAmbigu;
+if(matchesSearch&&matchesErrorFilter&&matchesAmbigusFilter){
 row.style.display='';
 artHasMatch=true;
 }else{
@@ -2409,6 +2513,22 @@ btn.addEventListener('click',function(){editMapping(this.getAttribute('data-inde
 document.querySelectorAll('#mappingList .btn-delete').forEach(function(btn){
 btn.addEventListener('click',function(){deleteMapping(this.getAttribute('data-index'))});
 });
+// Ré-appliquer le filtre de recherche actif après rechargement
+applySearchParamFilter();
+}
+
+function applySearchParamFilter(){
+var query=document.getElementById('searchBTParam').value.toLowerCase().trim();
+var items=document.querySelectorAll('.mapping-item');
+if(query){
+items.forEach(function(item){
+var baliseEl=item.querySelector('.item-main strong');
+var balise=baliseEl?baliseEl.textContent.toLowerCase():'';
+item.style.display=balise.includes(query)?'flex':'none';
+});
+}else{
+items.forEach(function(item){item.style.display='flex';});
+}
 }
 
 function editMapping(index){
@@ -2436,6 +2556,7 @@ categorieValue='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
 }
 document.getElementById('editCategorie').value=categorieValue;
 document.getElementById('editRdi').value=champ.rdi;
+document.getElementById('editTypeEnreg').value=champ.type_enregistrement||'';
 document.getElementById('editXpath').value=(champ.xpath||'').replace(/^\/\//,'');
 document.getElementById('editAttribute').value=champ.attribute||'';
 document.getElementById('editType').value=champ.type;
@@ -2493,6 +2614,7 @@ document.getElementById('editBalise').value='';
 document.getElementById('editLibelle').value='';
 document.getElementById('editCategorie').value='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
 document.getElementById('editRdi').value='';
+document.getElementById('editTypeEnreg').value='';
 document.getElementById('editXpath').value='';
 document.getElementById('editAttribute').value='';
 document.getElementById('editType').value='String';
@@ -2518,6 +2640,7 @@ var newChamp={
 balise:document.getElementById('editBalise').value,
 libelle:document.getElementById('editLibelle').value,
 rdi:document.getElementById('editRdi').value,
+type_enregistrement:document.getElementById('editTypeEnreg').value||undefined,
 xpath:document.getElementById('editXpath').value,
 attribute:document.getElementById('editAttribute').value||undefined,
 type:document.getElementById('editType').value,
@@ -2657,35 +2780,14 @@ document.getElementById('typeFormulaireParam').addEventListener('change',functio
 
 /* ---- RECHERCHE BT PARAMETRAGE ---- */
 document.getElementById('searchBTParam').addEventListener('input',function(){
-var query=this.value.toLowerCase().trim();
 var btn=document.getElementById('btnClearSearchParam');
-if(query){
-btn.style.display='block';
-var items=document.querySelectorAll('.mapping-item');
-items.forEach(function(item){
-var baliseEl=item.querySelector('.item-main strong');
-var balise=baliseEl?baliseEl.textContent.toLowerCase():'';
-if(balise.includes(query)){
-item.style.display='flex';
-}else{
-item.style.display='none';
-}
-});
-}else{
-btn.style.display='none';
-var items=document.querySelectorAll('.mapping-item');
-items.forEach(function(item){
-item.style.display='flex';
-});
-}
+btn.style.display=this.value?'block':'none';
+applySearchParamFilter();
 });
 document.getElementById('btnClearSearchParam').addEventListener('click',function(){
 document.getElementById('searchBTParam').value='';
 this.style.display='none';
-var items=document.querySelectorAll('.mapping-item');
-items.forEach(function(item){
-item.style.display='flex';
-});
+applySearchParamFilter();
 });
 
 /* ---- RÈGLES MÉTIERS ---- */
@@ -2788,6 +2890,10 @@ actionsText+=a.field+' devient non obligatoire';
 actionsText+=a.field+' doit égaler "'+a.value+'"';
 }else if(a.type==='must_be_negative'){
 actionsText+=a.field+' doit être négatif';
+}else if(a.type==='must_equal_sum'){
+actionsText+=a.field+' doit égaler '+(a.field1||'?')+' + '+(a.field2||'?');
+}else if(a.type==='must_equal_sum_of_all'){
+actionsText+=a.field+' doit égaler Σ '+(a.sum_field||'?')+' (tolérance '+(a.tolerance||'0.01')+')';
 }
 });
 div.innerHTML='<div class="rule-header '+enabledClass+'">'+
@@ -2973,6 +3079,8 @@ availableBTs.forEach(function(bt){
 fieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
 });
 var needsValue=(action.type==='must_equal');
+var needsSum=(action.type==='must_equal_sum');
+var needsSumAll=(action.type==='must_equal_sum_of_all');
 // ORDRE: Champ, Type d'action, Valeur (si nécessaire), Supprimer
 div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'</select>'+
 '<select class="action-type" data-index="'+i+'">'+
@@ -2980,12 +3088,23 @@ div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'<
 '<option value="make_optional">Rendre non obligatoire</option>'+
 '<option value="must_equal">Doit égaler</option>'+
 '<option value="must_be_negative">Doit être négatif</option>'+
+'<option value="must_equal_sum">Doit égaler la somme de</option>'+
+'<option value="must_equal_sum_of_all">Doit égaler Σ de toutes les lignes</option>'+
 '</select>'+
 (needsValue?'<input type="text" class="action-value" data-index="'+i+'" placeholder="Valeur" value="'+(action.value||'')+'">':'')+
+(needsSum?'<select class="action-field1" data-index="'+i+'">'+fieldOptions+'</select><span style="padding:0 4px;font-weight:bold">+</span><select class="action-field2" data-index="'+i+'">'+fieldOptions+'</select>':'')+
+(needsSumAll?'<span style="padding:0 4px">Σ</span><select class="action-sum-field" data-index="'+i+'">'+fieldOptions+'</select><input type="number" class="action-tolerance" data-index="'+i+'" placeholder="Tolérance (€)" step="0.01" min="0" style="width:110px" value="'+(action.tolerance!=null?action.tolerance:'0.01')+'"><span style="padding:0 4px;font-size:0.85em;color:#888">€ écart max</span>':'')+
 '<button class="btn-remove" data-index="'+i+'">Supprimer</button>';
 container.appendChild(div);
 div.querySelector('.action-field').value=action.field;
 div.querySelector('.action-type').value=action.type;
+if(needsSum){
+if(div.querySelector('.action-field1'))div.querySelector('.action-field1').value=action.field1||'';
+if(div.querySelector('.action-field2'))div.querySelector('.action-field2').value=action.field2||'';
+}
+if(needsSumAll){
+if(div.querySelector('.action-sum-field'))div.querySelector('.action-sum-field').value=action.sum_field||'';
+}
 });
 document.querySelectorAll('.action-type').forEach(function(el){
 el.addEventListener('change',function(){
@@ -3001,6 +3120,27 @@ editingActions[this.getAttribute('data-index')].field=this.value;
 document.querySelectorAll('.action-value').forEach(function(el){
 el.addEventListener('input',function(){
 editingActions[this.getAttribute('data-index')].value=this.value;
+});
+});
+document.querySelectorAll('.action-field1').forEach(function(el){
+el.addEventListener('change',function(){
+editingActions[this.getAttribute('data-index')].field1=this.value;
+});
+});
+document.querySelectorAll('.action-field2').forEach(function(el){
+el.addEventListener('change',function(){
+editingActions[this.getAttribute('data-index')].field2=this.value;
+});
+});
+document.querySelectorAll('.action-sum-field').forEach(function(el){
+el.addEventListener('change',function(){
+editingActions[this.getAttribute('data-index')].sum_field=this.value;
+});
+});
+document.querySelectorAll('.action-tolerance').forEach(function(el){
+el.addEventListener('input',function(){
+var v=parseFloat(this.value);
+editingActions[this.getAttribute('data-index')].tolerance=isNaN(v)?0.01:v;
 });
 });
 document.querySelectorAll('.action-item .btn-remove').forEach(function(btn){
@@ -3161,11 +3301,12 @@ def controle():
         # Lecture du RDI (pas nécessaire en mode CII)
         rdi_data = {}
         rdi_articles = []
+        rdi_multi = {}
         rdi_path = None
         if rdi_file:
             rdi_path = os.path.join(UPLOAD_FOLDER, rdi_file.filename)
             rdi_file.save(rdi_path)
-            rdi_data, rdi_articles = parse_rdi(rdi_path)
+            rdi_data, rdi_articles, rdi_multi = parse_rdi(rdi_path)
             print("==== rdi_data ====")
             print(rdi_data)
             print(f"==== rdi_articles ({len(rdi_articles)} articles) ====")
@@ -3294,12 +3435,28 @@ def controle():
         # 1. Traiter les champs d'en-tête (non-articles) normalement
         for index, field in enumerate(header_fields):
             rdi_field_name = field.get('rdi', '')
-            rdi_value = rdi_data.get(rdi_field_name, '').strip()
-            if not rdi_value and rdi_field_name:
-                for key in rdi_data.keys():
-                    if key.upper() == rdi_field_name.upper():
-                        rdi_value = rdi_data[key].strip()
-                        break
+            type_enreg = (field.get('type_enregistrement') or '').strip().upper()
+            is_ambiguous = False
+            rdi_value = ''
+
+            if rdi_field_name:
+                field_upper = rdi_field_name.upper()
+                occurrences = rdi_multi.get(field_upper, [])
+                if type_enreg:
+                    # Filtrer par type d'enregistrement demandé
+                    matches = [v for rt, v in occurrences if rt.upper() == type_enreg]
+                    rdi_value = matches[0].strip() if matches else ''
+                elif len(occurrences) > 1:
+                    # Plusieurs valeurs sans filtre → ambiguïté
+                    is_ambiguous = True
+                else:
+                    # Cas normal : 0 ou 1 occurrence
+                    rdi_value = rdi_data.get(rdi_field_name, '').strip()
+                    if not rdi_value:
+                        for key in rdi_data.keys():
+                            if key.upper() == field_upper:
+                                rdi_value = rdi_data[key].strip()
+                                break
 
             xml_value = ''
             if xml_doc is not None:
@@ -3318,7 +3475,12 @@ def controle():
                 except:
                     pass
 
-            status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
+            if is_ambiguous:
+                status = 'AMBIGU'
+                regles_testees = []
+                details_erreurs = [f"Plusieurs valeurs trouvées pour '{rdi_field_name}' dans le RDI. Précisez le type d'enregistrement dans le mapping."]
+            else:
+                status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
             xml_short_name = get_xml_short_name(field.get('xpath', ''))
             xml_tag_name = get_xml_tag_name(field.get('xpath', ''))
 
@@ -3454,6 +3616,7 @@ def controle():
             'ok': sum(1 for r in results if r['status'] == 'OK'),
             'erreur': sum(1 for r in results if r['status'] == 'ERREUR'),
             'ignore': sum(1 for r in results if r['status'] == 'IGNORE'),
+            'ambigu': sum(1 for r in results if r['status'] == 'AMBIGU'),
             'nb_articles': nb_articles,
         }
 
