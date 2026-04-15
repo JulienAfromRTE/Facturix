@@ -978,19 +978,19 @@ HTML = r"""<!DOCTYPE html>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 /* === RESET & BASE === */
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',Arial,sans-serif;background:#4f46e5;min-height:100vh;display:flex;align-items:stretch;gap:0}
-.sidebar{width:14px;min-width:14px;background:linear-gradient(180deg,#1e1b4b 0%,#4338ca 60%,#667eea 100%);position:sticky;top:0;height:100vh;flex-shrink:0}
+body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;display:flex;align-items:stretch;gap:0}
+.sidebar{position:sticky;top:0;height:100vh;flex-shrink:0}
 .main-wrap{flex:1;padding:20px;min-width:0;overflow-y:auto}
 .container{max-width:1400px;margin:0 auto;background:#f8fafc;border-radius:20px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.25)}
 @media(max-width:900px){.sidebar{display:none}.main-wrap{padding:10px}}
 /* === HEADER === */
-.header{background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 55%,#4f46e5 100%);color:#fff;padding:14px 30px 22px 30px;display:flex;align-items:flex-end;gap:18px;justify-content:space-between}
+.header{background:#506aab;color:#fff;padding:3px 30px 0px 30px;display:flex;align-items:center;gap:18px;justify-content:space-between}
 .header-left{display:flex;align-items:center;gap:18px}
 .header-logo{height:80px;width:auto;object-fit:contain;flex-shrink:0;display:block}
-.header-banner{flex-shrink:0;cursor:pointer;margin-bottom:-22px;margin-top:-15px;transition:transform 0.2s}
+.header-banner{flex-shrink:0;cursor:pointer;margin-bottom:0;margin-top:0;transition:transform 0.2s;align-self:flex-end;display:flex;align-items:flex-end}
 .header-banner:hover{transform:scale(1.05)}
-.header-banner img{height:119px;width:auto;display:block}
-.header-text h1{font-size:1.35em;margin:0;font-weight:700;letter-spacing:-0.01em}
+.header-banner img{height:100px;width:auto;display:block}
+.header-text h1{font-size:1.35em;margin:0;font-weight:400;letter-spacing:0.01em}
 .version{font-size:0.78em;opacity:0.65;margin-top:4px;font-weight:400}
 /* === TABS === */
 .tabs{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 20px;gap:2px}
