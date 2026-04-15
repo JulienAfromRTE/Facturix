@@ -134,6 +134,18 @@ def load_business_rules():
                     "actions": [
                         {"type": "must_be_negative", "field": "BT-129"}
                     ]
+                },
+                {
+                    "id": "rule_6",
+                    "name": "B2BINT - BT-47 et BT-48 non obligatoires",
+                    "enabled": True,
+                    "conditions": [
+                        {"field": "BT-22-BAR", "operator": "equals", "value": "B2BINT"}
+                    ],
+                    "actions": [
+                        {"type": "make_optional", "field": "BT-47"},
+                        {"type": "make_optional", "field": "BT-48"}
+                    ]
                 }
             ]
         }
@@ -636,6 +648,24 @@ def apply_business_rules(results, type_formulaire='simple'):
                 if msg not in target['details_erreurs']:
                     target['details_erreurs'].append(msg)
         
+        elif action_type == 'make_optional':
+            _ERREURS_PRESENCE = {
+                'Champ obligatoire absent du RDI',
+                'Champ obligatoire absent du XML',
+                'Absent du XML (obligatoire)',
+            }
+            target['obligatoire'] = 'Non'
+            regle_label = f'Règle: {rule_name}'
+            if regle_label not in target['regles_testees']:
+                target['regles_testees'].insert(0, regle_label)
+            # Annuler les erreurs de présence déjà posées par perform_controls
+            target['details_erreurs'] = [
+                e for e in target['details_erreurs'] if e not in _ERREURS_PRESENCE
+            ]
+            if not target['details_erreurs']:
+                target['details_erreurs'] = ['RAS']
+                target['status'] = 'RAS'
+
         elif action_type == 'must_be_negative':
             try:
                 value_str = target.get('rdi', '0').strip() or target.get('xml', '0').strip()
@@ -852,10 +882,10 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 .header-text h1{font-size:1.5em;margin:0}
 .version{font-size:0.85em;opacity:0.8;margin-top:3px}
 /* Progress bar */
-.progress-section{background:#fff;border-radius:12px;padding:20px 25px;margin-bottom:20px}
-.progress-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.progress-section{background:#fff;border-radius:12px;padding:12px 25px;margin-bottom:12px}
+.progress-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .progress-label-row h3{margin:0;color:#366092;font-size:1em}
-.progress-pct{font-size:1.5em;font-weight:bold;color:#366092}
+.progress-pct{font-size:1.3em;font-weight:bold;color:#366092}
 /* perso inline supprime */
 .progress-track{background:#e0e0e0;border-radius:10px;height:20px;position:relative;cursor:pointer}
 .gaulois-overlay{display:none;position:fixed;z-index:9999;pointer-events:none}
@@ -873,7 +903,7 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 .tab.active{background:#fff;color:#366092}
 .tab-content{display:none;padding:40px}
 .tab-content.active{display:block}
-.section{background:#f8f9fa;border-radius:12px;padding:25px;margin-bottom:25px}
+.section{background:#f8f9fa;border-radius:12px;padding:15px 25px;margin-bottom:15px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
 .form-group{display:flex;flex-direction:column}
 .form-group label{font-weight:600;margin-bottom:8px}
@@ -889,9 +919,9 @@ body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:fl
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .results{display:none}
 /* Stats : 3 colonnes */
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:30px}
-.stat-card{background:#fff;padding:20px;border-radius:10px;text-align:center}
-.stat-value{font-size:2em;font-weight:bold}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:15px}
+.stat-card{background:#fff;padding:12px;border-radius:10px;text-align:center}
+.stat-value{font-size:1.6em;font-weight:bold}
 .ok .stat-value{color:#70ad47}
 .erreur .stat-value{color:#c00000}
 .ignore .stat-value{color:#9e9e9e}
@@ -1205,6 +1235,16 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="section">
 <h2>Règles Métiers Configurables</h2>
 <p>Gérez les règles de validation conditionnelles qui s'appliquent aux champs de la facture.</p>
+<div style="background:#e8f0fb;border-left:4px solid #366092;border-radius:6px;padding:14px 18px;margin:16px 0;font-size:0.93em;line-height:1.7">
+  <strong style="color:#366092">ℹ️ Ordre d'application des contrôles</strong><br>
+  Les contrôles s'appliquent en deux passes successives :<br>
+  <ol style="margin:8px 0 8px 20px;padding:0">
+    <li><strong>Mapping</strong> — chaque champ est contrôlé selon sa définition (obligatoire / type / XPath). C'est la base.</li>
+    <li><strong>Règles Métiers</strong> — les règles ci-dessous s'appliquent <em>après</em> le mapping et <strong>prennent le dessus</strong> sur les contrôles par défaut.</li>
+  </ol>
+  Exemples de surcharge possibles : rendre un champ <em>obligatoire</em> ou <em>non obligatoire</em> selon la valeur d'un autre champ, imposer une valeur fixe, exiger un signe négatif.<br>
+  <span style="color:#555">⚠️ Le fichier <code>business_rules.json</code> est créé une seule fois au premier démarrage. Si vous avez mis à jour l'application, les nouvelles règles par défaut n'apparaîtront pas automatiquement — ajoutez-les manuellement ici si besoin.</span>
+</div>
 <div class="form-row" style="margin-bottom:15px">
 <div class="form-group">
 <label>Filtrer par type de factures :</label>
@@ -2084,7 +2124,7 @@ var matchesSearch=!term||btText.includes(term);
 var matchesErrorFilter=!errorsOnly||isError;
 if(matchesSearch&&matchesErrorFilter){
 row.style.display='';
-if(isCegedimRow){nextRow.style.display='';}
+if(isCegedimRow){nextRow.style.display=cegedimCheckbox.checked?'':'none';}
 hasMatch=true;
 }else{
 row.style.display='none';
@@ -2525,6 +2565,8 @@ rule.actions.forEach(function(a,i){
 if(i>0)actionsText+=', ';
 if(a.type==='make_mandatory'){
 actionsText+=a.field+' devient obligatoire';
+}else if(a.type==='make_optional'){
+actionsText+=a.field+' devient non obligatoire';
 }else if(a.type==='must_equal'){
 actionsText+=a.field+' doit égaler "'+a.value+'"';
 }else if(a.type==='must_be_negative'){
@@ -2718,6 +2760,7 @@ var needsValue=(action.type==='must_equal');
 div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'</select>'+
 '<select class="action-type" data-index="'+i+'">'+
 '<option value="make_mandatory">Rendre obligatoire</option>'+
+'<option value="make_optional">Rendre non obligatoire</option>'+
 '<option value="must_equal">Doit égaler</option>'+
 '<option value="must_be_negative">Doit être négatif</option>'+
 '</select>'+

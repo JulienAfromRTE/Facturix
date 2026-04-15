@@ -1712,6 +1712,13 @@
     },
     {
       "balise": "BT-115",
+      "libelle": "Montant à payer",
+      "rdi": "MNT_A_PAYER",
+      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount",
+      "type": "Decimal",
+      "obligatoire": "Oui",
+      "ignore": "Non",
+      "rdg": "BT-115 = BT-112",
       "categorie_bg": "BG-TOTAUX",
       "categorie_titre": "TOTAUX DE LA FACTURE",
       "controles_cegedim": [
@@ -1756,14 +1763,7 @@
           "type": "Legal"
         }
       ],
-      "ignore": "Non",
-      "libelle": "Montant à payer",
-      "obligatoire": "Oui",
-      "rdg": "BT-115 = BT-112",
-      "rdi": "MNT_A_PAYER",
-      "type": "Decimal",
-      "valide": false,
-      "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
+      "valide": false
     },
     {
       "balise": "BT-116",

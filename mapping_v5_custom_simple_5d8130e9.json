@@ -1526,7 +1526,7 @@
       "libelle": "Montant à payer",
       "obligatoire": "Oui",
       "rdg": "BT-115 = BT-112 - BT-113 + BT-114",
-      "rdi": "GS_FECT_EINV-BG22-BT115_MONTANT_A_PAYER",
+      "rdi": "MNT_A_PAYER",
       "type": "Decimal",
       "valide": true,
       "xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:DuePayableAmount"
