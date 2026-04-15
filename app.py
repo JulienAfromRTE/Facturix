@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Factur-X V12.0 - Enhanced Mapping Management"""
 from flask import Flask, request, jsonify, send_file
-import os, json, PyPDF2, io
+import os, json, sqlite3, PyPDF2, io
 import logging
 from lxml import etree
 from collections import defaultdict
@@ -61,239 +61,421 @@ else:
 UPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-VERSIONS_FOLDER = os.path.join(SCRIPT_DIR, 'mapping_versions')
-os.makedirs(VERSIONS_FOLDER, exist_ok=True)
+DB_FILE = os.path.join(SCRIPT_DIR, 'facturix.db')
 
-MAPPINGS_FOLDER = os.path.join(SCRIPT_DIR, 'mappings')
-os.makedirs(MAPPINGS_FOLDER, exist_ok=True)
-
-RULES_FILE = os.path.join(SCRIPT_DIR, 'business_rules.json')
-MAPPINGS_INDEX_FILE = os.path.join(SCRIPT_DIR, 'mappings_index.json')
+# Chemins legacy conservés uniquement pour la migration au premier lancement
+_LEGACY_RULES_FILE    = os.path.join(SCRIPT_DIR, 'business_rules.json')
+_LEGACY_INDEX_FILE    = os.path.join(SCRIPT_DIR, 'mappings_index.json')
+_LEGACY_VERSIONS_DIR  = os.path.join(SCRIPT_DIR, 'mapping_versions')
 
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
 
-def load_business_rules():
-    """Charge les règles métiers depuis le fichier JSON"""
-    if not os.path.exists(RULES_FILE):
-        # Créer le fichier avec les règles par défaut
-        default_rules = {
-            "rules": [
-                {
-                    "id": "rule_1",
-                    "name": "Facture B2G Chorus",
-                    "enabled": True,
-                    "conditions": [
-                        {"field": "BT-22", "operator": "equals", "value": "B2G"}
-                    ],
-                    "actions": [
-                        {"type": "make_mandatory", "field": "BT-10"},
-                        {"type": "make_mandatory", "field": "BT-13"},
-                        {"type": "make_mandatory", "field": "BT-29"},
-                        {"type": "make_mandatory", "field": "BT-29-1"}
-                    ]
-                },
-                {
-                    "id": "rule_2",
-                    "name": "Facture avoir",
-                    "enabled": True,
-                    "conditions": [
-                        {"field": "BT-3", "operator": "equals", "value": "381"}
-                    ],
-                    "actions": [
-                        {"type": "make_mandatory", "field": "BT-25"},
-                        {"type": "make_mandatory", "field": "BT-26"}
-                    ]
-                },
-                {
-                    "id": "rule_3",
-                    "name": "BT-8 doit valoir 5",
-                    "enabled": True,
-                    "conditions": [],
-                    "actions": [
-                        {"type": "must_equal", "field": "BT-8", "value": "5"}
-                    ]
-                },
-                {
-                    "id": "rule_4",
-                    "name": "Client étranger",
-                    "enabled": True,
-                    "conditions": [
-                        {"field": "BT-48", "operator": "not_starts_with", "value": "FR"}
-                    ],
-                    "actions": [
-                        {"type": "make_mandatory", "field": "BT-58"}
-                    ]
-                },
-                {
-                    "id": "rule_5",
-                    "name": "Facture négative - quantité",
-                    "enabled": True,
-                    "conditions": [
-                        {"field": "BT-131", "operator": "less_than", "value": "0"}
-                    ],
-                    "actions": [
-                        {"type": "must_be_negative", "field": "BT-129"}
-                    ]
-                },
-                {
-                    "id": "rule_6",
-                    "name": "B2BINT - BT-47 et BT-48 non obligatoires",
-                    "enabled": True,
-                    "conditions": [
-                        {"field": "BT-22-BAR", "operator": "equals", "value": "B2BINT"}
-                    ],
-                    "actions": [
-                        {"type": "make_optional", "field": "BT-47"},
-                        {"type": "make_optional", "field": "BT-48"}
-                    ]
-                }
+# ── Données par défaut ──────────────────────────────────────────────────────
+
+_DEFAULT_RULES = {
+    "rules": [
+        {
+            "id": "rule_1",
+            "name": "Facture B2G Chorus",
+            "enabled": True,
+            "conditions": [{"field": "BT-22", "operator": "equals", "value": "B2G"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-10"},
+                {"type": "make_mandatory", "field": "BT-13"},
+                {"type": "make_mandatory", "field": "BT-29"},
+                {"type": "make_mandatory", "field": "BT-29-1"}
+            ]
+        },
+        {
+            "id": "rule_2",
+            "name": "Facture avoir",
+            "enabled": True,
+            "conditions": [{"field": "BT-3", "operator": "equals", "value": "381"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-25"},
+                {"type": "make_mandatory", "field": "BT-26"}
+            ]
+        },
+        {
+            "id": "rule_3",
+            "name": "BT-8 doit valoir 5",
+            "enabled": True,
+            "conditions": [],
+            "actions": [{"type": "must_equal", "field": "BT-8", "value": "5"}]
+        },
+        {
+            "id": "rule_4",
+            "name": "Client étranger",
+            "enabled": True,
+            "conditions": [{"field": "BT-48", "operator": "not_starts_with", "value": "FR"}],
+            "actions": [{"type": "make_mandatory", "field": "BT-58"}]
+        },
+        {
+            "id": "rule_5",
+            "name": "Facture négative - quantité",
+            "enabled": True,
+            "conditions": [{"field": "BT-131", "operator": "less_than", "value": "0"}],
+            "actions": [{"type": "must_be_negative", "field": "BT-129"}]
+        },
+        {
+            "id": "rule_6",
+            "name": "B2BINT - BT-47 et BT-48 non obligatoires",
+            "enabled": True,
+            "conditions": [{"field": "BT-22-BAR", "operator": "equals", "value": "B2BINT"}],
+            "actions": [
+                {"type": "make_optional", "field": "BT-47"},
+                {"type": "make_optional", "field": "BT-48"}
             ]
         }
-        save_business_rules(default_rules)
-        return default_rules
+    ]
+}
+
+_DEFAULT_MAPPINGS_META = [
+    {
+        "id": "default_simple",
+        "name": "Mapping CART Simple",
+        "type": "CART Simple",
+        "filename": "mapping_v5_simple.json",
+        "created_date": "2024-01-15",
+        "is_default": True
+    },
+    {
+        "id": "default_groupee",
+        "name": "Mapping CART Groupée",
+        "type": "CART Groupée",
+        "filename": "mapping_v5_groupee.json",
+        "created_date": "2024-01-15",
+        "is_default": True
+    },
+    {
+        "id": "default_ventesdiverses",
+        "name": "Mapping Ventes Diverses",
+        "type": "Ventes Diverses",
+        "filename": "mapping_v5_ventesdiverses.json",
+        "created_date": "2024-01-15",
+        "is_default": True
+    }
+]
+
+# ── SQLite helpers ──────────────────────────────────────────────────────────
+
+def get_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+def _get_mapping_id(type_formulaire):
+    """Convertit un type_formulaire (clé URL) en id de mapping DB."""
+    defaults = {
+        'simple':         'default_simple',
+        'groupee':        'default_groupee',
+        'ventesdiverses': 'default_ventesdiverses',
+        'CARTsimple':     'default_simple',
+    }
+    if type_formulaire in defaults:
+        return defaults[type_formulaire]
+    # Mappings custom : type_formulaire = "custom_<uuid>" → id = "<uuid>"
+    if type_formulaire.startswith('custom_'):
+        return type_formulaire[len('custom_'):]
+    return type_formulaire
+
+def init_db():
+    """Crée la base SQLite et migre les JSON existants si nécessaire."""
+    conn = get_db()
+    c = conn.cursor()
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS mappings (
+            id           TEXT PRIMARY KEY,
+            name         TEXT NOT NULL,
+            type         TEXT NOT NULL,
+            filename     TEXT NOT NULL,
+            created_date TEXT,
+            is_default   INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS mapping_content (
+            mapping_id  TEXT PRIMARY KEY
+                        REFERENCES mappings(id) ON DELETE CASCADE,
+            content     TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mapping_versions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            mapping_id  TEXT NOT NULL
+                        REFERENCES mappings(id) ON DELETE CASCADE,
+            timestamp   TEXT NOT NULL,
+            content     TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS business_rules (
+            singleton   INTEGER PRIMARY KEY DEFAULT 1
+                        CHECK(singleton = 1),
+            content     TEXT NOT NULL
+        );
+    ''')
+    conn.commit()
+    _migrate_from_json(conn)
+    conn.close()
+    print("[DB] Base SQLite prête.")
+
+def _migrate_from_json(conn):
+    """Migre les fichiers JSON legacy vers SQLite (exécuté une seule fois)."""
+    c = conn.cursor()
+
+    # ── Règles métier ────────────────────────────────────────────────────────
+    c.execute("SELECT COUNT(*) FROM business_rules")
+    if c.fetchone()[0] == 0:
+        rules_data = _DEFAULT_RULES
+        if os.path.exists(_LEGACY_RULES_FILE):
+            try:
+                with open(_LEGACY_RULES_FILE, 'r', encoding='utf-8') as f:
+                    rules_data = json.load(f)
+            except Exception:
+                pass
+        c.execute(
+            "INSERT INTO business_rules (singleton, content) VALUES (1, ?)",
+            (json.dumps(rules_data, ensure_ascii=False),)
+        )
+        print("[DB] Règles métier migrées.")
+
+    # ── Index + contenu des mappings ─────────────────────────────────────────
+    c.execute("SELECT COUNT(*) FROM mappings")
+    if c.fetchone()[0] == 0:
+        index_entries = _DEFAULT_MAPPINGS_META[:]
+        if os.path.exists(_LEGACY_INDEX_FILE):
+            try:
+                with open(_LEGACY_INDEX_FILE, 'r', encoding='utf-8') as f:
+                    idx = json.load(f)
+                    index_entries = idx.get('mappings', _DEFAULT_MAPPINGS_META)
+            except Exception:
+                pass
+
+        for m in index_entries:
+            c.execute(
+                "INSERT OR IGNORE INTO mappings "
+                "(id, name, type, filename, created_date, is_default) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (m['id'], m['name'], m['type'], m['filename'],
+                 m.get('created_date', ''), 1 if m.get('is_default') else 0)
+            )
+            content = {"champs": []}
+            filepath = os.path.join(SCRIPT_DIR, m['filename'])
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = json.load(f)
+                except Exception:
+                    pass
+            c.execute(
+                "INSERT OR IGNORE INTO mapping_content (mapping_id, content) VALUES (?, ?)",
+                (m['id'], json.dumps(content, ensure_ascii=False))
+            )
+        print(f"[DB] {len(index_entries)} mapping(s) migré(s).")
+
+    # ── Versions de mappings ─────────────────────────────────────────────────
+    c.execute("SELECT COUNT(*) FROM mapping_versions")
+    if c.fetchone()[0] == 0 and os.path.exists(_LEGACY_VERSIONS_DIR):
+        migrated = 0
+        for fname in os.listdir(_LEGACY_VERSIONS_DIR):
+            if not fname.endswith('.json'):
+                continue
+            # Format : mapping_v5_{type}_{YYYYMMDD}_{HHMMSS}.json
+            try:
+                parts = fname.replace('.json', '').split('_')
+                ts_idx = next(
+                    i for i, p in enumerate(parts) if len(p) == 8 and p.isdigit()
+                )
+                type_key  = '_'.join(parts[2:ts_idx])
+                timestamp = '_'.join(parts[ts_idx:ts_idx + 2])
+                mapping_id = _get_mapping_id(type_key)
+                fpath = os.path.join(_LEGACY_VERSIONS_DIR, fname)
+                with open(fpath, 'r', encoding='utf-8') as f:
+                    content = json.load(f)
+                c.execute("SELECT id FROM mappings WHERE id = ?", (mapping_id,))
+                if c.fetchone():
+                    c.execute(
+                        "INSERT INTO mapping_versions (mapping_id, timestamp, content) "
+                        "VALUES (?, ?, ?)",
+                        (mapping_id, timestamp, json.dumps(content, ensure_ascii=False))
+                    )
+                    migrated += 1
+            except Exception:
+                pass
+        if migrated:
+            print(f"[DB] {migrated} version(s) de mapping migrée(s).")
+
+    conn.commit()
+
+# ── Business rules ──────────────────────────────────────────────────────────
+
+def load_business_rules():
+    """Charge les règles métiers depuis la base de données."""
     try:
-        with open(RULES_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return {"rules": []}
+        conn = get_db()
+        row = conn.execute(
+            "SELECT content FROM business_rules WHERE singleton = 1"
+        ).fetchone()
+        conn.close()
+        if row:
+            return json.loads(row['content'])
+    except Exception:
+        pass
+    return _DEFAULT_RULES
 
 def save_business_rules(rules_data):
-    """Sauvegarde les règles métiers"""
+    """Sauvegarde les règles métiers."""
     try:
-        with open(RULES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(rules_data, f, ensure_ascii=False, indent=2)
+        content = json.dumps(rules_data, ensure_ascii=False)
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO business_rules (singleton, content) VALUES (1, ?) "
+            "ON CONFLICT(singleton) DO UPDATE SET content = excluded.content",
+            (content,)
+        )
+        conn.commit()
+        conn.close()
         return True
-    except:
+    except Exception:
         return False
 
+# ── Mappings index ──────────────────────────────────────────────────────────
+
 def load_mappings_index():
-    """Charge l'index des mappings"""
-    if not os.path.exists(MAPPINGS_INDEX_FILE):
-        default_index = {
+    """Charge l'index des mappings depuis la base de données."""
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT id, name, type, filename, created_date, is_default "
+            "FROM mappings ORDER BY is_default DESC, name"
+        ).fetchall()
+        conn.close()
+        return {
             "mappings": [
                 {
-                    "id": "default_simple",
-                    "name": "Mapping CART Simple",
-                    "type": "CART Simple",
-                    "filename": "mapping_v5_simple.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
-                },
-                {
-                    "id": "default_groupee",
-                    "name": "Mapping CART Groupée",
-                    "type": "CART Groupée",
-                    "filename": "mapping_v5_groupee.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
-                },
-                {
-                    "id": "default_ventesdiverses",
-                    "name": "Mapping Ventes Diverses",
-                    "type": "Ventes Diverses",
-                    "filename": "mapping_v5_ventesdiverses.json",
-                    "created_date": "2024-01-15",
-                    "is_default": True
+                    "id":           r["id"],
+                    "name":         r["name"],
+                    "type":         r["type"],
+                    "filename":     r["filename"],
+                    "created_date": r["created_date"],
+                    "is_default":   bool(r["is_default"])
                 }
+                for r in rows
             ]
         }
-        save_mappings_index(default_index)
-        return default_index
-    try:
-        with open(MAPPINGS_INDEX_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
+    except Exception:
         return {"mappings": []}
 
 def save_mappings_index(index_data):
-    """Sauvegarde l'index des mappings"""
+    """Sync un index en mémoire vers la base (compatibilité code existant)."""
     try:
-        with open(MAPPINGS_INDEX_FILE, 'w', encoding='utf-8') as f:
-            json.dump(index_data, f, ensure_ascii=False, indent=2)
+        conn = get_db()
+        for m in index_data.get('mappings', []):
+            conn.execute(
+                "INSERT INTO mappings "
+                "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET "
+                "name=excluded.name, type=excluded.type, filename=excluded.filename, "
+                "created_date=excluded.created_date, is_default=excluded.is_default",
+                (m['id'], m['name'], m['type'], m['filename'],
+                 m.get('created_date', ''), 1 if m.get('is_default') else 0)
+            )
+        conn.commit()
+        conn.close()
         return True
-    except:
+    except Exception:
         return False
+
+# ── Mapping content ─────────────────────────────────────────────────────────
 
 def load_mapping(type_formulaire='CARTsimple'):
-    # Si c'est un mapping custom (format: custom_type_id)
-    if type_formulaire.startswith('custom_'):
-        # Chercher dans l'index
-        index = load_mappings_index()
-        # Reconstruire le filename
-        filename = f'mapping_{type_formulaire}.json'
-        filepath = os.path.join(SCRIPT_DIR, filename)
-    else:
-        # Mapping par défaut
-        filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
-    
+    """Charge le contenu d'un mapping depuis la base de données."""
+    mapping_id = _get_mapping_id(type_formulaire)
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        conn = get_db()
+        row = conn.execute(
+            "SELECT content FROM mapping_content WHERE mapping_id = ?", (mapping_id,)
+        ).fetchone()
+        conn.close()
+        if row:
+            return json.loads(row['content'])
     except Exception as e:
-        print(f"Erreur chargement mapping {filepath}: {e}")
-        return None
+        print(f"Erreur chargement mapping {mapping_id}: {e}")
+    return None
 
 def save_mapping(data, type_formulaire='simple'):
-    # Si c'est un mapping custom
-    if type_formulaire.startswith('custom_'):
-        filename = f'mapping_{type_formulaire}.json'
-        filepath = os.path.join(SCRIPT_DIR, filename)
-    else:
-        filepath = os.path.join(SCRIPT_DIR, f'mapping_v5_{type_formulaire}.json')
-    
+    """Sauvegarde le contenu d'un mapping."""
+    mapping_id = _get_mapping_id(type_formulaire)
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        content = json.dumps(data, ensure_ascii=False)
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO mapping_content (mapping_id, content) VALUES (?, ?) "
+            "ON CONFLICT(mapping_id) DO UPDATE SET content = excluded.content",
+            (mapping_id, content)
+        )
+        conn.commit()
+        conn.close()
         return True
     except Exception as e:
-        print(f"Erreur sauvegarde mapping {filepath}: {e}")
+        print(f"Erreur sauvegarde mapping {mapping_id}: {e}")
         return False
 
+# ── Mapping versions ────────────────────────────────────────────────────────
+
 def save_mapping_version(data, type_formulaire='simple'):
-    """Sauvegarde une version horodatée du mapping"""
+    """Sauvegarde une version horodatée du mapping."""
     from datetime import datetime
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'mapping_v5_{type_formulaire}_{timestamp}.json'
-    filepath = os.path.join(VERSIONS_FOLDER, filename)
+    mapping_id = _get_mapping_id(type_formulaire)
+    timestamp  = datetime.now().strftime('%Y%m%d_%H%M%S')
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return {'success': True, 'filename': filename, 'timestamp': timestamp}
+        content = json.dumps(data, ensure_ascii=False)
+        conn = get_db()
+        cur = conn.execute(
+            "INSERT INTO mapping_versions (mapping_id, timestamp, content) VALUES (?, ?, ?)",
+            (mapping_id, timestamp, content)
+        )
+        version_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return {'success': True, 'filename': str(version_id), 'timestamp': timestamp}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
 def list_mapping_versions(type_formulaire='simple'):
-    """Liste toutes les versions horodatées d'un mapping"""
+    """Liste toutes les versions horodatées d'un mapping (plus récent en premier)."""
+    mapping_id = _get_mapping_id(type_formulaire)
     try:
-        pattern = f'mapping_v5_{type_formulaire}_'
-        versions = []
-        for filename in os.listdir(VERSIONS_FOLDER):
-            if filename.startswith(pattern) and filename.endswith('.json'):
-                filepath = os.path.join(VERSIONS_FOLDER, filename)
-                stat = os.stat(filepath)
-                # Extraire le timestamp du nom de fichier
-                timestamp_str = filename.replace(pattern, '').replace('.json', '')
-                versions.append({
-                    'filename': filename,
-                    'timestamp': timestamp_str,
-                    'size': stat.st_size,
-                    'mtime': stat.st_mtime
-                })
-        # Trier par timestamp décroissant (plus récent en premier)
-        versions.sort(key=lambda x: x['timestamp'], reverse=True)
-        return versions
-    except:
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT id, timestamp, LENGTH(content) AS size "
+            "FROM mapping_versions WHERE mapping_id = ? ORDER BY id DESC",
+            (mapping_id,)
+        ).fetchall()
+        conn.close()
+        return [
+            {
+                'filename':  str(r['id']),
+                'timestamp': r['timestamp'],
+                'size':      r['size'],
+                'mtime':     0
+            }
+            for r in rows
+        ]
+    except Exception:
         return []
 
 def restore_mapping_version(filename, type_formulaire='simple'):
-    """Restaure une version horodatée comme version active"""
+    """Restaure une version horodatée comme version active."""
     try:
-        version_path = os.path.join(VERSIONS_FOLDER, filename)
-        with open(version_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        # Sauvegarder comme version active
-        success = save_mapping(data, type_formulaire)
-        return {'success': success}
+        version_id = int(filename)
+        conn = get_db()
+        row = conn.execute(
+            "SELECT content FROM mapping_versions WHERE id = ?", (version_id,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return {'success': False, 'error': 'Version introuvable'}
+        data = json.loads(row['content'])
+        return {'success': save_mapping(data, type_formulaire)}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
@@ -3339,74 +3521,60 @@ def api_get_mappings_options():
 def api_create_mapping():
     """Crée un nouveau mapping"""
     try:
+        from datetime import datetime
+        import uuid
+
         data = request.json
         name = data.get('name')
         mapping_type = data.get('type', 'CART Simple')
-        copy_from = data.get('copy_from', None)  # ID du mapping à copier
-        
+        copy_from = data.get('copy_from', None)  # ID du mapping source
+
         if not name:
             return jsonify({'success': False, 'error': 'Nom requis'})
-        
-        # Charger l'index
-        index = load_mappings_index()
-        
-        # Créer un nouvel ID
-        from datetime import datetime
-        import uuid
-        new_id = str(uuid.uuid4())[:8]
-        
-        # Déterminer le filename basé sur le type
+
         type_map = {
-            'CART Simple': 'simple',
-            'CART Groupée': 'groupee',
+            'CART Simple':    'simple',
+            'CART Groupée':   'groupee',
             'Ventes Diverses': 'ventesdiverses'
         }
         type_key = type_map.get(mapping_type, 'simple')
-        
-        # Créer le mapping
+        new_id   = str(uuid.uuid4())[:8]
+
         new_mapping = {
-            "id": new_id,
-            "name": name,
-            "type": mapping_type,
-            "filename": f"mapping_custom_{type_key}_{new_id}.json",
+            "id":           new_id,
+            "name":         name,
+            "type":         mapping_type,
+            "filename":     f"mapping_custom_{type_key}_{new_id}.json",
             "created_date": datetime.now().strftime('%Y-%m-%d'),
-            "is_default": False
+            "is_default":   False
         }
-        
-        # Ajouter à l'index
-        index['mappings'].append(new_mapping)
-        save_mappings_index(index)
-        
-        # Créer le fichier de mapping
+
+        # Déterminer le contenu source
         mapping_data = {"champs": []}
-        
-        if copy_from:
-            # Copier depuis un mapping existant
-            source_mapping = next((m for m in index['mappings'] if m['id'] == copy_from), None)
-            if source_mapping:
-                source_path = os.path.join(SCRIPT_DIR, source_mapping['filename'])
-                if os.path.exists(source_path):
-                    try:
-                        with open(source_path, 'r', encoding='utf-8') as f:
-                            mapping_data = json.load(f)
-                    except:
-                        pass
-        else:
-            # Créer vide ou copier le défaut du type
-            default_mapping_file = f'mapping_v5_{type_key}.json'
-            default_mapping_path = os.path.join(SCRIPT_DIR, default_mapping_file)
-            
-            if os.path.exists(default_mapping_path):
-                try:
-                    with open(default_mapping_path, 'r', encoding='utf-8') as f:
-                        mapping_data = json.load(f)
-                except:
-                    pass
-        
-        mapping_path = os.path.join(SCRIPT_DIR, new_mapping['filename'])
-        with open(mapping_path, 'w', encoding='utf-8') as f:
-            json.dump(mapping_data, f, ensure_ascii=False, indent=2)
-        
+        source_id = copy_from if copy_from else f'default_{type_key}'
+        conn = get_db()
+        row = conn.execute(
+            "SELECT content FROM mapping_content WHERE mapping_id = ?", (source_id,)
+        ).fetchone()
+        if row:
+            try:
+                mapping_data = json.loads(row['content'])
+            except Exception:
+                pass
+
+        # Insérer le nouveau mapping et son contenu
+        conn.execute(
+            "INSERT INTO mappings (id, name, type, filename, created_date, is_default) "
+            "VALUES (?, ?, ?, ?, ?, 0)",
+            (new_id, name, mapping_type, new_mapping['filename'], new_mapping['created_date'])
+        )
+        conn.execute(
+            "INSERT INTO mapping_content (mapping_id, content) VALUES (?, ?)",
+            (new_id, json.dumps(mapping_data, ensure_ascii=False))
+        )
+        conn.commit()
+        conn.close()
+
         return jsonify({'success': True, 'mapping': new_mapping})
     except Exception as e:
         import traceback
@@ -3419,31 +3587,28 @@ def api_delete_mapping():
     try:
         data = request.json
         mapping_id = data.get('id')
-        
+
         if not mapping_id:
             return jsonify({'success': False, 'error': 'ID requis'})
-        
-        # Charger l'index
-        index = load_mappings_index()
-        
-        # Trouver le mapping
-        mapping = next((m for m in index['mappings'] if m['id'] == mapping_id), None)
-        if not mapping:
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT is_default FROM mappings WHERE id = ?", (mapping_id,)
+        ).fetchone()
+
+        if not row:
+            conn.close()
             return jsonify({'success': False, 'error': 'Mapping non trouvé'})
-        
-        # Interdire suppression du mapping par défaut
-        if mapping.get('is_default'):
+
+        if row['is_default']:
+            conn.close()
             return jsonify({'success': False, 'error': 'Impossible de supprimer un mapping par défaut'})
-        
-        # Supprimer le fichier
-        mapping_path = os.path.join(SCRIPT_DIR, mapping['filename'])
-        if os.path.exists(mapping_path):
-            os.remove(mapping_path)
-        
-        # Retirer de l'index
-        index['mappings'] = [m for m in index['mappings'] if m['id'] != mapping_id]
-        save_mappings_index(index)
-        
+
+        # La suppression en cascade efface aussi mapping_content et mapping_versions
+        conn.execute("DELETE FROM mappings WHERE id = ?", (mapping_id,))
+        conn.commit()
+        conn.close()
+
         return jsonify({'success': True})
     except Exception as e:
         import traceback
@@ -3451,6 +3616,8 @@ def api_delete_mapping():
         return jsonify({'success': False, 'error': str(e)})
 
 # ===== FIN NOUVELLES ROUTES API =====
+
+init_db()
 
 if __name__ == '__main__':
     print("="*60)
