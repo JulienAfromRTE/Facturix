@@ -63,11 +63,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_FILE = os.path.join(SCRIPT_DIR, 'facturix.db')
 
-# Chemins legacy conservés uniquement pour la migration au premier lancement
-_LEGACY_RULES_FILE    = os.path.join(SCRIPT_DIR, 'business_rules.json')
-_LEGACY_INDEX_FILE    = os.path.join(SCRIPT_DIR, 'mappings_index.json')
-_LEGACY_VERSIONS_DIR  = os.path.join(SCRIPT_DIR, 'mapping_versions')
-
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
 
 # ── Données par défaut ──────────────────────────────────────────────────────
@@ -130,33 +125,6 @@ _DEFAULT_RULES = {
     ]
 }
 
-_DEFAULT_MAPPINGS_META = [
-    {
-        "id": "default_simple",
-        "name": "Mapping CART Simple",
-        "type": "CART Simple",
-        "filename": "mapping_v5_simple.json",
-        "created_date": "2024-01-15",
-        "is_default": True
-    },
-    {
-        "id": "default_groupee",
-        "name": "Mapping CART Groupée",
-        "type": "CART Groupée",
-        "filename": "mapping_v5_groupee.json",
-        "created_date": "2024-01-15",
-        "is_default": True
-    },
-    {
-        "id": "default_ventesdiverses",
-        "name": "Mapping Ventes Diverses",
-        "type": "Ventes Diverses",
-        "filename": "mapping_v5_ventesdiverses.json",
-        "created_date": "2024-01-15",
-        "is_default": True
-    }
-]
-
 # ── SQLite helpers ──────────────────────────────────────────────────────────
 
 def get_db():
@@ -171,18 +139,18 @@ def _get_mapping_id(type_formulaire):
     defaults = {
         'simple':         'default_simple',
         'groupee':        'default_groupee',
-        'ventesdiverses': 'default_ventesdiverses',
+        'flux':           'default_flux',
         'CARTsimple':     'default_simple',
     }
     if type_formulaire in defaults:
         return defaults[type_formulaire]
-    # Mappings custom : type_formulaire = "custom_<uuid>" → id = "<uuid>"
+    # Mappings custom : type_formulaire = "custom_<id>" → id = "<id>"
     if type_formulaire.startswith('custom_'):
         return type_formulaire[len('custom_'):]
     return type_formulaire
 
 def init_db():
-    """Crée la base SQLite et migre les JSON existants si nécessaire."""
+    """Crée la base SQLite et initialise les données par défaut."""
     conn = get_db()
     c = conn.cursor()
     c.executescript('''
@@ -213,53 +181,34 @@ def init_db():
         );
     ''')
     conn.commit()
-    _migrate_from_json(conn)
-    _discover_orphan_mappings(conn)
+    _seed_default_data(conn)
     conn.close()
     print("[DB] Base SQLite prête.")
 
-def _migrate_from_json(conn):
-    """Migre les fichiers JSON legacy vers SQLite (exécuté une seule fois)."""
+def _seed_default_data(conn):
+    """Insère les données initiales si la DB est vide (exécuté une seule fois)."""
     c = conn.cursor()
 
     # ── Règles métier ────────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM business_rules")
     if c.fetchone()[0] == 0:
-        rules_data = _DEFAULT_RULES
-        if os.path.exists(_LEGACY_RULES_FILE):
-            try:
-                with open(_LEGACY_RULES_FILE, 'r', encoding='utf-8') as f:
-                    rules_data = json.load(f)
-            except Exception:
-                pass
         c.execute(
             "INSERT INTO business_rules (singleton, content) VALUES (1, ?)",
-            (json.dumps(rules_data, ensure_ascii=False),)
+            (json.dumps(_DEFAULT_RULES, ensure_ascii=False),)
         )
-        print("[DB] Règles métier migrées.")
+        print("[DB] Règles métier initialisées.")
 
-    # ── Index + contenu des mappings ─────────────────────────────────────────
+    # ── Mappings par défaut ──────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM mappings")
     if c.fetchone()[0] == 0:
-        index_entries = _DEFAULT_MAPPINGS_META[:]
-        if os.path.exists(_LEGACY_INDEX_FILE):
-            try:
-                with open(_LEGACY_INDEX_FILE, 'r', encoding='utf-8') as f:
-                    idx = json.load(f)
-                    index_entries = idx.get('mappings', _DEFAULT_MAPPINGS_META)
-            except Exception:
-                pass
-
-        for m in index_entries:
-            c.execute(
-                "INSERT OR IGNORE INTO mappings "
-                "(id, name, type, filename, created_date, is_default) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (m['id'], m['name'], m['type'], m['filename'],
-                 m.get('created_date', ''), 1 if m.get('is_default') else 0)
-            )
+        seeds = [
+            ("default_simple",  "CART Simple",    "CART Simple",    "mapping_CARTsimple_1504.json"),
+            ("default_groupee", "CART Groupée",   "CART Groupée",   "mapping_CARTgroupe_1504.json"),
+            ("default_flux",    "Flux Générique", "Flux Générique", "mapping_fluxGénérique_1504.json"),
+        ]
+        for mid, name, mtype, filename in seeds:
             content = {"champs": []}
-            filepath = os.path.join(SCRIPT_DIR, m['filename'])
+            filepath = os.path.join(SCRIPT_DIR, filename)
             if os.path.exists(filepath):
                 try:
                     with open(filepath, 'r', encoding='utf-8') as f:
@@ -267,113 +216,15 @@ def _migrate_from_json(conn):
                 except Exception:
                     pass
             c.execute(
-                "INSERT OR IGNORE INTO mapping_content (mapping_id, content) VALUES (?, ?)",
-                (m['id'], json.dumps(content, ensure_ascii=False))
+                "INSERT INTO mappings "
+                "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,1)",
+                (mid, name, mtype, filename, "2025-04-15")
             )
-        print(f"[DB] {len(index_entries)} mapping(s) migré(s).")
-
-    # ── Versions de mappings ─────────────────────────────────────────────────
-    c.execute("SELECT COUNT(*) FROM mapping_versions")
-    if c.fetchone()[0] == 0 and os.path.exists(_LEGACY_VERSIONS_DIR):
-        migrated = 0
-        for fname in os.listdir(_LEGACY_VERSIONS_DIR):
-            if not fname.endswith('.json'):
-                continue
-            # Format : mapping_v5_{type}_{YYYYMMDD}_{HHMMSS}.json
-            try:
-                parts = fname.replace('.json', '').split('_')
-                ts_idx = next(
-                    i for i, p in enumerate(parts) if len(p) == 8 and p.isdigit()
-                )
-                type_key  = '_'.join(parts[2:ts_idx])
-                timestamp = '_'.join(parts[ts_idx:ts_idx + 2])
-                mapping_id = _get_mapping_id(type_key)
-                fpath = os.path.join(_LEGACY_VERSIONS_DIR, fname)
-                with open(fpath, 'r', encoding='utf-8') as f:
-                    content = json.load(f)
-                c.execute("SELECT id FROM mappings WHERE id = ?", (mapping_id,))
-                if c.fetchone():
-                    c.execute(
-                        "INSERT INTO mapping_versions (mapping_id, timestamp, content) "
-                        "VALUES (?, ?, ?)",
-                        (mapping_id, timestamp, json.dumps(content, ensure_ascii=False))
-                    )
-                    migrated += 1
-            except Exception:
-                pass
-        if migrated:
-            print(f"[DB] {migrated} version(s) de mapping migrée(s).")
-
-    conn.commit()
-
-def _discover_orphan_mappings(conn):
-    """Détecte les fichiers mapping_*.json non enregistrés en DB et les ajoute automatiquement.
-
-    Quand plusieurs fichiers partagent le même préfixe avec un suffixe numérique
-    (ex: mapping_CARTsimple_1503.json / mapping_CARTsimple_1504.json), seul le
-    fichier au suffixe le plus élevé est importé (= la version la plus récente).
-    """
-    import glob as _glob, uuid as _uuid, re as _re
-    c = conn.cursor()
-
-    existing_filenames = set(
-        r[0] for r in c.execute("SELECT filename FROM mappings").fetchall()
-    )
-    skip = {'mappings_index.json', 'business_rules.json'}
-    pattern = os.path.join(SCRIPT_DIR, 'mapping_*.json')
-
-    # ── Grouper les candidats par famille (préfixe + suffixe numérique) ───────
-    # Ex : mapping_CARTsimple_1503.json et mapping_CARTsimple_1504.json
-    #      → famille "mapping_CARTsimple", on garde le suffixe max (1504)
-    families = {}   # base_name → (max_suffix_int, filepath)
-    singles  = []   # fichiers sans suffixe numérique détectable
-
-    for filepath in _glob.glob(pattern):
-        filename = os.path.basename(filepath)
-        if filename in existing_filenames or filename in skip:
-            continue
-        base = filename[:-5]  # retire .json
-        m = _re.match(r'^(.+)_(\d+)$', base)
-        if m:
-            prefix, suffix = m.group(1), int(m.group(2))
-            prev = families.get(prefix)
-            if prev is None or suffix > prev[0]:
-                families[prefix] = (suffix, filepath)
-        else:
-            singles.append(filepath)
-
-    candidates = [fp for (_, fp) in families.values()] + singles
-
-    # ── Importer chaque candidat retenu ──────────────────────────────────────
-    discovered = 0
-    for filepath in candidates:
-        filename = os.path.basename(filepath)
-        if filename in existing_filenames:
-            continue
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = json.load(f)
-        except Exception:
-            continue
-
-        type_label = content.get('type_facture_label', 'CART Simple')
-        name = filename.replace('.json', '').replace('mapping_', '', 1)
-        new_id = str(_uuid.uuid4())[:8]
-
-        c.execute(
-            "INSERT OR IGNORE INTO mappings "
-            "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,0)",
-            (new_id, name, type_label, filename, '')
-        )
-        c.execute(
-            "INSERT OR IGNORE INTO mapping_content (mapping_id, content) VALUES (?,?)",
-            (new_id, json.dumps(content, ensure_ascii=False))
-        )
-        existing_filenames.add(filename)
-        discovered += 1
-        print(f"[DB] Mapping découvert : {filename} → id={new_id}")
-
-    if discovered:
+            c.execute(
+                "INSERT INTO mapping_content (mapping_id, content) VALUES (?,?)",
+                (mid, json.dumps(content, ensure_ascii=False))
+            )
+            print(f"[DB] Mapping initialisé : {name} ({filename})")
         conn.commit()
 
 # ── Business rules ──────────────────────────────────────────────────────────
@@ -1124,206 +975,254 @@ HTML = r"""<!DOCTYPE html>
 <link rel="icon" type="image/png" href="__URL_PREFIX__/img/AppLogo_V2.png">
 <title>Facturix - La potion magique pour des factures certifiées !</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* === RESET & BASE === */
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial,sans-serif;background:#667eea;min-height:100vh;display:flex;align-items:stretch;gap:0}
-.sidebar{width:18px;min-width:18px;background:linear-gradient(180deg,#1a3a5c 0%,#366092 60%,#667eea 100%);position:sticky;top:0;height:100vh;flex-shrink:0}
+body{font-family:'Outfit',Arial,sans-serif;background:#4f46e5;min-height:100vh;display:flex;align-items:stretch;gap:0}
+.sidebar{width:14px;min-width:14px;background:linear-gradient(180deg,#1e1b4b 0%,#4338ca 60%,#667eea 100%);position:sticky;top:0;height:100vh;flex-shrink:0}
 .main-wrap{flex:1;padding:20px;min-width:0;overflow-y:auto}
-.container{max-width:1400px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden}
-.header{background:#366092;color:#fff;padding:12px 30px 20px 30px;display:flex;align-items:flex-end;gap:18px;justify-content:space-between}
+.container{max-width:1400px;margin:0 auto;background:#f8fafc;border-radius:20px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.25)}
+@media(max-width:900px){.sidebar{display:none}.main-wrap{padding:10px}}
+/* === HEADER === */
+.header{background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 55%,#4f46e5 100%);color:#fff;padding:14px 30px 22px 30px;display:flex;align-items:flex-end;gap:18px;justify-content:space-between}
 .header-left{display:flex;align-items:center;gap:18px}
 .header-logo{height:80px;width:auto;object-fit:contain;flex-shrink:0;display:block}
-.header-banner{flex-shrink:0;cursor:pointer;margin-bottom:-20px;margin-top:-15px;transition:transform 0.2s}
+.header-banner{flex-shrink:0;cursor:pointer;margin-bottom:-22px;margin-top:-15px;transition:transform 0.2s}
 .header-banner:hover{transform:scale(1.05)}
 .header-banner img{height:119px;width:auto;display:block}
-.header-text h1{font-size:1.5em;margin:0}
-.version{font-size:0.85em;opacity:0.8;margin-top:3px}
-/* Progress bar */
-.progress-section{background:#fff;border-radius:12px;padding:12px 25px;margin-bottom:12px}
-.progress-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.progress-label-row h3{margin:0;color:#366092;font-size:1em}
-.progress-pct{font-size:1.3em;font-weight:bold;color:#366092}
-/* perso inline supprime */
-.progress-track{background:#e0e0e0;border-radius:10px;height:20px;position:relative;cursor:pointer}
-.gaulois-overlay{display:none;position:fixed;z-index:9999;pointer-events:none}
-.gaulois-overlay.visible{display:flex;flex-direction:column;align-items:center}
-.gaulois-card{background:#fff;border:3px solid #366092;border-radius:18px;padding:12px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;align-items:center;gap:10px;max-width:420px}
-.gaulois-card img{width:338px;height:338px;object-fit:contain;border-radius:12px}
-.progress-fill{height:100%;border-radius:10px;transition:width 0.9s ease;min-width:2px}
-.pct-0{background:linear-gradient(90deg,#b71c1c,#e53935)}
-.pct-25{background:linear-gradient(90deg,#e53935,#ff7043)}
-.pct-50{background:linear-gradient(90deg,#ffa000,#ffc107)}
-.pct-75{background:linear-gradient(90deg,#70ad47,#43a047)}
-@media(max-width:900px){.sidebar{display:none}.main-wrap{padding:10px}}
-.tabs{display:flex;background:#f0f0f0}
-.tab{padding:15px 30px;cursor:pointer;border:none;background:transparent;font-weight:600}
-.tab.active{background:#fff;color:#366092}
-.tab-content{display:none;padding:40px}
+.header-text h1{font-size:1.35em;margin:0;font-weight:700;letter-spacing:-0.01em}
+.version{font-size:0.78em;opacity:0.65;margin-top:4px;font-weight:400}
+/* === TABS === */
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 20px;gap:2px}
+.tab{padding:13px 22px;cursor:pointer;border:none;background:transparent;font-weight:600;font-size:0.9em;color:#64748b;font-family:'Outfit',Arial,sans-serif;border-bottom:3px solid transparent;transition:all 0.2s;margin-bottom:-1px}
+.tab:hover{color:#4f46e5;background:#f1f5ff}
+.tab.active{color:#4f46e5;border-bottom-color:#4f46e5}
+/* === TAB CONTENT === */
+.tab-content{display:none;padding:26px 30px;background:#f8fafc}
 .tab-content.active{display:block}
-.section{background:#f8f9fa;border-radius:12px;padding:15px 25px;margin-bottom:15px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+/* === SECTIONS / CARDS === */
+.section{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.section h2{font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:14px}
+.section h3{font-size:0.95rem;font-weight:600;color:#1e293b;margin-bottom:10px}
+/* === FORMS === */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .form-group{display:flex;flex-direction:column}
-.form-group label{font-weight:600;margin-bottom:8px}
-.form-group select,.form-group input,.form-group textarea{padding:12px;border:2px solid #366092;border-radius:8px;font-size:1em}
-.form-group textarea{min-height:80px;font-family:monospace;font-size:0.9em}
-.help-box{background:#e7f3ff;border-left:4px solid #2196F3;padding:15px;margin:15px 0}
-.btn{background:#70ad47;color:#fff;padding:18px;border:none;border-radius:10px;font-size:1.2em;cursor:pointer;width:100%}
-.btn:hover{background:#5a8c39}
-.btn-secondary{background:#366092;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;margin-right:10px}
-.btn-add{background:#28a745;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}
-.loading{display:none;text-align:center;padding:20px}
-.spinner{border:4px solid #f3f3f3;border-top:4px solid #366092;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto}
+.form-group label{font-weight:600;font-size:0.78rem;color:#475569;margin-bottom:5px;letter-spacing:0.05em;text-transform:uppercase}
+.form-group select,.form-group input[type=text],.form-group input[type=file],.form-group textarea{padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9em;font-family:'Outfit',Arial,sans-serif;color:#1e293b;transition:border-color 0.2s,box-shadow 0.2s;background:#fff}
+.form-group select:focus,.form-group input:focus,.form-group textarea:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+.form-group textarea{min-height:80px;font-family:'JetBrains Mono',monospace;font-size:0.87em;resize:vertical}
+/* === HELP BOX === */
+.help-box{background:#eef2ff;border-left:3px solid #667eea;padding:11px 15px;margin:10px 0;border-radius:0 8px 8px 0;font-size:0.87em;color:#3730a3;line-height:1.55}
+/* === MAIN BUTTON === */
+.btn{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:12px 28px;border:none;border-radius:10px;font-size:1em;font-weight:700;cursor:pointer;width:100%;font-family:'Outfit',Arial,sans-serif;transition:all 0.2s;box-shadow:0 3px 10px rgba(102,126,234,0.28);letter-spacing:0.03em}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(102,126,234,0.38)}
+/* === ACTION BUTTONS === */
+.btn-secondary{background:#fff;color:#667eea;padding:8px 15px;border:1.5px solid #c7d2fe;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
+.btn-secondary:hover{background:#eef2ff;border-color:#818cf8;color:#4f46e5}
+.btn-add{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s;box-shadow:0 2px 6px rgba(16,185,129,0.18)}
+.btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
+.btn-download{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
+.btn-save-version{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
+.btn-restore{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
+.btn-clear{background:#64748b;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.82em;white-space:nowrap;font-family:'Outfit',Arial,sans-serif;transition:background 0.15s}
+.btn-clear:hover{background:#475569}
+/* === LOADING === */
+.loading{display:none;text-align:center;padding:30px}
+.spinner{border:3px solid #e2e8f0;border-top:3px solid #667eea;border-radius:50%;width:42px;height:42px;animation:spin 0.75s linear infinite;margin:0 auto 10px}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .results{display:none}
-/* Stats : 3 colonnes */
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:15px}
-.stat-card{background:#fff;padding:12px;border-radius:10px;text-align:center}
-.stat-value{font-size:1.6em;font-weight:bold}
-.ok .stat-value{color:#70ad47}
-.erreur .stat-value{color:#c00000}
-.ignore .stat-value{color:#9e9e9e}
-.search-box{display:flex;align-items:center;gap:15px;padding:20px;background:#f0f4ff;border-radius:10px;border-left:4px solid #366092}
-.search-box label{font-weight:600;color:#366092;white-space:nowrap}
-.search-box input{flex:1;padding:12px;border:2px solid #366092;border-radius:8px;font-size:1em}
-.search-box input:focus{outline:none;border-color:#2196F3;box-shadow:0 0 0 3px rgba(33,150,243,0.1)}
-.btn-clear{background:#f44336;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:0.9em;white-space:nowrap}
-.btn-clear:hover{background:#d32f2f}
+/* === PROGRESS BAR === */
+.progress-section{background:#fff;border-radius:12px;padding:13px 22px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.progress-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.progress-label-row h3{margin:0;color:#1e293b;font-size:0.82em;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+.progress-pct{font-size:1.4em;font-weight:700;color:#667eea}
+.progress-track{background:#e2e8f0;border-radius:999px;height:14px;position:relative;cursor:pointer;overflow:hidden}
+.gaulois-overlay{display:none;position:fixed;z-index:9999;pointer-events:none}
+.gaulois-overlay.visible{display:flex;flex-direction:column;align-items:center}
+.gaulois-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px 18px;box-shadow:0 12px 36px rgba(0,0,0,0.2);display:flex;flex-direction:column;align-items:center;gap:10px;max-width:420px}
+.gaulois-card img{width:338px;height:338px;object-fit:contain;border-radius:12px}
+.progress-fill{height:100%;border-radius:999px;transition:width 0.9s ease;min-width:2px}
+.pct-0{background:linear-gradient(90deg,#ef4444,#f87171)}
+.pct-25{background:linear-gradient(90deg,#f97316,#fb923c)}
+.pct-50{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.pct-75{background:linear-gradient(90deg,#10b981,#34d399)}
+/* === STAT CARDS === */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.stat-card{background:#fff;padding:13px 10px;border-radius:10px;text-align:center;border:1px solid #e2e8f0;font-size:0.8em;color:#64748b;font-weight:500;transition:transform 0.18s,box-shadow 0.18s;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.stat-value{font-size:1.7em;font-weight:700;margin-top:4px;display:block}
+.ok .stat-value{color:#10b981}
+.erreur .stat-value{color:#ef4444}
+.ignore .stat-value{color:#94a3b8}
+/* === SEARCH BOX === */
+.search-box{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;flex-wrap:nowrap}
+.search-box label{font-weight:600;font-size:0.84em;color:#475569;white-space:nowrap}
+.search-box input{flex:1;max-width:200px;padding:7px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.88em;font-family:'Outfit',Arial,sans-serif;transition:border-color 0.2s,box-shadow 0.2s}
+.search-box input:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+/* === RESULTS CATEGORIES === */
+.category{background:#fff;border-radius:10px;margin-bottom:9px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
 .category.hidden{display:none}
-.category{background:#fff;border-radius:10px;margin-bottom:15px}
-.category-header{background:#366092;color:#fff;padding:20px;cursor:pointer;display:flex;justify-content:space-between}
+.category-header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:12px 18px;cursor:pointer;display:flex;justify-content:space-between;font-weight:600;font-size:0.88em;letter-spacing:0.02em}
 .category-content{max-height:0;overflow:hidden;transition:max-height 0.3s}
 .category-content.open{max-height:50000px}
-table.main-table{width:100%;border-collapse:collapse;margin-top:10px}
-table.main-table{font-size:0.92em}
-table.main-table th{background:#366092;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:0.95em}
-table.main-table td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle;line-height:1.35}
-table.main-table tr.data-row:hover{background:#f0f4ff}
+/* === RESULTS TABLE === */
+table.main-table{width:100%;border-collapse:collapse;font-size:0.89em}
+table.main-table th{background:#f1f5f9;color:#475569;padding:7px 10px;text-align:left;font-weight:700;font-size:0.78em;border-bottom:2px solid #e2e8f0;text-transform:uppercase;letter-spacing:0.05em}
+table.main-table td{padding:5px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.35;color:#1e293b}
+table.main-table tr.data-row:hover{background:#f8fafc}
 table.main-table ul{margin:0;padding-left:14px}
 table.main-table li{margin:1px 0}
-.col-status{width:28px;text-align:center;font-size:1.2em;padding:4px!important}
+.col-status{width:28px;text-align:center;font-size:1.1em;padding:4px!important}
 .col-bt{width:70px}
-.col-bt .bt-oblig{border:1.5px solid #c0392b;border-radius:6px;padding:2px 5px;color:#c0392b;display:inline-block;text-align:center;font-size:0.85em;line-height:1.3}
+.col-bt .bt-oblig{border:1.5px solid #ef4444;border-radius:5px;padding:2px 5px;color:#ef4444;display:inline-block;text-align:center;font-size:0.82em;line-height:1.3;font-weight:700}
 .col-libelle{width:300px}
 .col-regles{width:300px}
 .col-valeurs{width:180px}
 .col-valeurs .val-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;line-height:1.4}
-.col-valeurs .val-line .val-label{color:#888;font-weight:600;font-size:0.9em}
+.col-valeurs .val-line .val-label{color:#94a3b8;font-weight:600;font-size:0.87em}
 .col-erreurs{max-width:200px}
 .col-erreurs-hidden{display:none}
-/* Sous-tableau CEGEDIM */
-table.ceg-table{width:100%;border-collapse:collapse;margin:6px 0 0 0;font-size:0.85em}
-table.ceg-table th{background:#5b3fa0;color:#fff;padding:6px 10px;text-align:left}
-table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#f8f4ff}
-.ceg-row-header td{background:#f0e8ff;font-style:italic;font-size:0.8em;color:#5b3fa0;padding:4px 10px;border-bottom:1px dashed #ccc}
-.tooltip{position:absolute;background:#333;color:#fff;padding:12px;border-radius:6px;font-size:0.9em;z-index:1000;display:none;max-width:500px;box-shadow:0 4px 8px rgba(0,0,0,0.3);pointer-events:none}
-.tooltip strong{color:#ffc107;display:block;margin-bottom:4px}
-.tooltip-separator{border-top:1px solid #666;margin:8px 0;padding-top:6px}
-.tooltip-controls{font-size:0.85em;color:#ccc}
-/* Paramétrage */
+/* === CEGEDIM SUB-TABLE === */
+table.ceg-table{width:100%;border-collapse:collapse;margin:6px 0 0 0;font-size:0.83em}
+table.ceg-table th{background:#6d28d9;color:#fff;padding:6px 10px;text-align:left;font-weight:600}
+table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#faf5ff}
+.ceg-row-header td{background:#f3e8ff;font-style:italic;font-size:0.78em;color:#7c3aed;padding:4px 10px;border-bottom:1px dashed #ddd6fe}
+/* === TOOLTIP === */
+.tooltip{position:absolute;background:#1e293b;color:#e2e8f0;padding:11px 14px;border-radius:8px;font-size:0.85em;z-index:1000;display:none;max-width:500px;box-shadow:0 8px 24px rgba(0,0,0,0.28);pointer-events:none;line-height:1.5}
+.tooltip strong{color:#fbbf24;display:block;margin-bottom:4px}
+.tooltip-separator{border-top:1px solid rgba(255,255,255,0.12);margin:7px 0;padding-top:6px}
+.tooltip-controls{font-size:0.81em;color:#94a3b8}
+/* === PARAMÉTRAGE — LISTE CHAMPS === */
 .mapping-list{list-style:none}
-.mapping-item{padding:14px 18px;margin:8px 0;border-radius:8px;border-left:4px solid #366092;display:flex;justify-content:space-between;align-items:center;background:#fff;cursor:move;transition:all 0.2s}
-.mapping-item.valide{background:#e8f5e9;border-left-color:#388e3c}
-.mapping-item.dragging{opacity:0.5;transform:scale(0.98)}
-.mapping-item.drag-over{border-top:3px solid #2196F3;margin-top:12px}
+.mapping-item{padding:10px 14px;margin:5px 0;border-radius:8px;border:1px solid #e2e8f0;border-left:3px solid #667eea;display:flex;justify-content:space-between;align-items:center;background:#fff;cursor:move;transition:all 0.18s}
+.mapping-item.valide{background:#f0fdf4;border-color:#d1fae5;border-left-color:#10b981}
+.mapping-item.dragging{opacity:0.45;transform:scale(0.98)}
+.mapping-item.drag-over{border-top:2px solid #667eea;margin-top:8px}
 .mapping-item-info{flex:1}
-.mapping-item-info .item-main{font-weight:600}
-.mapping-item-info .item-sub{font-size:0.82em;color:#555;margin-top:3px}
-.mapping-item-info .item-xpath{font-size:0.78em;color:#888;font-family:monospace;margin-top:2px;word-break:break-all}
-.mapping-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.mapping-actions button{padding:7px 14px;border:none;border-radius:4px;cursor:pointer;font-weight:600}
-.btn-edit{background:#2196F3;color:#fff}
-.btn-delete{background:#f44336;color:#fff}
-.btn-download{background:#FF9800;color:#fff}
-.btn-save-version{background:#9C27B0;color:#fff}
-.btn-restore{background:#607D8B;color:#fff}
-.valide-toggle{display:flex;align-items:center;gap:5px;font-size:0.85em;color:#388e3c;font-weight:600;cursor:pointer}
-.valide-toggle input{width:16px;height:16px;cursor:pointer;accent-color:#388e3c}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000}
-.modal-content{background:#fff;margin:3% auto;padding:30px;border-radius:12px;max-width:900px;max-height:92vh;overflow-y:auto}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
-.version-item{padding:12px;margin:8px 0;border-radius:6px;background:#f5f5f5;display:flex;justify-content:space-between;align-items:center}
-.version-item:hover{background:#e8f5e9}
+.mapping-item-info .item-main{font-weight:600;font-size:0.88em;color:#1e293b}
+.mapping-item-info .item-sub{font-size:0.77em;color:#64748b;margin-top:2px}
+.mapping-item-info .item-xpath{font-size:0.73em;color:#94a3b8;font-family:'JetBrains Mono',monospace;margin-top:2px;word-break:break-all}
+.mapping-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.mapping-actions button{padding:5px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.79em;font-family:'Outfit',Arial,sans-serif;transition:all 0.15s}
+.btn-edit{background:#667eea;color:#fff}
+.btn-edit:hover{background:#4f46e5}
+.btn-delete{background:#ef4444;color:#fff}
+.btn-delete:hover{background:#dc2626}
+.valide-toggle{display:flex;align-items:center;gap:4px;font-size:0.79em;color:#10b981;font-weight:600;cursor:pointer}
+.valide-toggle input{width:13px;height:13px;cursor:pointer;accent-color:#10b981}
+/* === BTN GROUP === */
+.btn-group{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+/* === MODAL BASE === */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.58);z-index:1000;backdrop-filter:blur(3px)}
+.modal-content{background:#fff;margin:4% auto;padding:22px;border-radius:14px;max-width:900px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.22);animation:slideUp 0.22s ease;width:90%}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-header h2{font-size:1.1rem;font-weight:700;color:#1e293b;flex:1}
+.modal-close{font-size:1.45em;cursor:pointer;color:#94a3b8;line-height:1;transition:color 0.15s}
+.modal-close:hover{color:#1e293b}
+.modal .form-group{margin-bottom:13px}
+.modal .form-group label{font-weight:600;margin-bottom:5px;font-size:0.78em;color:#475569;display:block;text-transform:uppercase;letter-spacing:0.05em}
+.modal .form-group input,.modal .form-group select{padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.9em;width:100%;font-family:'Outfit',Arial,sans-serif;transition:border-color 0.2s,box-shadow 0.2s;color:#1e293b}
+.modal .form-group input:focus,.modal .form-group select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+.modal .form-group textarea{padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.87em;min-height:75px;font-family:'JetBrains Mono',monospace;width:100%;resize:vertical;color:#1e293b}
+.modal .form-group small{display:block;margin-top:4px;color:#94a3b8;font-size:0.79em;line-height:1.4}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.modal-body{padding:1.25rem}
+.modal-footer{padding:1rem 1.25rem;border-top:1px solid #e2e8f0;display:flex;gap:0.6rem;justify-content:flex-end}
+/* === VERSION HISTORY === */
+.version-item{padding:10px 13px;margin:6px 0;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s}
+.version-item:hover{background:#f0fdf4;border-color:#d1fae5}
 .version-info{flex:1}
-.version-timestamp{font-weight:600;color:#366092}
-.version-details{font-size:0.85em;color:#666;margin-top:4px}
-.btn-group{display:flex;gap:10px;margin-bottom:15px}
-.modal-close{font-size:2em;cursor:pointer;color:#999;line-height:1}
-.modal .form-group{margin-bottom:18px}
-.modal .form-group label{font-weight:600;margin-bottom:8px;font-size:0.95em;display:block}
-.modal .form-group input,.modal .form-group select{padding:10px 12px;border:2px solid #366092;border-radius:6px;font-size:0.95em;width:100%}
-.modal .form-group textarea{padding:10px 12px;border:2px solid #366092;border-radius:6px;font-size:0.9em;min-height:80px;font-family:monospace;width:100%}
-.modal .form-group small{display:block;margin-top:6px;color:#666;font-size:0.85em;line-height:1.4}
-/* Règles métiers */
-.rule-card{background:#fff;border-radius:10px;margin-bottom:15px;overflow:hidden;border:2px solid #ddd}
-.rule-header{padding:15px;display:flex;justify-content:space-between;align-items:center;background:#f5f5f5}
-.rule-header.enabled{background:#e8f5e9;border-left:4px solid #4caf50}
-.rule-header.disabled{background:#ffebee;border-left:4px solid #f44336;opacity:0.7}
+.version-timestamp{font-weight:600;color:#667eea;font-size:0.87em}
+.version-details{font-size:0.79em;color:#64748b;margin-top:3px}
+/* === RÈGLES MÉTIERS === */
+.rule-card{background:#fff;border-radius:10px;margin-bottom:9px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.rule-header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:#f8fafc}
+.rule-header.enabled{background:#f0fdf4;border-left:3px solid #10b981}
+.rule-header.disabled{background:#fef2f2;border-left:3px solid #ef4444;opacity:0.8}
 .rule-title{flex:1}
-.rule-title strong{font-size:1.1em;color:#366092}
-.rule-status{margin-left:12px;padding:4px 10px;border-radius:4px;font-size:0.85em;font-weight:600}
-.rule-header.enabled .rule-status{background:#4caf50;color:#fff}
-.rule-header.disabled .rule-status{background:#f44336;color:#fff}
-.rule-actions-btn{display:flex;gap:8px}
-.rule-actions-btn button{padding:6px 12px;border:none;border-radius:4px;cursor:pointer;font-weight:600;background:#2196F3;color:#fff}
-.rule-actions-btn button:hover{background:#1976D2}
-.rule-actions-btn .btn-edit{background:#FF9800}
-.rule-actions-btn .btn-edit:hover{background:#F57C00}
-.rule-actions-btn .btn-delete{background:#f44336}
-.rule-actions-btn .btn-delete:hover{background:#d32f2f}
-.rule-body{padding:15px;border-top:1px solid #eee}
-.rule-description{color:#666;font-size:0.9em;margin-bottom:12px;font-style:italic}
-.rule-logic{background:#f9f9f9;padding:12px;border-radius:6px;font-family:monospace;font-size:0.9em}
-.rule-logic div{margin:6px 0}
-.condition-item,.action-item{background:#f0f4ff;padding:12px;border-radius:6px;margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.condition-item select,.action-item select,.condition-item input,.action-item input{padding:8px;border:2px solid #366092;border-radius:4px;font-size:0.9em;max-width:280px}
+.rule-title strong{font-size:0.92em;color:#1e293b;font-weight:600}
+.rule-status{margin-left:10px;padding:2px 9px;border-radius:999px;font-size:0.71em;font-weight:700;text-transform:uppercase;letter-spacing:0.07em}
+.rule-header.enabled .rule-status{background:#dcfce7;color:#15803d}
+.rule-header.disabled .rule-status{background:#fee2e2;color:#b91c1c}
+.rule-actions-btn{display:flex;gap:5px}
+.rule-actions-btn button{padding:5px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.79em;font-family:'Outfit',Arial,sans-serif;background:#667eea;color:#fff;transition:all 0.15s}
+.rule-actions-btn button:hover{background:#4f46e5}
+.rule-actions-btn .btn-edit{background:#f59e0b}
+.rule-actions-btn .btn-edit:hover{background:#d97706}
+.rule-actions-btn .btn-delete{background:#ef4444}
+.rule-actions-btn .btn-delete:hover{background:#dc2626}
+.rule-body{padding:12px 16px;border-top:1px solid #f1f5f9}
+.rule-description{color:#64748b;font-size:0.85em;margin-bottom:9px;font-style:italic}
+.rule-logic{background:#f8fafc;padding:10px 13px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:0.83em;color:#475569}
+.rule-logic div{margin:4px 0}
+.condition-item,.action-item{background:#f0f4ff;padding:10px 12px;border-radius:8px;margin-bottom:7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #e0e7ff}
+.condition-item select,.action-item select,.condition-item input,.action-item input{padding:6px 9px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:0.85em;max-width:280px;font-family:'Outfit',Arial,sans-serif}
 .condition-item .cond-field,.action-item .action-field{min-width:200px;flex:1}
 .condition-item .cond-op,.action-item .action-type{min-width:150px}
 .condition-item .cond-value,.action-item .action-value{min-width:120px;flex:0.5}
-.condition-item .btn-remove,.action-item .btn-remove{background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap}
-.condition-item .btn-remove:hover,.action-item .btn-remove:hover{background:#d32f2f}
-
-/* ENHANCED MAPPING MANAGEMENT STYLES */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-.mapping-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:2rem;border-radius:1rem;color:white;margin-bottom:2rem;box-shadow:0 10px 25px rgba(0,0,0,0.15)}
-.mapping-header h2{font-size:1.8rem;font-weight:700;margin-bottom:0.5rem}
-.mapping-header p{opacity:0.9;font-size:1rem}
-.mapping-type-select{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Outfit',Arial,sans-serif;font-size:1rem;background:#fff;transition:all 0.2s}
-.mapping-type-select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.1)}
-.btn-create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:8px}
-.btn-create:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
-.btn-download{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)}
-.btn-save-version{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)}
-.btn-restore{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%)}
-.mappings-list{margin-top:2rem}
-.mapping-card{background:linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%);padding:1.25rem;border-radius:8px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;transition:all 0.3s;border-left:4px solid #667eea}
-.mapping-card:hover{transform:translateX(5px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.condition-item .btn-remove,.action-item .btn-remove{background:#ef4444;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:0.79em;font-family:'Outfit',Arial,sans-serif}
+.condition-item .btn-remove:hover,.action-item .btn-remove:hover{background:#dc2626}
+/* === MAPPING MANAGEMENT === */
+.mapping-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.3rem 1.6rem;border-radius:12px;color:white;margin-bottom:1.2rem;box-shadow:0 8px 20px rgba(102,126,234,0.18)}
+.mapping-header h2{font-size:1.35rem;font-weight:700;margin-bottom:3px}
+.mapping-header p{opacity:0.82;font-size:0.88rem}
+.mapping-type-select{width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Outfit',Arial,sans-serif;font-size:0.9rem;background:#fff;transition:all 0.2s;color:#1e293b}
+.mapping-type-select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+.btn-create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(16,185,129,0.18)}
+.btn-create:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,0.3)}
+.mappings-list{margin-top:1.2rem}
+.mapping-card{background:#fff;padding:0.85rem 1.1rem;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;transition:all 0.18s;border:1px solid #e2e8f0;border-left:3px solid #667eea}
+.mapping-card:hover{transform:translateX(4px);box-shadow:0 4px 12px rgba(0,0,0,0.07)}
 .mapping-info{flex:1}
-.mapping-name{font-weight:600;font-size:1.1rem;color:#1e293b;margin-bottom:0.25rem}
-.mapping-type{font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#64748b;background:rgba(255,255,255,0.7);padding:0.25rem 0.5rem;border-radius:0.25rem;display:inline-block}
-.btn-delete{background:#ef4444;color:#fff;padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px;font-size:0.85rem}
-.btn-delete:hover{background:#dc2626}
-.modal-header.create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:white;border-top-left-radius:1rem;border-top-right-radius:1rem}
-.modal-header.delete{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:white;border-top-left-radius:1rem;border-top-right-radius:1rem}
-.modal-header h2{margin:0;font-size:1.5rem;flex:1}
-.warning-icon{font-size:2rem}
-.warning-text{background:#fef3c7;border-left:4px solid #f59e0b;padding:1rem;border-radius:0.5rem;margin:1rem 0;color:#92400e}
-.warning-text strong{display:block;margin-bottom:0.5rem}
-.empty-state{text-align:center;padding:3rem 1rem;color:#64748b}
-.empty-state-icon{font-size:4rem;margin-bottom:1rem;opacity:0.3}
-.modal-content{background:#fff;margin:5% auto;padding: 20px;border-radius:1rem;width:90%;max-width: 700px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.3s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.modal-body{padding:1.5rem}
-.modal-footer{padding:1.5rem;border-top:2px solid #e2e8f0;display:flex;gap:0.75rem;justify-content:flex-end}
-
-/* Easter egg Konami */
-.konami-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;flex-direction:column}
+.mapping-name{font-weight:600;font-size:0.92rem;color:#1e293b;margin-bottom:3px}
+.mapping-type{font-family:'JetBrains Mono',monospace;font-size:0.74rem;color:#64748b;background:#f1f5f9;padding:2px 6px;border-radius:4px;display:inline-block}
+.modal-header.create{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:white;border-radius:10px 10px 0 0;padding:14px 18px;margin:-22px -22px 16px -22px}
+.modal-header.delete{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:white;border-radius:10px 10px 0 0;padding:14px 18px;margin:-22px -22px 16px -22px}
+.modal-header.create h2,.modal-header.delete h2{color:#fff}
+.modal-header.create .modal-close,.modal-header.delete .modal-close{color:rgba(255,255,255,0.78)}
+.modal-header.create .modal-close:hover,.modal-header.delete .modal-close:hover{color:#fff}
+.warning-icon{font-size:1.7rem}
+.warning-text{background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:0 7px 7px 0;margin:10px 0;color:#92400e;font-size:0.85em;line-height:1.5}
+.warning-text strong{display:block;margin-bottom:3px}
+.empty-state{text-align:center;padding:2.5rem 1rem;color:#64748b}
+.empty-state-icon{font-size:2.8rem;margin-bottom:0.7rem;opacity:0.22}
+/* === EDIT FIELD MODAL === */
+.edit-field-modal{padding:0!important;max-width:680px!important;border-radius:16px!important;overflow:hidden}
+.edit-field-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:0!important}
+.edit-field-header h2{color:#fff;margin:0;font-size:1.1rem;font-weight:700}
+.edit-field-header p{color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:0.81rem}
+.edit-field-header .modal-close{color:rgba(255,255,255,0.68);font-size:1.35rem;transition:color 0.2s;line-height:1}
+.edit-field-header .modal-close:hover{color:#fff}
+.edit-field-hicon{width:35px;height:35px;min-width:35px;background:rgba(255,255,255,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;margin-right:11px}
+.edit-field-body{padding:16px;display:flex;flex-direction:column;gap:11px;background:#f8fafc;max-height:70vh;overflow-y:auto}
+.edit-section{background:#fff;border-radius:10px;padding:12px 15px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.edit-section-title{font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #f1f5f9}
+.edit-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.edit-fg{display:flex;flex-direction:column;gap:4px;margin-bottom:9px}
+.edit-fg:last-child{margin-bottom:0}
+.edit-row-2 .edit-fg,.edit-row-3 .edit-fg{margin-bottom:0}
+.edit-lbl{font-size:0.75rem;font-weight:600;color:#475569;letter-spacing:0.03em;display:flex;align-items:center;gap:5px}
+.edit-opt{font-weight:400;color:#94a3b8;font-size:0.71rem}
+.edit-inp{padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.86rem;color:#1e293b;background:#fff;transition:border-color 0.2s,box-shadow 0.2s;width:100%;box-sizing:border-box;font-family:inherit}
+.edit-inp:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+.edit-inp.mono{font-family:'JetBrains Mono',monospace;font-size:0.78rem}
+.edit-inp.textarea-rdg{min-height:62px;resize:vertical}
+.edit-hint{font-size:0.74rem;color:#94a3b8;line-height:1.4;margin-top:1px}
+.edit-field-footer{padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px}
+.edit-btn-cancel{padding:7px 15px;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;color:#64748b;font-weight:600;cursor:pointer;font-size:0.85rem;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
+.edit-btn-cancel:hover{border-color:#cbd5e1;background:#f8fafc}
+.edit-btn-save{padding:7px 19px;border:none;border-radius:7px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;font-weight:600;cursor:pointer;font-size:0.85rem;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s;box-shadow:0 2px 7px rgba(102,126,234,0.25)}
+.edit-btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 13px rgba(102,126,234,0.35)}
+/* === EASTER EGG KONAMI === */
+.konami-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;align-items:center;justify-content:center;flex-direction:column}
 .konami-overlay.visible{display:flex}
 .konami-box{position:relative;animation:konami-pop 0.4s cubic-bezier(.34,1.56,.64,1)}
 .konami-box img{max-width:70vw;max-height:70vh;border-radius:20px;box-shadow:0 0 80px rgba(255,215,0,0.6),0 0 20px rgba(0,0,0,0.8)}
 .konami-stars{position:absolute;inset:0;pointer-events:none}
-.konami-close{margin-top:20px;color:#fff;font-size:0.9em;opacity:0.7;cursor:pointer}
-@keyframes konami-pop{0%{transform:scale(0) rotate(-10deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
-</style>
+.konami-close{margin-top:20px;color:#fff;font-size:0.9em;opacity:0.65;cursor:pointer}
+@keyframes konami-pop{0%{transform:scale(0) rotate(-10deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}</style>
 </head>
 <body>
 
@@ -1428,7 +1327,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="section">
 <div class="search-box">
 <label for="searchBT">🔍 Rechercher un BT :</label>
-<input type="text" id="searchBT" placeholder="Tapez un numéro de BT (ex: 48)">
+<input type="text" id="searchBT" placeholder="Tapez un n° de BT (ex: 48)">
 <button class="btn-clear" id="btnClearSearch" style="display:none">✕ Effacer</button>
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterErrors" style="width:18px;height:18px">
@@ -1453,12 +1352,15 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <div class="section">
 <h2>Gestion des Mappings</h2>
 <div class="form-group" style="margin-bottom:20px">
-<label>Type de formulaire :</label>
+<label>Mapping actif :</label>
+<div style="display:flex;gap:8px;align-items:center">
 <select id="typeFormulaireParam" class="mapping-type-select">
 <option value="simple">CART Simple</option>
 <option value="groupee">CART Groupée</option>
-<option value="ventesdiverses">Ventes Diverses</option>
+<option value="flux">Flux Générique</option>
 </select>
+<button id="btnDeleteCurrentMapping" class="btn-delete" style="display:none" onclick="deleteCurrentMapping()"><span>🗑️</span> Supprimer</button>
+</div>
 </div>
 <div class="btn-group">
 <button class="btn-secondary" id="btnReload"><span>🔄</span> Actualiser</button>
@@ -1473,11 +1375,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #e0d0ff;background:#
 <input type="text" id="searchBTParam" placeholder="Tapez un numéro de BT (ex: 48)">
 <button class="btn-clear" id="btnClearSearchParam" style="display:none">✕ Effacer</button>
 </div>
-</div>
-
-<div class="section">
-<h3 style="margin-bottom:1.5rem;font-size:1.3rem">📋 Mappings existants</h3>
-<div id="mappingsListContainer" class="mappings-list"></div>
 </div>
 
 <div class="section">
@@ -1553,45 +1450,112 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 
 <!-- MODAL EDITION -->
 <div id="editModal" class="modal">
-<div class="modal-content">
-<div class="modal-header">
-<h2 id="modalTitle">Editer le Champ</h2>
+<div class="modal-content edit-field-modal">
+<div class="modal-header edit-field-header">
+<div style="display:flex;align-items:center">
+<div class="edit-field-hicon">⚙️</div>
+<div><h2 id="modalTitle">Editer le Champ</h2><p id="modalSubtitle">Renseignez les informations du champ BT</p></div>
+</div>
 <span class="modal-close" id="modalClose">&times;</span>
 </div>
-<div class="form-group"><label>Balise BT :</label><input type="text" id="editBalise"></div>
-<div class="form-group"><label>Libelle :</label><input type="text" id="editLibelle"></div>
-<div class="form-group">
-<label>Catégorie :</label>
-<select id="editCategorie">
-<option value="BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE">INFORMATIONS GÉNÉRALES DE LA FACTURE</option>
-<option value="BG-TOTAUX|TOTAUX DE LA FACTURE">TOTAUX DE LA FACTURE</option>
-<option value="BG-TVA|DÉTAIL DE LA TVA">DÉTAIL DE LA TVA</option>
-<option value="BG-LIGNES|LIGNES DE FACTURE">LIGNES DE FACTURE</option>
-<option value="BG-VENDEUR|INFORMATIONS VENDEUR">INFORMATIONS VENDEUR</option>
-<option value="BG-ACHETEUR|INFORMATIONS ACHETEUR">INFORMATIONS ACHETEUR</option>
+<div class="edit-field-body">
+<!-- Identification -->
+<div class="edit-section">
+<div class="edit-section-title">Identification</div>
+<div class="edit-row-2">
+<div class="edit-fg">
+<label class="edit-lbl">Balise BT</label>
+<input type="text" id="editBalise" class="edit-inp" placeholder="ex : BT-24">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Catégorie</label>
+<select id="editCategorie" class="edit-inp">
+<option value="BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE">Informations générales</option>
+<option value="BG-TOTAUX|TOTAUX DE LA FACTURE">Totaux de la facture</option>
+<option value="BG-TVA|DÉTAIL DE LA TVA">Détail de la TVA</option>
+<option value="BG-LIGNES|LIGNES DE FACTURE">Lignes de facture</option>
+<option value="BG-VENDEUR|INFORMATIONS VENDEUR">Informations vendeur</option>
+<option value="BG-ACHETEUR|INFORMATIONS ACHETEUR">Informations acheteur</option>
 </select>
 </div>
-<div class="form-group"><label>Champ RDI :</label><input type="text" id="editRdi"></div>
-<div class="form-group"><label>XPath :</label><input type="text" id="editXpath"></div>
-<div class="form-group">
-<label>Attribut (optionnel) :</label>
-<input type="text" id="editAttribute" placeholder="Ex: schemeID (pour extraire un attribut XML)">
-<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
-Laissez vide pour extraire le texte de la balise. Indiquez le nom d'attribut (ex: schemeID, format) pour extraire sa valeur.
-</small>
 </div>
-<div class="form-group"><label>Type :</label>
-<select id="editType"><option value="String">String</option><option value="Decimal">Decimal</option><option value="Date">Date</option></select>
+<div class="edit-fg">
+<label class="edit-lbl">Libellé</label>
+<input type="text" id="editLibelle" class="edit-inp" placeholder="Description lisible du champ">
 </div>
-<div class="form-group"><label>Obligatoire :</label>
-<select id="editObligatoire"><option value="Oui">Oui</option><option value="Non">Non</option><option value="Dependant">Dependant</option></select>
 </div>
-<div class="form-group"><label>Ignorer les erreurs de ce BT :</label>
-<select id="editIgnore"><option value="Non">Non</option><option value="Oui">Oui</option></select>
-<small style="color:#666;font-size:0.85em;margin-top:5px;display:block">Si "Oui", ce champ sera ignoré lors des contrôles et marqué "Ignoré" dans la liste</small>
+<!-- Mapping technique -->
+<div class="edit-section">
+<div class="edit-section-title">Mapping technique</div>
+<div class="edit-fg">
+<label class="edit-lbl">Champ RDI</label>
+<input type="text" id="editRdi" class="edit-inp mono" placeholder="ex : GS_FECT_EINV-BG1-BT21-BAR">
 </div>
-<div class="form-group"><label>Regle de Gestion (RDG) :</label><textarea id="editRdg"></textarea></div>
-<button class="btn" id="btnSave">Sauvegarder</button>
+<div class="edit-fg">
+<label class="edit-lbl">XPath</label>
+<input type="text" id="editXpath" class="edit-inp mono" placeholder="ex : /rsm:CrossIndustryInvoice/...">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Attribut <span class="edit-opt">optionnel</span></label>
+<input type="text" id="editAttribute" class="edit-inp mono" placeholder="ex : schemeID, format">
+<span class="edit-hint">Laissez vide pour extraire le texte. Indiquez un nom d'attribut pour extraire sa valeur.</span>
+</div>
+</div>
+<!-- Comportement -->
+<div class="edit-section">
+<div class="edit-section-title">Comportement</div>
+<div class="edit-row-3">
+<div class="edit-fg">
+<label class="edit-lbl">Type</label>
+<select id="editType" class="edit-inp">
+<option value="String">String</option>
+<option value="Decimal">Decimal</option>
+<option value="Date">Date</option>
+</select>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Obligatoire</label>
+<select id="editObligatoire" class="edit-inp">
+<option value="Oui">Oui</option>
+<option value="Non">Non</option>
+<option value="Dependant">Dépendant</option>
+</select>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Ignorer les erreurs</label>
+<select id="editIgnore" class="edit-inp">
+<option value="Non">Non</option>
+<option value="Oui">Oui</option>
+</select>
+<span class="edit-hint">Si Oui, marqué "Ignoré" dans la liste</span>
+</div>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Règle de gestion (RDG)</label>
+<textarea id="editRdg" class="edit-inp mono textarea-rdg" placeholder="Décrivez la règle métier applicable…"></textarea>
+</div>
+</div>
+</div>
+<div class="edit-field-footer">
+<button class="edit-btn-cancel" id="editCancelBtn">Annuler</button>
+<button class="edit-btn-save" id="btnSave">Sauvegarder</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL SÉLECTION MAPPINGS (ajout champ multi-mapping) -->
+<div id="selectMappingsModal" class="modal">
+<div class="modal-content" style="max-width:520px">
+<div class="modal-header">
+<h2>Ajouter le champ à quel(s) mapping(s) ?</h2>
+<span class="modal-close" id="selectMappingsClose">&times;</span>
+</div>
+<p style="margin-bottom:12px;color:#555;font-size:0.93em">Sélectionnez les mappings dans lesquels ce nouveau champ sera ajouté. Le mapping actuel est présélectionné.</p>
+<div id="selectMappingsList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:18px"></div>
+<div style="display:flex;gap:10px;justify-content:flex-end">
+<button class="btn-secondary" id="selectMappingsCancel">Annuler</button>
+<button class="btn" id="selectMappingsConfirm">Continuer →</button>
+</div>
 </div>
 </div>
 
@@ -1674,21 +1638,13 @@ Si aucune case n'est cochée, la règle s'appliquera à tous les types de factur
 <label>Nom du mapping :</label>
 <input type="text" id="newMappingName" placeholder="Ex: Mon nouveau mapping" style="width:100%">
 </div>
-<div class="form-group" style="margin-bottom:15px">
-<label>Type de formulaire :</label>
-<select id="newMappingType" class="mapping-type-select">
-<option value="CART Simple">CART Simple</option>
-<option value="CART Groupée">CART Groupée</option>
-<option value="Ventes Diverses">Ventes Diverses</option>
-</select>
-</div>
 <div class="form-group">
-<label>Créer à partir de :</label>
+<label>Cloner depuis un mapping existant (optionnel) :</label>
 <select id="copyFromMapping" class="mapping-type-select">
 <option value="">Mapping vide</option>
 </select>
 <small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
-Choisissez un mapping existant pour copier sa configuration, ou créez un mapping vide
+Choisissez un mapping existant pour copier sa configuration, ou laissez vide
 </small>
 </div>
 </div>
@@ -1715,7 +1671,6 @@ Vous êtes sur le point de supprimer définitivement le mapping suivant :
 </div>
 <div style="background:#f8fafc;padding:1rem;border-radius:0.5rem;margin:1rem 0">
 <p><strong>Nom :</strong> <span id="deleteMappingName"></span></p>
-<p><strong>Type :</strong> <span id="deleteMappingType"></span></p>
 </div>
 <p style="color:#64748b;font-size:0.9rem">
 Cette suppression supprimera toutes les données associées à ce mapping. 
@@ -1753,7 +1708,6 @@ document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove
 this.classList.add('active');
 document.getElementById('contentParam').classList.add('active');
 loadMappings();
-loadMappingsIndex();
 });
 document.getElementById('tabRules').addEventListener('click',function(){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
@@ -1770,92 +1724,38 @@ document.getElementById('contentAide').classList.add('active');
 });
 
 /* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
-function loadMappingsIndex() {
-    fetch(BASE+'/api/mappings/index')
-        .then(r => r.json())
-        .then(data => {
-            mappingsIndex = data;
-            displayMappingsIndex();
-        })
-        .catch(err => console.error('Erreur chargement index:', err));
+function updateDeleteButtonVisibility() {
+    const paramSelect = document.getElementById('typeFormulaireParam');
+    const btn = document.getElementById('btnDeleteCurrentMapping');
+    if (!paramSelect || !btn) return;
+    const opt = paramSelect.options[paramSelect.selectedIndex];
+    btn.style.display = (opt && opt.dataset.isDefault === 'false') ? '' : 'none';
 }
 
-function displayMappingsIndex() {
-    const container = document.getElementById('mappingsListContainer');
-    const mappings = mappingsIndex.mappings || [];
-    
-    if (mappings.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📭</div>
-                <p>Aucun mapping disponible</p>
-                <p style="font-size:0.9rem;margin-top:0.5rem">Cliquez sur "Créer un mapping" pour commencer</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = mappings.map(mapping => `
-        <div class="mapping-card">
-            <div class="mapping-info">
-                <div class="mapping-name">${mapping.name}</div>
-                <span class="mapping-type">${mapping.type}</span>
-            </div>
-            ${mapping.is_default ? '<span style="color:#10b981;font-weight:600;font-size:0.85rem">✓ Défaut</span>' : `
-            <button class="btn-delete" onclick="openDeleteMappingModal('${mapping.id}')">
-                <span>🗑️</span>
-                Supprimer
-            </button>
-            `}
-        </div>
-    `).join('');
+function deleteCurrentMapping() {
+    const paramSelect = document.getElementById('typeFormulaireParam');
+    const opt = paramSelect && paramSelect.options[paramSelect.selectedIndex];
+    if (!opt || !opt.dataset.mappingId) return;
+    openDeleteMappingModal(opt.dataset.mappingId);
 }
 
 function openCreateMappingModal() {
     document.getElementById('createMappingModal').style.display = 'block';
     document.getElementById('newMappingName').value = '';
-    
-    // Peupler la liste des mappings à copier
-    const copySelect = document.getElementById('copyFromMapping');
-    const selectedType = document.getElementById('newMappingType').value;
-    
-    copySelect.innerHTML = '<option value="">Mapping vide</option>';
-    
-    if (mappingsIndex.mappings) {
-        mappingsIndex.mappings
-            .filter(m => m.type === selectedType)
-            .forEach(mapping => {
-                const option = document.createElement('option');
-                option.value = mapping.id;
-                option.textContent = mapping.name + (mapping.is_default ? ' (Défaut)' : '');
-                copySelect.appendChild(option);
-            });
-    }
-}
 
-// Mettre à jour les options de copie quand le type change
-document.addEventListener('DOMContentLoaded', function() {
-    const typeSelect = document.getElementById('newMappingType');
-    if (typeSelect) {
-        typeSelect.addEventListener('change', function() {
-            const copySelect = document.getElementById('copyFromMapping');
-            const selectedType = this.value;
-            
-            copySelect.innerHTML = '<option value="">Mapping vide</option>';
-            
-            if (mappingsIndex.mappings) {
-                mappingsIndex.mappings
-                    .filter(m => m.type === selectedType)
-                    .forEach(mapping => {
-                        const option = document.createElement('option');
-                        option.value = mapping.id;
-                        option.textContent = mapping.name + (mapping.is_default ? ' (Défaut)' : '');
-                        copySelect.appendChild(option);
-                    });
-            }
+    // Peupler la liste de tous les mappings existants
+    const copySelect = document.getElementById('copyFromMapping');
+    copySelect.innerHTML = '<option value="">Mapping vide</option>';
+
+    if (mappingsIndex.mappings) {
+        mappingsIndex.mappings.forEach(mapping => {
+            const option = document.createElement('option');
+            option.value = mapping.id;
+            option.textContent = mapping.name;
+            copySelect.appendChild(option);
         });
     }
-});
+}
 
 function closeCreateMappingModal() {
     document.getElementById('createMappingModal').style.display = 'none';
@@ -1863,15 +1763,14 @@ function closeCreateMappingModal() {
 
 function confirmCreateMapping() {
     const name = document.getElementById('newMappingName').value.trim();
-    const type = document.getElementById('newMappingType').value;
     const copyFrom = document.getElementById('copyFromMapping').value;
-    
+
     if (!name) {
         alert('Veuillez entrer un nom pour le mapping');
         return;
     }
-    
-    const payload = { name, type };
+
+    const payload = { name };
     if (copyFrom) {
         payload.copy_from = copyFrom;
     }
@@ -1887,7 +1786,6 @@ function confirmCreateMapping() {
             const copyMsg = copyFrom ? ' (copié depuis un mapping existant)' : '';
             alert(`✓ Mapping "${name}" créé avec succès !${copyMsg}`);
             closeCreateMappingModal();
-            loadMappingsIndex();
             updateAllMappingDropdowns();
         } else {
             alert('Erreur: ' + (data.error || 'Création impossible'));
@@ -1905,7 +1803,6 @@ function openDeleteMappingModal(mappingId) {
     
     mappingToDelete = mapping;
     document.getElementById('deleteMappingName').textContent = mapping.name;
-    document.getElementById('deleteMappingType').textContent = mapping.type;
     document.getElementById('deleteMappingModal').style.display = 'block';
 }
 
@@ -1927,7 +1824,6 @@ function confirmDeleteMapping() {
         if (data.success) {
             alert(`✓ Mapping "${mappingToDelete.name}" supprimé avec succès`);
             closeDeleteMappingModal();
-            loadMappingsIndex();
             updateAllMappingDropdowns();
         } else {
             alert('Erreur: ' + (data.error || 'Suppression impossible'));
@@ -1944,18 +1840,16 @@ function updateAllMappingDropdowns() {
     fetch(BASE+'/api/mappings/index')
         .then(r => r.json())
         .then(data => {
+            mappingsIndex = data;
             const allMappings = data.mappings || [];
-            
-            // Mettre à jour le dropdown dans l'onglet Contrôle
+
             const controleSelect = document.getElementById('typeFormulaire');
-            if (controleSelect) {
-                updateSingleDropdown(controleSelect, allMappings);
-            }
-            
-            // Mettre à jour le dropdown dans l'onglet Paramétrage
+            if (controleSelect) updateSingleDropdown(controleSelect, allMappings);
+
             const paramSelect = document.getElementById('typeFormulaireParam');
             if (paramSelect) {
                 updateSingleDropdown(paramSelect, allMappings);
+                updateDeleteButtonVisibility();
             }
         })
         .catch(err => console.error('Erreur mise à jour dropdowns:', err));
@@ -1973,13 +1867,14 @@ function updateSingleDropdown(selectElement, mappings) {
         let value;
         if (mapping.id === 'default_simple') value = 'simple';
         else if (mapping.id === 'default_groupee') value = 'groupee';
-        else if (mapping.id === 'default_ventesdiverses') value = 'ventesdiverses';
+        else if (mapping.id === 'default_flux') value = 'flux';
         else value = 'custom_' + mapping.id;
 
         option.value = value;
-        option.textContent = mapping.name + (mapping.is_default ? '' : ' ✨');
+        option.textContent = mapping.name;
         option.dataset.filename = mapping.filename;
-        option.dataset.type = mapping.type;
+        option.dataset.mappingId = mapping.id;
+        option.dataset.isDefault = mapping.is_default ? 'true' : 'false';
         
         selectElement.appendChild(option);
     });
@@ -2328,13 +2223,15 @@ clearBtn.style.display='none';
 filterResults(searchTerm,showErrorsOnly);
 }
 
+searchInput.removeEventListener('input',applyAllFilters);
 searchInput.addEventListener('input',applyAllFilters);
+filterErrorsCheckbox.removeEventListener('change',applyAllFilters);
 filterErrorsCheckbox.addEventListener('change',applyAllFilters);
-clearBtn.addEventListener('click',function(){
+clearBtn.onclick=function(){
 searchInput.value='';
 clearBtn.style.display='none';
 applyAllFilters();
-});
+};
 
 // Tout déplier / Tout replier
 document.getElementById('btnExpandAll').addEventListener('click',function(){
@@ -2356,6 +2253,7 @@ t.closest('tr').style.display=show?'':'none';
 }
 cegedimCheckbox.addEventListener('change',toggleCegedim);
 toggleCegedim();
+applyAllFilters();
 
 function filterResults(term,errorsOnly){
 var categories=document.querySelectorAll('.category');
@@ -2503,10 +2401,10 @@ await saveMapping();
 loadMappings();
 });
 });
-document.querySelectorAll('.btn-edit').forEach(function(btn){
+document.querySelectorAll('#mappingList .btn-edit').forEach(function(btn){
 btn.addEventListener('click',function(){editMapping(this.getAttribute('data-index'))});
 });
-document.querySelectorAll('.btn-delete').forEach(function(btn){
+document.querySelectorAll('#mappingList .btn-delete').forEach(function(btn){
 btn.addEventListener('click',function(){deleteMapping(this.getAttribute('data-index'))});
 });
 }
@@ -2514,7 +2412,8 @@ btn.addEventListener('click',function(){deleteMapping(this.getAttribute('data-in
 function editMapping(index){
 currentIndex=parseInt(index);
 var champ=currentMapping.champs[currentIndex];
-document.getElementById('modalTitle').textContent='Editer le Champ';
+document.getElementById('modalTitle').textContent='Modifier le champ';
+document.getElementById('modalSubtitle').textContent='Mise à jour des informations du champ BT';
 document.getElementById('editBalise').value=champ.balise;
 document.getElementById('editLibelle').value=champ.libelle;
 // Construire la valeur du select à partir de categorie_bg et categorie_titre
@@ -2549,9 +2448,45 @@ currentMapping.champs.splice(parseInt(index),1);
 await saveMapping();
 loadMappings();
 }
-document.getElementById('btnAdd').addEventListener('click',function(){
+// IDs des mappings cibles pour un ajout multi-mapping
+var addTargetMappingIds = [];
+
+document.getElementById('btnAdd').addEventListener('click',async function(){
+// Charger la liste de tous les mappings disponibles
+var resp = await fetch(BASE+'/api/mappings/index');
+var data = await resp.json();
+var allMappings = data.mappings || [];
+var currentType = document.getElementById('typeFormulaireParam').value;
+
+// Remplir les checkboxes
+var listEl = document.getElementById('selectMappingsList');
+listEl.innerHTML = '';
+allMappings.forEach(function(m){
+var isCurrent = (m.id === currentType);
+var label = document.createElement('label');
+label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.95em';
+label.innerHTML = '<input type="checkbox" class="chk-target-mapping" value="'+m.id+'"'+(isCurrent?' checked':'')+' style="width:16px;height:16px"> '+
+'<span><strong>'+m.name+'</strong>'+(isCurrent?' <em style="color:#888;font-size:0.85em">(actuel)</em>':'')+'</span>';
+listEl.appendChild(label);
+});
+
+document.getElementById('selectMappingsModal').style.display='block';
+});
+
+document.getElementById('selectMappingsClose').addEventListener('click',function(){
+document.getElementById('selectMappingsModal').style.display='none';
+});
+document.getElementById('selectMappingsCancel').addEventListener('click',function(){
+document.getElementById('selectMappingsModal').style.display='none';
+});
+document.getElementById('selectMappingsConfirm').addEventListener('click',function(){
+addTargetMappingIds = Array.from(document.querySelectorAll('.chk-target-mapping:checked')).map(function(c){return c.value;});
+if(addTargetMappingIds.length===0){alert('Sélectionnez au moins un mapping.');return;}
+document.getElementById('selectMappingsModal').style.display='none';
+// Ouvrir le formulaire d'ajout
 currentIndex=null;
-document.getElementById('modalTitle').textContent='Ajouter un Champ';
+document.getElementById('modalTitle').textContent='Nouveau champ';
+document.getElementById('modalSubtitle').textContent='Ajout dans '+addTargetMappingIds.length+' mapping'+(addTargetMappingIds.length>1?'s':'');
 document.getElementById('editBalise').value='';
 document.getElementById('editLibelle').value='';
 document.getElementById('editCategorie').value='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
@@ -2565,6 +2500,9 @@ document.getElementById('editRdg').value='';
 document.getElementById('editModal').style.display='block';
 });
 document.getElementById('modalClose').addEventListener('click',function(){
+document.getElementById('editModal').style.display='none';
+});
+document.getElementById('editCancelBtn').addEventListener('click',function(){
 document.getElementById('editModal').style.display='none';
 });
 document.getElementById('btnSave').addEventListener('click',async function(){
@@ -2590,11 +2528,33 @@ controles_cegedim:base.controles_cegedim||[],
 valide:base.valide||false
 };
 if(currentIndex!==null){
+// Édition d'un champ existant : mise à jour dans le mapping actuel uniquement
 currentMapping.champs[currentIndex]=newChamp;
-}else{
-currentMapping.champs.push(newChamp);
-}
 await saveMapping();
+}else{
+// Ajout d'un nouveau champ : enregistrer dans tous les mappings sélectionnés
+var currentType=document.getElementById('typeFormulaireParam').value;
+for(var i=0;i<addTargetMappingIds.length;i++){
+var tid=addTargetMappingIds[i];
+var targetMapping;
+if(tid===currentType){
+targetMapping=currentMapping;
+}else{
+var r=await fetch(BASE+'/api/mapping/'+tid);
+targetMapping=await r.json();
+}
+targetMapping.champs.push(newChamp);
+await fetch(BASE+'/api/mapping/'+tid,{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify(targetMapping)
+});
+}
+// Recharger le mapping courant en mémoire
+var r2=await fetch(BASE+'/api/mapping/'+currentType);
+currentMapping=await r2.json();
+addTargetMappingIds=[];
+}
 document.getElementById('editModal').style.display='none';
 loadMappings();
 });
@@ -2688,7 +2648,10 @@ body:JSON.stringify(currentMapping)
 });
 }
 document.getElementById('btnReload').addEventListener('click',loadMappings);
-document.getElementById('typeFormulaireParam').addEventListener('change',loadMappings);
+document.getElementById('typeFormulaireParam').addEventListener('change',function(){
+    loadMappings();
+    updateDeleteButtonVisibility();
+});
 
 /* ---- RECHERCHE BT PARAMETRAGE ---- */
 document.getElementById('searchBTParam').addEventListener('input',function(){
@@ -3593,47 +3556,41 @@ def api_create_mapping():
 
         data = request.json
         name = data.get('name')
-        mapping_type = data.get('type', 'CART Simple')
-        copy_from = data.get('copy_from', None)  # ID du mapping source
+        copy_from = data.get('copy_from', None)  # ID du mapping source (optionnel)
 
         if not name:
             return jsonify({'success': False, 'error': 'Nom requis'})
 
-        type_map = {
-            'CART Simple':    'simple',
-            'CART Groupée':   'groupee',
-            'Ventes Diverses': 'ventesdiverses'
-        }
-        type_key = type_map.get(mapping_type, 'simple')
         new_id   = str(uuid.uuid4())[:8]
+        created  = datetime.now().strftime('%Y-%m-%d')
 
         new_mapping = {
             "id":           new_id,
             "name":         name,
-            "type":         mapping_type,
-            "filename":     f"mapping_custom_{type_key}_{new_id}.json",
-            "created_date": datetime.now().strftime('%Y-%m-%d'),
+            "type":         "",
+            "filename":     f"mapping_custom_{new_id}.json",
+            "created_date": created,
             "is_default":   False
         }
 
         # Déterminer le contenu source
         mapping_data = {"champs": []}
-        source_id = copy_from if copy_from else f'default_{type_key}'
         conn = get_db()
-        row = conn.execute(
-            "SELECT content FROM mapping_content WHERE mapping_id = ?", (source_id,)
-        ).fetchone()
-        if row:
-            try:
-                mapping_data = json.loads(row['content'])
-            except Exception:
-                pass
+        if copy_from:
+            row = conn.execute(
+                "SELECT content FROM mapping_content WHERE mapping_id = ?", (copy_from,)
+            ).fetchone()
+            if row:
+                try:
+                    mapping_data = json.loads(row['content'])
+                except Exception:
+                    pass
 
         # Insérer le nouveau mapping et son contenu
         conn.execute(
             "INSERT INTO mappings (id, name, type, filename, created_date, is_default) "
             "VALUES (?, ?, ?, ?, ?, 0)",
-            (new_id, name, mapping_type, new_mapping['filename'], new_mapping['created_date'])
+            (new_id, name, "", new_mapping['filename'], created)
         )
         conn.execute(
             "INSERT INTO mapping_content (mapping_id, content) VALUES (?, ?)",
