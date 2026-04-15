@@ -307,8 +307,13 @@ def _migrate_from_json(conn):
     conn.commit()
 
 def _discover_orphan_mappings(conn):
-    """Détecte les fichiers mapping_*.json non enregistrés en DB et les ajoute automatiquement."""
-    import glob as _glob, uuid as _uuid
+    """Détecte les fichiers mapping_*.json non enregistrés en DB et les ajoute automatiquement.
+
+    Quand plusieurs fichiers partagent le même préfixe avec un suffixe numérique
+    (ex: mapping_CARTsimple_1503.json / mapping_CARTsimple_1504.json), seul le
+    fichier au suffixe le plus élevé est importé (= la version la plus récente).
+    """
+    import glob as _glob, uuid as _uuid, re as _re
     c = conn.cursor()
 
     existing_filenames = set(
@@ -316,11 +321,34 @@ def _discover_orphan_mappings(conn):
     )
     skip = {'mappings_index.json', 'business_rules.json'}
     pattern = os.path.join(SCRIPT_DIR, 'mapping_*.json')
-    discovered = 0
+
+    # ── Grouper les candidats par famille (préfixe + suffixe numérique) ───────
+    # Ex : mapping_CARTsimple_1503.json et mapping_CARTsimple_1504.json
+    #      → famille "mapping_CARTsimple", on garde le suffixe max (1504)
+    families = {}   # base_name → (max_suffix_int, filepath)
+    singles  = []   # fichiers sans suffixe numérique détectable
 
     for filepath in _glob.glob(pattern):
         filename = os.path.basename(filepath)
         if filename in existing_filenames or filename in skip:
+            continue
+        base = filename[:-5]  # retire .json
+        m = _re.match(r'^(.+)_(\d+)$', base)
+        if m:
+            prefix, suffix = m.group(1), int(m.group(2))
+            prev = families.get(prefix)
+            if prev is None or suffix > prev[0]:
+                families[prefix] = (suffix, filepath)
+        else:
+            singles.append(filepath)
+
+    candidates = [fp for (_, fp) in families.values()] + singles
+
+    # ── Importer chaque candidat retenu ──────────────────────────────────────
+    discovered = 0
+    for filepath in candidates:
+        filename = os.path.basename(filepath)
+        if filename in existing_filenames:
             continue
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -1940,18 +1968,14 @@ function updateSingleDropdown(selectElement, mappings) {
     // Ajouter toutes les options sans grouper
     mappings.forEach(mapping => {
         const option = document.createElement('option');
-        
-        // Convertir filename en value compatible
-        let value = 'simple';
-        if (mapping.filename.includes('groupee')) value = 'groupee';
-        else if (mapping.filename.includes('ventesdiverses')) value = 'ventesdiverses';
-        else if (mapping.filename.includes('custom')) {
-            const match = mapping.filename.match(/custom_(\w+)_([a-f0-9]+)/);
-            if (match) {
-                value = `custom_${match[1]}_${match[2]}`;
-            }
-        }
-        
+
+        // Dériver la value depuis l'id DB (source de vérité)
+        let value;
+        if (mapping.id === 'default_simple') value = 'simple';
+        else if (mapping.id === 'default_groupee') value = 'groupee';
+        else if (mapping.id === 'default_ventesdiverses') value = 'ventesdiverses';
+        else value = 'custom_' + mapping.id;
+
         option.value = value;
         option.textContent = mapping.name + (mapping.is_default ? '' : ' ✨');
         option.dataset.filename = mapping.filename;
