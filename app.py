@@ -2310,6 +2310,8 @@ block.style.display=errorsOnly||term?'none':'';
 });
 if(hasMatch){
 cat.classList.remove('hidden');
+var catContent=cat.querySelector('.category-content');
+if(term&&catContent){catContent.classList.add('open');}
 visibleCount++;
 }else{
 cat.classList.add('hidden');
