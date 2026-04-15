@@ -214,6 +214,7 @@ def init_db():
     ''')
     conn.commit()
     _migrate_from_json(conn)
+    _discover_orphan_mappings(conn)
     conn.close()
     print("[DB] Base SQLite prête.")
 
@@ -304,6 +305,48 @@ def _migrate_from_json(conn):
             print(f"[DB] {migrated} version(s) de mapping migrée(s).")
 
     conn.commit()
+
+def _discover_orphan_mappings(conn):
+    """Détecte les fichiers mapping_*.json non enregistrés en DB et les ajoute automatiquement."""
+    import glob as _glob, uuid as _uuid
+    c = conn.cursor()
+
+    existing_filenames = set(
+        r[0] for r in c.execute("SELECT filename FROM mappings").fetchall()
+    )
+    skip = {'mappings_index.json', 'business_rules.json'}
+    pattern = os.path.join(SCRIPT_DIR, 'mapping_*.json')
+    discovered = 0
+
+    for filepath in _glob.glob(pattern):
+        filename = os.path.basename(filepath)
+        if filename in existing_filenames or filename in skip:
+            continue
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = json.load(f)
+        except Exception:
+            continue
+
+        type_label = content.get('type_facture_label', 'CART Simple')
+        name = filename.replace('.json', '').replace('mapping_', '', 1)
+        new_id = str(_uuid.uuid4())[:8]
+
+        c.execute(
+            "INSERT OR IGNORE INTO mappings "
+            "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,0)",
+            (new_id, name, type_label, filename, '')
+        )
+        c.execute(
+            "INSERT OR IGNORE INTO mapping_content (mapping_id, content) VALUES (?,?)",
+            (new_id, json.dumps(content, ensure_ascii=False))
+        )
+        existing_filenames.add(filename)
+        discovered += 1
+        print(f"[DB] Mapping découvert : {filename} → id={new_id}")
+
+    if discovered:
+        conn.commit()
 
 # ── Business rules ──────────────────────────────────────────────────────────
 
