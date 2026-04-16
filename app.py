@@ -1222,15 +1222,42 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .tooltip-separator{border-top:1px solid rgba(255,255,255,0.12);margin:7px 0;padding-top:6px}
 .tooltip-controls{font-size:0.81em;color:#94a3b8}
 /* === PARAMÉTRAGE — LISTE CHAMPS === */
-.mapping-list{list-style:none}
-.mapping-item{padding:10px 14px;margin:5px 0;border-radius:8px;border:1px solid #e2e8f0;border-left:3px solid #667eea;display:flex;justify-content:space-between;align-items:center;background:#fff;cursor:move;transition:all 0.18s}
-.mapping-item.valide{background:#f0fdf4;border-color:#d1fae5;border-left-color:#10b981}
+.mapping-list{list-style:none;margin:0;padding:0}
+.mapping-item{padding:9px 12px;margin:3px 0;border-radius:7px;border:1px solid #e2e8f0;border-left:3px solid #667eea;display:flex;justify-content:space-between;align-items:center;background:#fff;cursor:move;transition:all 0.15s}
+.mapping-item.valide{border-left-color:#10b981}
+.mapping-item.article{border-left-color:#f59e0b}
+.mapping-item.article.valide{border-left-color:#10b981}
+.mapping-item.ignored{border-left-color:#94a3b8;background:#f1f5f9;opacity:0.6}
+/* Tooltip ignoré */
+#ignored-tooltip{position:fixed;z-index:9999;background:#1e293b;color:#e2e8f0;padding:12px 16px;border-radius:10px;font-size:0.82em;line-height:1.6;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.22);pointer-events:none;display:none;border-left:3px solid #94a3b8}
+#ignored-tooltip strong{color:#fff;display:block;margin-bottom:4px;font-size:0.95em}
+#ignored-tooltip em{color:#f59e0b;font-style:normal;display:block;margin-top:6px;font-size:0.9em}
 .mapping-item.dragging{opacity:0.45;transform:scale(0.98)}
-.mapping-item.drag-over{border-top:2px solid #667eea;margin-top:8px}
-.mapping-item-info{flex:1}
+.mapping-item.drag-over{border-top:2px solid #667eea;margin-top:6px}
+.mapping-item-info{flex:1;min-width:0}
 .mapping-item-info .item-main{font-weight:600;font-size:0.88em;color:#1e293b}
 .mapping-item-info .item-sub{font-size:0.77em;color:#64748b;margin-top:2px}
 .mapping-item-info .item-xpath{font-size:0.73em;color:#94a3b8;font-family:'JetBrains Mono',monospace;margin-top:2px;word-break:break-all}
+/* === GROUPES CATÉGORIES === */
+.cat-filter-bar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;align-items:center}
+.cat-pill{padding:3px 11px;border-radius:20px;font-size:0.74em;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;transition:all 0.15s;white-space:nowrap}
+.cat-pill:hover{border-color:#667eea;color:#4f46e5}
+.cat-pill.active{background:#667eea;color:#fff;border-color:#4f46e5}
+.cat-pill.art{border-color:#fdba74;color:#92400e;background:#fff7ed}
+.cat-pill.art.active{background:#f59e0b;border-color:#d97706;color:#fff}
+.cat-group{margin-bottom:8px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.cat-group-hdr{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;user-select:none;background:#f1f5f9;transition:background 0.15s}
+.cat-group-hdr:hover{background:#e8edf5}
+.cat-group-hdr.art{background:#fff7ed}
+.cat-group-hdr.art:hover{background:#fef3c7}
+.cat-group-arrow{font-size:0.62em;display:inline-block;transition:transform 0.2s;color:#94a3b8;width:10px;text-align:center}
+.cat-group-hdr.open .cat-group-arrow{transform:rotate(90deg)}
+.cat-group-name{font-weight:700;font-size:0.75em;flex:1;text-transform:uppercase;letter-spacing:0.07em;color:#334155}
+.cat-group-hdr.art .cat-group-name{color:#92400e}
+.cat-group-count{font-size:0.71em;font-weight:700;padding:2px 9px;border-radius:10px;background:#e2e8f0;color:#475569}
+.cat-group-hdr.art .cat-group-count{background:#fde68a;color:#92400e}
+.cat-group-ok-ratio{font-size:0.7em;color:#94a3b8;margin-left:4px}
+.cat-group-body{padding:6px 6px;background:#fafbfc}
 .mapping-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .mapping-actions button{padding:5px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.79em;font-family:'Outfit',Arial,sans-serif;transition:all 0.15s}
 .btn-edit{background:#667eea;color:#fff}
@@ -1550,8 +1577,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 
 <div class="section">
-<h3 style="margin-bottom:1rem">Champs du mapping actuel</h3>
-<ul class="mapping-list" id="mappingList"></ul>
+<div id="mappingList"></div>
 </div>
 </div>
 
@@ -1610,15 +1636,17 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <li>Upload PDF masque en mode RDI</li>
 </ul>
 <h3>Mode RDI - Sortie SAP</h3>
-<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ol>
+<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li></ol>
 <h3>Mode XML - Sortie Exstream</h3>
-<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ol>
+<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li><li>Comparaison RDI vs XML</li></ol>
 <h3>Extraction XML avec attributs</h3>
 <p>Pour les champs comme <code>&lt;udt:DateTimeString format="102"&gt;20250103&lt;/udt:DateTimeString&gt;</code>, 
 utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</code></p>
 </div>
 </div>
 </div>
+
+<div id="ignored-tooltip"><strong>⚠️ Ignorer les erreurs est activé</strong>Ce champ est configuré pour masquer ses erreurs — utile quand un bug connu sur ce BT polluerait systématiquement les résultats.<em>↩ Pensez à désactiver cette option une fois l'anomalie corrigée.</em></div>
 
 <!-- MODAL EDITION -->
 <div id="editModal" class="modal">
@@ -1683,15 +1711,7 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 <!-- Comportement -->
 <div class="edit-section">
 <div class="edit-section-title">Comportement</div>
-<div class="edit-row-3">
-<div class="edit-fg">
-<label class="edit-lbl">Type</label>
-<select id="editType" class="edit-inp">
-<option value="String">String</option>
-<option value="Decimal">Decimal</option>
-<option value="Date">Date</option>
-</select>
-</div>
+<div class="edit-row-2">
 <div class="edit-fg">
 <label class="edit-lbl">Obligatoire</label>
 <select id="editObligatoire" class="edit-inp">
@@ -2115,6 +2135,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Close modals when clicking outside
+// On traque le mousedown pour éviter les faux positifs (ex: glissement depuis l'intérieur)
+var _modalMousedownTarget = null;
+document.addEventListener('mousedown', function(e) { _modalMousedownTarget = e.target; });
+
 window.onclick = function(event) {
     const createModal = document.getElementById('createMappingModal');
     const deleteModal = document.getElementById('deleteMappingModal');
@@ -2122,27 +2146,28 @@ window.onclick = function(event) {
     const ruleModal = document.getElementById('editRuleModal');
     const historyModal = document.getElementById('historyModal');
     const authorModal = document.getElementById('authorModal');
-
-    if (event.target === createModal) {
-        closeCreateMappingModal();
-    }
-    if (event.target === deleteModal) {
-        closeDeleteMappingModal();
-    }
-    if (event.target === editModal) {
-        editModal.style.display = 'none';
-    }
-    if (event.target === ruleModal) {
-        ruleModal.style.display = 'none';
-    }
-    if (event.target === historyModal) {
-        historyModal.style.display = 'none';
-    }
-    if (event.target === authorModal) {
-        authorModal.style.display = 'none';
-        pendingAuditCallback = null;
-    }
+    // On ne ferme que si mousedown ET click sont tous deux sur le fond
+    var t = event.target;
+    var md = _modalMousedownTarget;
+    if (t === createModal && md === createModal) { closeCreateMappingModal(); }
+    if (t === deleteModal && md === deleteModal) { closeDeleteMappingModal(); }
+    if (t === editModal   && md === editModal)   { editModal.style.display = 'none'; }
+    if (t === ruleModal   && md === ruleModal)   { ruleModal.style.display = 'none'; }
+    if (t === historyModal && md === historyModal) { historyModal.style.display = 'none'; }
+    if (t === authorModal  && md === authorModal)  { authorModal.style.display = 'none'; pendingAuditCallback = null; }
 }
+
+// Echap → ferme le modal d'édition ouvert ; Entrée dans un input (hors textarea) → sauvegarde
+document.addEventListener('keydown', function(e) {
+    var editModal = document.getElementById('editModal');
+    if (!editModal || editModal.style.display === 'none') return;
+    if (e.key === 'Escape') {
+        editModal.style.display = 'none';
+    } else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
+        e.preventDefault();
+        document.getElementById('btnSave').click();
+    }
+});
 
 // Add event listener to create button
 document.addEventListener('DOMContentLoaded', function() {
@@ -2160,12 +2185,12 @@ var groupePdf=document.getElementById('groupePdf');
 var groupeCii=document.getElementById('groupeCii');
 var groupeRdi=document.getElementById('groupeRdi');
 if(type==='rdi'){
-help.innerHTML='<strong>Mode RDI</strong><ul><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
+help.innerHTML='<strong>Mode RDI</strong><ul><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li></ul>';
 groupePdf.style.display='none';
 groupeCii.style.display='none';
 groupeRdi.style.display='flex';
 }else if(type==='cii'){
-help.innerHTML='<strong>Mode CII - GCP</strong><ul><li>Controle du XML CII (Cross Industry Invoice) directement</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li></ul>';
+help.innerHTML='<strong>Mode CII - GCP</strong><ul><li>Controle du XML CII (Cross Industry Invoice) directement</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li></ul>';
 groupePdf.style.display='none';
 groupeCii.style.display='flex';
 groupeRdi.style.display='none';
@@ -2175,7 +2200,7 @@ groupePdf.style.display='flex';
 groupeCii.style.display='none';
 groupeRdi.style.display='none';
 }else{
-help.innerHTML='<strong>Mode RDI vs XML</strong><ul><li>Comparaison sortie SAP vs sortie Exstream</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Controles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
+help.innerHTML='<strong>Mode RDI vs XML</strong><ul><li>Comparaison sortie SAP vs sortie Exstream</li><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li><li>Comparaison RDI vs XML</li></ul>';
 groupePdf.style.display='flex';
 groupeCii.style.display='none';
 groupeRdi.style.display='flex';
@@ -2614,96 +2639,196 @@ currentMapping=await resp.json();
 applyMappingColor();
 var list=document.getElementById('mappingList');
 list.innerHTML='';
-if(!currentMapping||!currentMapping.champs){list.innerHTML='<li>Aucun mapping</li>';return}
+if(!currentMapping||!currentMapping.champs||!currentMapping.champs.length){
+list.innerHTML='<p style="color:#94a3b8;font-size:0.85em;padding:12px">Aucun champ dans ce mapping.</p>';
+return;
+}
+
+// 1. Grouper par categorie_bg
+var groups={};
+var groupOrder=[];
 currentMapping.champs.forEach(function(champ,index){
+var bg=champ.categorie_bg||'BG-OTHER';
+var rawTitre=champ.categorie_titre||bg;
+var titre=rawTitre.replace(/[^\w\s\-'éèêëàâùûîïôçÉÈÊËÀÂÙÛÎÏÔÇ]/g,'').trim()||bg;
+if(!groups[bg]){groups[bg]={titre:titre,champs:[],hasArticle:false};groupOrder.push(bg);}
+groups[bg].champs.push({champ:champ,index:index});
+if(champ.is_article) groups[bg].hasArticle=true;
+});
+
+// 2. Barre de filtres pills
+var filterBar=document.createElement('div');
+filterBar.className='cat-filter-bar';
+var allPill=document.createElement('span');
+allPill.className='cat-pill active';
+allPill.dataset.bg='ALL';
+allPill.textContent='Tout ('+currentMapping.champs.length+')';
+filterBar.appendChild(allPill);
+groupOrder.forEach(function(bg){
+var g=groups[bg];
+var pill=document.createElement('span');
+pill.className='cat-pill'+(g.hasArticle?' art':'');
+pill.dataset.bg=bg;
+pill.textContent=g.titre+' ('+g.champs.length+')';
+filterBar.appendChild(pill);
+});
+var collapseBtn=document.createElement('button');
+collapseBtn.textContent='Tout replier';
+collapseBtn.style.cssText='margin-left:auto;padding:3px 11px;border:1px solid #e2e8f0;border-radius:20px;font-size:0.73em;cursor:pointer;background:#f8fafc;color:#475569;font-weight:600;white-space:nowrap';
+filterBar.appendChild(collapseBtn);
+list.appendChild(filterBar);
+
+var allCollapsed=false;
+collapseBtn.addEventListener('click',function(){
+allCollapsed=!allCollapsed;
+collapseBtn.textContent=allCollapsed?'Tout déplier':'Tout replier';
+document.querySelectorAll('.cat-group-body').forEach(function(b){b.style.display=allCollapsed?'none':'';});
+document.querySelectorAll('.cat-group-hdr').forEach(function(h){
+if(allCollapsed)h.classList.remove('open');else h.classList.add('open');
+});
+});
+
+// 3. Rendu des groupes
+groupOrder.forEach(function(bg){
+var g=groups[bg];
+var isArt=g.hasArticle;
+var nbValide=g.champs.filter(function(e){return e.champ.valide===true;}).length;
+
+var groupDiv=document.createElement('div');
+groupDiv.className='cat-group';
+groupDiv.dataset.bg=bg;
+
+var hdr=document.createElement('div');
+hdr.className='cat-group-hdr open'+(isArt?' art':'');
+var ratioHtml=nbValide>0?'<span class="cat-group-ok-ratio">✓ '+nbValide+'/'+g.champs.length+'</span>':'';
+hdr.innerHTML=
+'<span class="cat-group-arrow">▶</span>'+
+'<span class="cat-group-name">'+(isArt?'▤ ':'')+g.titre+'</span>'+
+ratioHtml+
+'<span class="cat-group-count">'+g.champs.length+' BT</span>';
+
+var body=document.createElement('div');
+body.className='cat-group-body';
+var ul=document.createElement('ul');
+ul.className='mapping-list';
+
+g.champs.forEach(function(entry){
+var champ=entry.champ;
+var index=entry.index;
 var li=document.createElement('li');
 var isValide=champ.valide===true;
-var isIgnored=(champ.ignore==='Oui');
-li.className='mapping-item'+(isValide?' valide':'');
+var isIgnored=champ.ignore==='Oui';
+var isArticle=!!champ.is_article;
+li.className='mapping-item'+(isValide?' valide':'')+(isArticle?' article':'')+(isIgnored?' ignored':'');
 li.draggable=true;
 li.setAttribute('data-index',index);
+if(isIgnored)li.classList.add('has-ignored-tip');
 li.innerHTML=
 '<div class="mapping-item-info">'+
 '<div class="item-main"><strong>'+champ.balise+'</strong> — '+champ.libelle+'</div>'+
-'<div class="item-sub">RDI: <code>'+champ.rdi+'</code> | Type: '+champ.type+' | Oblig.: '+champ.obligatoire+' | Ignoré : '+(isIgnored?'Oui':'Non')+'</div>'+
+'<div class="item-sub">RDI: <code>'+champ.rdi+'</code> | Oblig.: '+champ.obligatoire+' | Ignoré : '+(isIgnored?'Oui':'Non')+'</div>'+
 '<div class="item-xpath">XPath: '+(champ.xpath||'—')+'</div>'+
 '</div>'+
 '<div class="mapping-actions">'+
-'<label class="valide-toggle">'+
-'<input type="checkbox" class="chk-valide" data-index="'+index+'"'+(isValide?' checked':'')+'> Valide'+
-'</label>'+
+'<label class="valide-toggle"><input type="checkbox" class="chk-valide" data-index="'+index+'"'+(isValide?' checked':'')+'> Valide</label>'+
 '<button class="btn-edit" data-index="'+index+'">Editer</button>'+
 '<button class="btn-delete" data-index="'+index+'">Supprimer</button>'+
 '</div>';
-list.appendChild(li);
-
-// Drag and drop events
-li.addEventListener('dragstart',function(e){
-this.classList.add('dragging');
-e.dataTransfer.effectAllowed='move';
-e.dataTransfer.setData('text/html',this.innerHTML);
-});
-li.addEventListener('dragend',function(e){
-this.classList.remove('dragging');
-document.querySelectorAll('.mapping-item').forEach(function(item){
-item.classList.remove('drag-over');
-});
-});
-li.addEventListener('dragover',function(e){
-e.preventDefault();
-e.dataTransfer.dropEffect='move';
-var dragging=document.querySelector('.dragging');
-if(dragging&&dragging!==this){
-this.classList.add('drag-over');
-}
-});
-li.addEventListener('dragleave',function(e){
-this.classList.remove('drag-over');
-});
+// Drag & drop
+li.addEventListener('dragstart',function(e){this.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/html',this.innerHTML);});
+li.addEventListener('dragend',function(){this.classList.remove('dragging');document.querySelectorAll('.mapping-item').forEach(function(it){it.classList.remove('drag-over');});});
+li.addEventListener('dragover',function(e){e.preventDefault();var d=document.querySelector('.dragging');if(d&&d!==this)this.classList.add('drag-over');});
+li.addEventListener('dragleave',function(){this.classList.remove('drag-over');});
 li.addEventListener('drop',async function(e){
-e.preventDefault();
-this.classList.remove('drag-over');
-var dragging=document.querySelector('.dragging');
-if(dragging&&dragging!==this){
-var fromIndex=parseInt(dragging.getAttribute('data-index'));
-var toIndex=parseInt(this.getAttribute('data-index'));
-// Réorganiser le tableau
-var item=currentMapping.champs.splice(fromIndex,1)[0];
-currentMapping.champs.splice(toIndex,0,item);
-await saveMapping();
-loadMappings();
+e.preventDefault();this.classList.remove('drag-over');
+var d=document.querySelector('.dragging');
+if(d&&d!==this){
+var fi=parseInt(d.getAttribute('data-index'));
+var ti=parseInt(this.getAttribute('data-index'));
+var it=currentMapping.champs.splice(fi,1)[0];
+currentMapping.champs.splice(ti,0,it);
+await saveMapping();loadMappings();
 }
 });
+ul.appendChild(li);
 });
-document.querySelectorAll('.chk-valide').forEach(function(chk){
-chk.addEventListener('change',async function(){
-var idx=parseInt(this.getAttribute('data-index'));
-currentMapping.champs[idx].valide=this.checked;
-await saveMapping();
-loadMappings();
+
+body.appendChild(ul);
+groupDiv.appendChild(hdr);
+groupDiv.appendChild(body);
+list.appendChild(groupDiv);
+
+hdr.addEventListener('click',function(){
+var open=hdr.classList.contains('open');
+hdr.classList.toggle('open');
+body.style.display=open?'none':'';
 });
 });
-document.querySelectorAll('#mappingList .btn-edit').forEach(function(btn){
-btn.addEventListener('click',function(){editMapping(this.getAttribute('data-index'))});
+
+// 4. Délégation d'événements chk-valide / btn-edit / btn-delete
+list.addEventListener('change',async function(e){
+var chk=e.target.closest('.chk-valide');
+if(chk){
+var idx=parseInt(chk.getAttribute('data-index'));
+currentMapping.champs[idx].valide=chk.checked;
+await saveMapping();loadMappings();
+}
 });
-document.querySelectorAll('#mappingList .btn-delete').forEach(function(btn){
-btn.addEventListener('click',function(){deleteMapping(this.getAttribute('data-index'))});
+list.addEventListener('click',function(e){
+var eb=e.target.closest('.btn-edit');
+if(eb){editMapping(eb.getAttribute('data-index'));return;}
+var db=e.target.closest('.btn-delete');
+if(db){deleteMapping(db.getAttribute('data-index'));}
 });
-// Ré-appliquer le filtre de recherche actif après rechargement
+
+// 5. Pills filter
+filterBar.querySelectorAll('.cat-pill').forEach(function(pill){
+pill.addEventListener('click',function(){
+filterBar.querySelectorAll('.cat-pill').forEach(function(p){p.classList.remove('active');});
+pill.classList.add('active');
+var bg=pill.dataset.bg;
+document.querySelectorAll('.cat-group').forEach(function(g){
+g.style.display=(bg==='ALL'||g.dataset.bg===bg)?'':'none';
+});
+});
+});
+
 applySearchParamFilter();
 }
 
 function applySearchParamFilter(){
 var query=document.getElementById('searchBTParam').value.toLowerCase().trim();
+var groups=document.querySelectorAll('.cat-group');
 var items=document.querySelectorAll('.mapping-item');
 if(query){
+// Expand all groups
+groups.forEach(function(g){
+g.style.display='';
+var hdr=g.querySelector('.cat-group-hdr');
+var body=g.querySelector('.cat-group-body');
+if(hdr)hdr.classList.add('open');
+if(body)body.style.display='';
+});
+// Filtrer les items
 items.forEach(function(item){
-var baliseEl=item.querySelector('.item-main strong');
-var balise=baliseEl?baliseEl.textContent.toLowerCase():'';
-item.style.display=balise.includes(query)?'flex':'none';
+var mainEl=item.querySelector('.item-main');
+var text=mainEl?mainEl.textContent.toLowerCase():'';
+item.style.display=text.includes(query)?'flex':'none';
+});
+// Cacher les groupes vides
+groups.forEach(function(g){
+var hasVisible=false;
+g.querySelectorAll('.mapping-item').forEach(function(it){if(it.style.display!=='none')hasVisible=true;});
+g.style.display=hasVisible?'':'none';
 });
 }else{
-items.forEach(function(item){item.style.display='flex';});
+items.forEach(function(it){it.style.display='flex';});
+var activePill=document.querySelector('.cat-pill.active');
+if(activePill&&activePill.dataset.bg!=='ALL'){
+groups.forEach(function(g){g.style.display=g.dataset.bg===activePill.dataset.bg?'':'none';});
+}else{
+groups.forEach(function(g){g.style.display='';});
+}
 }
 }
 
@@ -2744,7 +2869,6 @@ document.getElementById('editRdi').value=champ.rdi;
 document.getElementById('editTypeEnreg').value=champ.type_enregistrement||'';
 document.getElementById('editXpath').value=(champ.xpath||'').replace(/^\/\//,'');
 document.getElementById('editAttribute').value=champ.attribute||'';
-document.getElementById('editType').value=champ.type;
 document.getElementById('editObligatoire').value=champ.obligatoire;
 document.getElementById('editIgnore').value=champ.ignore||'Non';
 document.getElementById('editRdg').value=champ.rdg||'';
@@ -2810,7 +2934,6 @@ document.getElementById('editRdi').value='';
 document.getElementById('editTypeEnreg').value='';
 document.getElementById('editXpath').value='';
 document.getElementById('editAttribute').value='';
-document.getElementById('editType').value='String';
 document.getElementById('editObligatoire').value='Non';
 document.getElementById('editIgnore').value='Non';
 document.getElementById('editRdg').value='';
@@ -2879,7 +3002,7 @@ rdi:document.getElementById('editRdi').value,
 type_enregistrement:document.getElementById('editTypeEnreg').value||undefined,
 xpath:document.getElementById('editXpath').value,
 attribute:document.getElementById('editAttribute').value||undefined,
-type:document.getElementById('editType').value,
+is_article:(function(){var bg=categorieBg||'';return (bg==='BG-LIGNES'||bg==='BG-25'||/ligne/i.test(bg+' '+(categorieTitre||'')))?true:undefined;})(),
 obligatoire:document.getElementById('editObligatoire').value,
 ignore:document.getElementById('editIgnore').value,
 rdg:document.getElementById('editRdg').value,
@@ -3066,6 +3189,27 @@ document.getElementById('historyModal').style.display='none';
 
 function escapeHtml(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+
+/* ---- TOOLTIP IGNORÉ ---- */
+(function(){
+var tip=document.getElementById('ignored-tooltip');
+document.addEventListener('mouseover',function(e){
+var li=e.target.closest('.has-ignored-tip');
+if(!li){tip.style.display='none';return;}
+tip.style.display='block';
+var r=li.getBoundingClientRect();
+var tx=r.left;
+var ty=r.bottom+6;
+if(tx+tip.offsetWidth>window.innerWidth-12)tx=window.innerWidth-tip.offsetWidth-12;
+if(ty+tip.offsetHeight>window.innerHeight-12)ty=r.top-tip.offsetHeight-6;
+tip.style.left=tx+'px';
+tip.style.top=ty+'px';
+});
+document.addEventListener('mouseout',function(e){
+var li=e.target.closest('.has-ignored-tip');
+if(li&&!li.contains(e.relatedTarget))tip.style.display='none';
+});
+})();
 
 /* ---- RECHERCHE BT PARAMETRAGE ---- */
 document.getElementById('searchBTParam').addEventListener('input',function(){
