@@ -1819,6 +1819,28 @@ var tooltip=document.getElementById('tooltip');
 var mappingsIndex = { mappings: [] };
 var mappingToDelete = null;
 
+function positionTooltip(e){
+var margin=12;
+var vpW=window.innerWidth;
+var vpH=window.innerHeight;
+var scrollY=window.scrollY||document.documentElement.scrollTop;
+var scrollX=window.scrollX||document.documentElement.scrollLeft;
+// Mesure la taille réelle du tooltip (il est visible à ce stade)
+var tw=tooltip.offsetWidth;
+var th=tooltip.offsetHeight;
+var x=e.pageX+margin;
+var y=e.pageY+margin;
+// Dépasse à droite → coller à gauche du curseur
+if(x+tw>scrollX+vpW-margin){x=e.pageX-tw-margin;}
+// Dépasse en bas → afficher au-dessus du curseur
+if(y+th>scrollY+vpH-margin){y=e.pageY-th-margin;}
+// Garde dans les limites hautes/gauches
+if(y<scrollY+margin){y=scrollY+margin;}
+if(x<scrollX+margin){x=scrollX+margin;}
+tooltip.style.left=x+'px';
+tooltip.style.top=y+'px';
+}
+
 /* ---- ONGLETS ---- */
 document.getElementById('tabControle').addEventListener('click',function(){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
@@ -2353,12 +2375,10 @@ div.querySelectorAll('.data-row').forEach(function(row){
 row.addEventListener('mouseenter',function(e){
 tooltip.innerHTML=this.getAttribute('data-tooltip');
 tooltip.style.display='block';
-tooltip.style.left=(e.pageX+14)+'px';
-tooltip.style.top=(e.pageY+14)+'px';
+positionTooltip(e);
 });
 row.addEventListener('mousemove',function(e){
-tooltip.style.left=(e.pageX+14)+'px';
-tooltip.style.top=(e.pageY+14)+'px';
+positionTooltip(e);
 });
 row.addEventListener('mouseleave',function(){tooltip.style.display='none'});
 });
