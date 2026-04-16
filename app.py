@@ -179,7 +179,23 @@ def init_db():
                         CHECK(singleton = 1),
             content     TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS mapping_audit (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            mapping_id  TEXT NOT NULL,
+            timestamp   TEXT NOT NULL,
+            author      TEXT NOT NULL,
+            action      TEXT NOT NULL,
+            bt_balise   TEXT NOT NULL,
+            old_value   TEXT,
+            new_value   TEXT
+        );
     ''')
+    # Migrations pour bases existantes
+    try:
+        conn.execute("ALTER TABLE mappings ADD COLUMN color TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass  # colonne déjà présente
     conn.commit()
     _seed_default_data(conn)
     conn.close()
@@ -266,7 +282,7 @@ def load_mappings_index():
     try:
         conn = get_db()
         rows = conn.execute(
-            "SELECT id, name, type, filename, created_date, is_default "
+            "SELECT id, name, type, filename, created_date, is_default, color "
             "FROM mappings ORDER BY is_default DESC, name"
         ).fetchall()
         conn.close()
@@ -278,7 +294,8 @@ def load_mappings_index():
                     "type":         r["type"],
                     "filename":     r["filename"],
                     "created_date": r["created_date"],
-                    "is_default":   bool(r["is_default"])
+                    "is_default":   bool(r["is_default"]),
+                    "color":        r["color"] or ""
                 }
                 for r in rows
             ]
@@ -1295,6 +1312,40 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .modal-header.create .modal-close,.modal-header.delete .modal-close{color:rgba(255,255,255,0.78)}
 .modal-header.create .modal-close:hover,.modal-header.delete .modal-close:hover{color:#fff}
 .warning-icon{font-size:1.7rem}
+/* ── Color picker mapping ── */
+.mapping-color-btn{background:none;border:2px solid #e2e8f0;border-radius:6px;width:28px;height:28px;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:border-color 0.2s;flex-shrink:0}
+.mapping-color-btn:hover{border-color:#667eea}
+.mapping-color-btn input[type=color]{opacity:0;position:absolute;width:0;height:0;pointer-events:none}
+.color-swatch{width:16px;height:16px;border-radius:3px;border:1px solid rgba(0,0,0,0.15);display:inline-block;background:#667eea}
+/* ── Modal auteur ── */
+#authorModal .modal-content{max-width:420px;text-align:center}
+#authorModal .author-icon{font-size:2.2rem;margin-bottom:8px}
+#authorModal h2{margin-bottom:6px}
+#authorModal p{color:#64748b;font-size:0.9em;margin-bottom:16px}
+#authorInput{width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:1em;font-family:'Outfit',Arial,sans-serif;text-align:center;transition:border-color 0.2s,box-shadow 0.2s}
+#authorInput:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
+/* ── Modal historique ── */
+#historyModal .modal-content{max-width:760px}
+.audit-list{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow-y:auto;margin-bottom:12px}
+.audit-item{display:flex;flex-direction:column;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden}
+.audit-item-header{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:0.87em}
+.audit-item .audit-ts{color:#94a3b8;font-size:0.81em;white-space:nowrap;min-width:130px}
+.audit-item .audit-author{font-weight:700;color:#4f46e5;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.audit-item .audit-action{padding:2px 7px;border-radius:4px;font-size:0.78em;font-weight:700;text-transform:uppercase;flex-shrink:0}
+.audit-action.edit{background:#dbeafe;color:#1d4ed8}
+.audit-action.add{background:#d1fae5;color:#065f46}
+.audit-action.delete{background:#fee2e2;color:#991b1b}
+.audit-item .audit-bt{font-family:'JetBrains Mono',monospace;font-weight:700;color:#1e293b;flex:1}
+.audit-diff{padding:8px 14px 10px;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:5px}
+.audit-diff-row{display:grid;grid-template-columns:110px 1fr 18px 1fr;align-items:start;gap:6px;font-size:0.82em}
+.audit-diff-key{color:#64748b;font-weight:600;font-size:0.78em;text-transform:uppercase;letter-spacing:0.04em;padding-top:2px}
+.audit-diff-old{color:#b91c1c;background:#fef2f2;border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono',monospace;word-break:break-all;line-height:1.4}
+.audit-diff-arrow{color:#94a3b8;text-align:center;font-size:0.9em;padding-top:3px}
+.audit-diff-new{color:#065f46;background:#f0fdf4;border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono',monospace;word-break:break-all;line-height:1.4}
+.audit-diff-single{color:#475569;font-family:'JetBrains Mono',monospace;font-size:0.82em;padding:2px 7px;background:#f1f5f9;border-radius:5px;word-break:break-all}
+.audit-revert-btn{background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:0.78em;cursor:pointer;font-family:'Outfit',Arial,sans-serif;font-weight:600;color:#475569;transition:all 0.15s;white-space:nowrap;margin-left:auto}
+.audit-revert-btn:hover{background:#e0e7ff;border-color:#818cf8;color:#4338ca}
+.btn-history{background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
 .warning-text{background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:0 7px 7px 0;margin:10px 0;color:#92400e;font-size:0.85em;line-height:1.5}
 .warning-text strong{display:block;margin-bottom:3px}
 .empty-state{text-align:center;padding:2.5rem 1rem;color:#64748b}
@@ -1467,7 +1518,10 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <!-- ONGLET PARAMETRAGE - ENHANCED -->
 <div id="contentParam" class="tab-content">
 <div class="section">
-<h2>Gestion des Mappings</h2>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+<h2 style="margin:0">Gestion des Mappings</h2>
+<button class="btn-create" id="btnCreateMapping"><span>➕</span> Créer un mapping</button>
+</div>
 <div class="form-group" style="margin-bottom:20px">
 <label>Mapping actif :</label>
 <div style="display:flex;gap:8px;align-items:center">
@@ -1480,16 +1534,17 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 </div>
 <div class="btn-group">
-<button class="btn-secondary" id="btnReload"><span>🔄</span> Actualiser</button>
-<button class="btn-create" id="btnCreateMapping"><span>➕</span> Créer un mapping</button>
 <button class="btn-add" id="btnAdd"><span>➕</span> Ajouter un champ</button>
 <button class="btn-download" id="btnDownload"><span>📥</span> Télécharger JSON</button>
-<button class="btn-save-version" id="btnSaveVersion"><span>💾</span> Sauvegarder version</button>
-<button class="btn-restore" id="btnRestore"><span>🕐</span> Restaurer version</button>
+<button class="btn-history" id="btnHistory"><span>📋</span> Historique</button>
+<label class="mapping-color-btn" id="mappingColorBtn" title="Couleur du mapping">
+<span class="color-swatch" id="mappingColorSwatch"></span>
+<input type="color" id="mappingColorPicker" value="#667eea">
+</label>
 </div>
 <div class="search-box">
 <label for="searchBTParam">🔍 Rechercher un BT :</label>
-<input type="text" id="searchBTParam" placeholder="Tapez un numéro de BT (ex: 48)">
+<input type="text" id="searchBTParam" placeholder="Tapez un num. de BT (ex: 48)">
 <button class="btn-clear" id="btnClearSearchParam" style="display:none">✕ Effacer</button>
 </div>
 </div>
@@ -1571,7 +1626,7 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 <div class="modal-header edit-field-header">
 <div style="display:flex;align-items:center">
 <div class="edit-field-hicon">⚙️</div>
-<div><h2 id="modalTitle">Editer le Champ</h2><p id="modalSubtitle">Renseignez les informations du champ BT</p></div>
+<div><h2 id="modalTitle">Mapping</h2><p id="modalSubtitle">Mise à jour du champ BT</p></div>
 </div>
 <span class="modal-close" id="modalClose">&times;</span>
 </div>
@@ -1684,16 +1739,6 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 </div>
 
 <!-- MODAL RESTAURATION -->
-<div id="restoreModal" class="modal">
-<div class="modal-content">
-<div class="modal-header">
-<h2>Restaurer une version</h2>
-<span class="modal-close" id="restoreModalClose">&times;</span>
-</div>
-<div id="versionsList"></div>
-</div>
-</div>
-
 <!-- MODAL EDITION RÈGLE -->
 <div id="editRuleModal" class="modal">
 <div class="modal-content" style="max-width:900px">
@@ -1810,6 +1855,34 @@ Assurez-vous d'avoir une sauvegarde si nécessaire.
 </div>
 </div>
 
+<!-- MODAL AUTEUR -->
+<div id="authorModal" class="modal">
+<div class="modal-content" style="max-width:420px;text-align:center;padding:32px 28px">
+<div class="author-icon">👤</div>
+<h2 style="margin-bottom:6px;font-size:1.15rem">Qui fait cette modification ?</h2>
+<p style="color:#64748b;font-size:0.9em;margin-bottom:18px">Votre nom sera associé à cette modification dans l'historique.</p>
+<input type="text" id="authorInput" placeholder="Entrez votre prénom ou nom…" autocomplete="off">
+<div style="display:flex;gap:10px;justify-content:center;margin-top:18px">
+<button class="btn-secondary" id="authorCancelBtn">Annuler</button>
+<button class="btn" id="authorConfirmBtn" style="width:auto;padding:10px 28px">Confirmer</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL HISTORIQUE -->
+<div id="historyModal" class="modal">
+<div class="modal-content" style="max-width:720px">
+<div class="modal-header" style="border-bottom:1px solid #e2e8f0;margin-bottom:16px;padding-bottom:12px">
+<h2 style="font-size:1.05rem;font-weight:700;color:#1e293b">📋 Historique des modifications</h2>
+<span class="modal-close" id="historyModalClose">&times;</span>
+</div>
+<div id="auditList" class="audit-list"></div>
+<div style="display:flex;justify-content:flex-end">
+<button class="btn-secondary" id="historyCloseBtn">Fermer</button>
+</div>
+</div>
+</div>
+
 <div id="tooltip" class="tooltip"></div>
 <script>
 var BASE='__URL_PREFIX__';
@@ -1818,6 +1891,7 @@ var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
 var mappingsIndex = { mappings: [] };
 var mappingToDelete = null;
+var pendingAuditCallback = null; // callback à exécuter après saisie de l'auteur
 
 function positionTooltip(e){
 var margin=12;
@@ -2021,6 +2095,7 @@ function updateSingleDropdown(selectElement, mappings) {
         option.dataset.filename = mapping.filename;
         option.dataset.mappingId = mapping.id;
         option.dataset.isDefault = mapping.is_default ? 'true' : 'false';
+        option.dataset.color = mapping.color || '';
         
         selectElement.appendChild(option);
     });
@@ -2044,9 +2119,10 @@ window.onclick = function(event) {
     const createModal = document.getElementById('createMappingModal');
     const deleteModal = document.getElementById('deleteMappingModal');
     const editModal = document.getElementById('editModal');
-    const restoreModal = document.getElementById('restoreModal');
     const ruleModal = document.getElementById('editRuleModal');
-    
+    const historyModal = document.getElementById('historyModal');
+    const authorModal = document.getElementById('authorModal');
+
     if (event.target === createModal) {
         closeCreateMappingModal();
     }
@@ -2056,11 +2132,15 @@ window.onclick = function(event) {
     if (event.target === editModal) {
         editModal.style.display = 'none';
     }
-    if (event.target === restoreModal) {
-        restoreModal.style.display = 'none';
-    }
     if (event.target === ruleModal) {
         ruleModal.style.display = 'none';
+    }
+    if (event.target === historyModal) {
+        historyModal.style.display = 'none';
+    }
+    if (event.target === authorModal) {
+        authorModal.style.display = 'none';
+        pendingAuditCallback = null;
     }
 }
 
@@ -2515,10 +2595,23 @@ document.getElementById('loading').style.display='none';
 });
 
 /* ---- PARAMETRAGE ---- */
+function getCurrentMappingColor(){
+var sel=document.getElementById('typeFormulaireParam');
+var opt=sel&&sel.options[sel.selectedIndex];
+return (opt&&opt.dataset.color)||'';
+}
+function applyMappingColor(){
+var color=getCurrentMappingColor();
+var swatch=document.getElementById('mappingColorSwatch');
+var picker=document.getElementById('mappingColorPicker');
+if(color){swatch.style.background=color;picker.value=color;}
+else{swatch.style.background='#667eea';picker.value='#667eea';}
+}
 async function loadMappings(){
 var type=document.getElementById('typeFormulaireParam').value;
 var resp=await fetch(BASE+'/api/mapping/'+type);
 currentMapping=await resp.json();
+applyMappingColor();
 var list=document.getElementById('mappingList');
 list.innerHTML='';
 if(!currentMapping||!currentMapping.champs){list.innerHTML='<li>Aucun mapping</li>';return}
@@ -2617,8 +2710,17 @@ items.forEach(function(item){item.style.display='flex';});
 function editMapping(index){
 currentIndex=parseInt(index);
 var champ=currentMapping.champs[currentIndex];
-document.getElementById('modalTitle').textContent='Modifier le champ';
-document.getElementById('modalSubtitle').textContent='Mise à jour des informations du champ BT';
+var selOpt=document.getElementById('typeFormulaireParam');
+var mappingName=selOpt&&selOpt.options[selOpt.selectedIndex]?selOpt.options[selOpt.selectedIndex].textContent:'';
+document.getElementById('modalTitle').textContent=mappingName||'Mapping';
+document.getElementById('modalSubtitle').textContent='Mise à jour du champ BT';
+// Appliquer la couleur du mapping sur le header
+var color=getCurrentMappingColor();
+var header=document.querySelector('.edit-field-header');
+if(header){
+if(color){header.style.background=color;}
+else{header.style.background='linear-gradient(135deg,#667eea 0%,#764ba2 100%)';}
+}
 document.getElementById('editBalise').value=champ.balise;
 document.getElementById('editLibelle').value=champ.libelle;
 // Construire la valeur du select à partir de categorie_bg et categorie_titre
@@ -2650,8 +2752,14 @@ document.getElementById('editModal').style.display='block';
 }
 async function deleteMapping(index){
 if(!confirm('Supprimer ce champ?'))return;
-currentMapping.champs.splice(parseInt(index),1);
+var idx=parseInt(index);
+var deletedChamp=Object.assign({},currentMapping.champs[idx]);
+currentMapping.champs.splice(idx,1);
 await saveMapping();
+var type=document.getElementById('typeFormulaireParam').value;
+askAuthorThen(async function(author){
+await logAudit(type,author,'delete',deletedChamp.balise,deletedChamp,null);
+});
 loadMappings();
 }
 // IDs des mappings cibles pour un ajout multi-mapping
@@ -2691,8 +2799,10 @@ if(addTargetMappingIds.length===0){alert('Sélectionnez au moins un mapping.');r
 document.getElementById('selectMappingsModal').style.display='none';
 // Ouvrir le formulaire d'ajout
 currentIndex=null;
-document.getElementById('modalTitle').textContent='Nouveau champ';
-document.getElementById('modalSubtitle').textContent='Ajout dans '+addTargetMappingIds.length+' mapping'+(addTargetMappingIds.length>1?'s':'');
+var selOptAdd=document.getElementById('typeFormulaireParam');
+var mappingNameAdd=selOptAdd&&selOptAdd.options[selOptAdd.selectedIndex]?selOptAdd.options[selOptAdd.selectedIndex].textContent:'';
+document.getElementById('modalTitle').textContent=mappingNameAdd||'Mapping';
+document.getElementById('modalSubtitle').textContent='Ajout d\'un nouveau champ BT'+(addTargetMappingIds.length>1?' ('+addTargetMappingIds.length+' mappings)':'');
 document.getElementById('editBalise').value='';
 document.getElementById('editLibelle').value='';
 document.getElementById('editCategorie').value='BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE';
@@ -2704,6 +2814,13 @@ document.getElementById('editType').value='String';
 document.getElementById('editObligatoire').value='Non';
 document.getElementById('editIgnore').value='Non';
 document.getElementById('editRdg').value='';
+// Appliquer la couleur du mapping sur le header pour l'ajout aussi
+var colorAdd=getCurrentMappingColor();
+var headerAdd=document.querySelector('.edit-field-header');
+if(headerAdd){
+if(colorAdd){headerAdd.style.background=colorAdd;}
+else{headerAdd.style.background='linear-gradient(135deg,#667eea 0%,#764ba2 100%)';}
+}
 document.getElementById('editModal').style.display='block';
 });
 document.getElementById('modalClose').addEventListener('click',function(){
@@ -2712,6 +2829,42 @@ document.getElementById('editModal').style.display='none';
 document.getElementById('editCancelBtn').addEventListener('click',function(){
 document.getElementById('editModal').style.display='none';
 });
+// ── Fonctions auteur ──────────────────────────────────────────────────────
+function getAuthor(){return sessionStorage.getItem('facturix_author')||'';}
+function setAuthor(name){sessionStorage.setItem('facturix_author',name);}
+function askAuthorThen(callback){
+var author=getAuthor();
+if(author){callback(author);return;}
+pendingAuditCallback=callback;
+document.getElementById('authorInput').value='';
+document.getElementById('authorModal').style.display='block';
+setTimeout(function(){document.getElementById('authorInput').focus();},80);
+}
+document.getElementById('authorConfirmBtn').addEventListener('click',function(){
+var name=document.getElementById('authorInput').value.trim();
+if(!name){alert('Veuillez saisir votre nom.');return;}
+setAuthor(name);
+document.getElementById('authorModal').style.display='none';
+if(pendingAuditCallback){var cb=pendingAuditCallback;pendingAuditCallback=null;cb(name);}
+});
+document.getElementById('authorCancelBtn').addEventListener('click',function(){
+document.getElementById('authorModal').style.display='none';
+pendingAuditCallback=null;
+});
+document.getElementById('authorInput').addEventListener('keydown',function(e){
+if(e.key==='Enter')document.getElementById('authorConfirmBtn').click();
+});
+
+async function logAudit(type,author,action,btBalise,oldValue,newValue){
+await fetch(BASE+'/api/mapping/'+type+'/audit',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({author:author,action:action,bt_balise:btBalise,
+old_value:oldValue?JSON.stringify(oldValue):null,
+new_value:newValue?JSON.stringify(newValue):null})
+});
+}
+
 document.getElementById('btnSave').addEventListener('click',async function(){
 var base=currentIndex!==null?currentMapping.champs[currentIndex]:{};
 // Parser la valeur du select (format: "BG-XX|Titre")
@@ -2735,10 +2888,15 @@ categorie_titre:categorieTitre,
 controles_cegedim:base.controles_cegedim||[],
 valide:base.valide||false
 };
-if(currentIndex!==null){
-// Édition d'un champ existant : mise à jour dans le mapping actuel uniquement
+var oldChamp=currentIndex!==null?Object.assign({},currentMapping.champs[currentIndex]):null;
+var isEdit=currentIndex!==null;
+askAuthorThen(async function(author){
+if(isEdit){
+// Édition d'un champ existant
 currentMapping.champs[currentIndex]=newChamp;
 await saveMapping();
+var type=document.getElementById('typeFormulaireParam').value;
+await logAudit(type,author,'edit',newChamp.balise,oldChamp,newChamp);
 }else{
 // Ajout d'un nouveau champ : enregistrer dans tous les mappings sélectionnés
 var currentType=document.getElementById('typeFormulaireParam').value;
@@ -2757,6 +2915,7 @@ method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify(targetMapping)
 });
+await logAudit(tid,author,'add',newChamp.balise,null,newChamp);
 }
 // Recharger le mapping courant en mémoire
 var r2=await fetch(BASE+'/api/mapping/'+currentType);
@@ -2765,6 +2924,7 @@ addTargetMappingIds=[];
 }
 document.getElementById('editModal').style.display='none';
 loadMappings();
+});
 });
 
 // Télécharger le JSON
@@ -2780,73 +2940,6 @@ linkElement.click();
 });
 
 // Sauvegarder une version horodatée
-document.getElementById('btnSaveVersion').addEventListener('click',async function(){
-var type=document.getElementById('typeFormulaireParam').value;
-var resp=await fetch(BASE+'/api/mapping/'+type+'/version',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify(currentMapping)
-});
-var result=await resp.json();
-if(result.success){
-alert('Version sauvegardée : '+result.filename);
-}else{
-alert('Erreur : '+(result.error||'Impossible de sauvegarder'));
-}
-});
-
-// Restaurer une version
-document.getElementById('btnRestore').addEventListener('click',async function(){
-var type=document.getElementById('typeFormulaireParam').value;
-var resp=await fetch(BASE+'/api/mapping/'+type+'/versions');
-var versions=await resp.json();
-var list=document.getElementById('versionsList');
-list.innerHTML='';
-if(versions.length===0){
-list.innerHTML='<p>Aucune version sauvegardée</p>';
-}else{
-versions.forEach(function(v){
-var div=document.createElement('div');
-div.className='version-item';
-var date=v.timestamp.substring(0,8);
-var time=v.timestamp.substring(9);
-var displayDate=date.substring(6,8)+'/'+date.substring(4,6)+'/'+date.substring(0,4);
-var displayTime=time.substring(0,2)+':'+time.substring(2,4)+':'+time.substring(4,6);
-div.innerHTML='<div class="version-info">'+
-'<div class="version-timestamp">'+displayDate+' '+displayTime+'</div>'+
-'<div class="version-details">'+v.filename+' ('+Math.round(v.size/1024)+' Ko)</div>'+
-'</div>'+
-'<button class="btn-secondary btn-restore-version" data-filename="'+v.filename+'">Restaurer</button>';
-list.appendChild(div);
-});
-document.querySelectorAll('.btn-restore-version').forEach(function(btn){
-btn.addEventListener('click',async function(){
-if(!confirm('Restaurer cette version ? La version actuelle sera remplacée.')){
-return;
-}
-var filename=this.getAttribute('data-filename');
-var resp=await fetch(BASE+'/api/mapping/'+type+'/restore',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({filename:filename})
-});
-var result=await resp.json();
-if(result.success){
-alert('Version restaurée avec succès');
-document.getElementById('restoreModal').style.display='none';
-loadMappings();
-}else{
-alert('Erreur : '+(result.error||'Impossible de restaurer'));
-}
-});
-});
-}
-document.getElementById('restoreModal').style.display='block';
-});
-document.getElementById('restoreModalClose').addEventListener('click',function(){
-document.getElementById('restoreModal').style.display='none';
-});
-
 async function saveMapping(){
 var type=document.getElementById('typeFormulaireParam').value;
 await fetch(BASE+'/api/mapping/'+type,{
@@ -2855,11 +2948,124 @@ headers:{'Content-Type':'application/json'},
 body:JSON.stringify(currentMapping)
 });
 }
-document.getElementById('btnReload').addEventListener('click',loadMappings);
 document.getElementById('typeFormulaireParam').addEventListener('change',function(){
     loadMappings();
     updateDeleteButtonVisibility();
 });
+
+// ── Color picker ──────────────────────────────────────────────────────────
+document.getElementById('mappingColorBtn').addEventListener('click',function(){
+document.getElementById('mappingColorPicker').click();
+});
+document.getElementById('mappingColorPicker').addEventListener('input',function(){
+document.getElementById('mappingColorSwatch').style.background=this.value;
+});
+document.getElementById('mappingColorPicker').addEventListener('change',async function(){
+var color=this.value;
+document.getElementById('mappingColorSwatch').style.background=color;
+var type=document.getElementById('typeFormulaireParam').value;
+// Mettre à jour le dataset de l'option sélectionnée
+var sel=document.getElementById('typeFormulaireParam');
+if(sel&&sel.options[sel.selectedIndex]){sel.options[sel.selectedIndex].dataset.color=color;}
+await fetch(BASE+'/api/mapping/'+type+'/color',{
+method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({color:color})
+});
+// Sync le select du contrôle aussi
+var controleOpts=document.querySelectorAll('#typeFormulaire option');
+controleOpts.forEach(function(opt){if(opt.value===sel.value)opt.dataset.color=color;});
+});
+
+// ── Historique (audit) ────────────────────────────────────────────────────
+document.getElementById('btnHistory').addEventListener('click',async function(){
+var type=document.getElementById('typeFormulaireParam').value;
+var entries=await (await fetch(BASE+'/api/mapping/'+type+'/audit')).json();
+var list=document.getElementById('auditList');
+list.innerHTML='';
+if(!entries||entries.length===0){
+list.innerHTML='<p style="color:#94a3b8;text-align:center;padding:20px">Aucune modification enregistrée pour ce mapping.</p>';
+}else{
+var FIELD_LABELS={balise:'Balise BT',libelle:'Libellé',rdi:'Champ RDI',xpath:'XPath',
+obligatoire:'Obligatoire',type:'Type',ignore:'Ignorer',rdg:'Règle de gestion',
+attribute:'Attribut',type_enregistrement:'Type enreg.'};
+var DIFF_FIELDS=['balise','libelle','rdi','type_enregistrement','xpath','attribute','type','obligatoire','ignore','rdg'];
+
+function buildDiffHtml(oldVal,newVal,action){
+var html='';
+if(action==='edit'&&oldVal&&newVal){
+var old=JSON.parse(oldVal),nw=JSON.parse(newVal);
+DIFF_FIELDS.forEach(function(k){
+var ov=old[k]||'',nv=nw[k]||'';
+if(ov===nv||(ov===undefined&&nv===undefined))return;
+html+='<div class="audit-diff-row">'+
+'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
+'<span class="audit-diff-old">'+escapeHtml(String(ov))+'</span>'+
+'<span class="audit-diff-arrow">→</span>'+
+'<span class="audit-diff-new">'+escapeHtml(String(nv))+'</span>'+
+'</div>';
+});
+}else if(action==='add'&&newVal){
+var nw=JSON.parse(newVal);
+DIFF_FIELDS.forEach(function(k){
+if(!nw[k])return;
+html+='<div class="audit-diff-row">'+
+'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
+'<span class="audit-diff-new" style="grid-column:2/5">'+escapeHtml(String(nw[k]))+'</span>'+
+'</div>';
+});
+}else if(action==='delete'&&oldVal){
+var old=JSON.parse(oldVal);
+DIFF_FIELDS.forEach(function(k){
+if(!old[k])return;
+html+='<div class="audit-diff-row">'+
+'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
+'<span class="audit-diff-old" style="grid-column:2/5">'+escapeHtml(String(old[k]))+'</span>'+
+'</div>';
+});
+}
+return html;
+}
+
+entries.forEach(function(e){
+var item=document.createElement('div');
+item.className='audit-item';
+var actionLabel={'edit':'Modif','add':'Ajout','delete':'Suppression'}[e.action]||e.action;
+var actionClass={'edit':'edit','add':'add','delete':'delete'}[e.action]||'edit';
+var diffHtml=buildDiffHtml(e.old_value,e.new_value,e.action);
+item.innerHTML=
+'<div class="audit-item-header">'+
+'<span class="audit-ts">'+e.timestamp+'</span>'+
+'<span class="audit-author">'+escapeHtml(e.author)+'</span>'+
+'<span class="audit-action '+actionClass+'">'+actionLabel+'</span>'+
+'<span class="audit-bt">'+escapeHtml(e.bt_balise)+'</span>'+
+(e.action!=='add'?'<button class="audit-revert-btn" data-id="'+e.id+'">↩ Revenir</button>':'')+
+'</div>'+
+(diffHtml?'<div class="audit-diff">'+diffHtml+'</div>':'');
+list.appendChild(item);
+});
+list.querySelectorAll('.audit-revert-btn').forEach(function(btn){
+btn.addEventListener('click',async function(){
+var id=this.getAttribute('data-id');
+if(!confirm('Revenir à l\'état précédent de ce champ ?'))return;
+var res=await (await fetch(BASE+'/api/mapping/'+type+'/audit/'+id+'/revert',{method:'POST'})).json();
+if(res.success){
+document.getElementById('historyModal').style.display='none';
+loadMappings();
+}else{alert('Erreur : '+(res.error||'Impossible de revenir en arrière'));}
+});
+});
+}
+document.getElementById('historyModal').style.display='block';
+});
+document.getElementById('historyModalClose').addEventListener('click',function(){
+document.getElementById('historyModal').style.display='none';
+});
+document.getElementById('historyCloseBtn').addEventListener('click',function(){
+document.getElementById('historyModal').style.display='none';
+});
+
+function escapeHtml(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
 
 /* ---- RECHERCHE BT PARAMETRAGE ---- */
 document.getElementById('searchBTParam').addEventListener('input',function(){
@@ -3345,6 +3551,107 @@ def restore_version_route(type_formulaire):
         return jsonify({'success': False, 'error': 'Nom de fichier manquant'}), 400
     result = restore_mapping_version(filename, type_formulaire)
     return jsonify(result)
+
+@app.route('/api/mapping/<type_formulaire>/color', methods=['POST'])
+def save_color_route(type_formulaire):
+    data = request.json
+    color = data.get('color', '')
+    mapping_id = _get_mapping_id(type_formulaire)
+    try:
+        conn = get_db()
+        conn.execute("UPDATE mappings SET color=? WHERE id=?", (color, mapping_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/mapping/<type_formulaire>/audit', methods=['GET'])
+def get_audit_route(type_formulaire):
+    mapping_id = _get_mapping_id(type_formulaire)
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT id, timestamp, author, action, bt_balise, old_value, new_value "
+            "FROM mapping_audit WHERE mapping_id=? ORDER BY id DESC LIMIT 100",
+            (mapping_id,)
+        ).fetchall()
+        conn.close()
+        return jsonify([{
+            'id': r['id'], 'timestamp': r['timestamp'], 'author': r['author'],
+            'action': r['action'], 'bt_balise': r['bt_balise'],
+            'old_value': r['old_value'], 'new_value': r['new_value']
+        } for r in rows])
+    except Exception:
+        return jsonify([])
+
+@app.route('/api/mapping/<type_formulaire>/audit', methods=['POST'])
+def log_audit_route(type_formulaire):
+    from datetime import datetime
+    data = request.json
+    mapping_id = _get_mapping_id(type_formulaire)
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO mapping_audit (mapping_id, timestamp, author, action, bt_balise, old_value, new_value) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (mapping_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             data.get('author', ''), data.get('action', 'edit'),
+             data.get('bt_balise', ''), data.get('old_value'), data.get('new_value'))
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/mapping/<type_formulaire>/audit/<int:audit_id>/revert', methods=['POST'])
+def revert_audit_route(type_formulaire, audit_id):
+    """Revenir à l'état old_value d'une entrée d'audit."""
+    mapping_id = _get_mapping_id(type_formulaire)
+    try:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT action, bt_balise, old_value FROM mapping_audit WHERE id=? AND mapping_id=?",
+            (audit_id, mapping_id)
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Entrée introuvable'}), 404
+        action = row['action']
+        bt_balise = row['bt_balise']
+        old_value = row['old_value']
+        # Charger le mapping courant
+        content_row = conn.execute(
+            "SELECT content FROM mapping_content WHERE mapping_id=?", (mapping_id,)
+        ).fetchone()
+        if not content_row:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Mapping introuvable'}), 404
+        mapping = json.loads(content_row['content'])
+        champs = mapping.get('champs', [])
+        if action == 'edit' and old_value:
+            old_champ = json.loads(old_value)
+            for i, c in enumerate(champs):
+                if c.get('balise') == bt_balise:
+                    champs[i] = old_champ
+                    break
+        elif action == 'add':
+            # Annuler un ajout = supprimer le champ
+            champs = [c for c in champs if c.get('balise') != bt_balise]
+        elif action == 'delete' and old_value:
+            # Annuler une suppression = réinsérer le champ
+            champs.append(json.loads(old_value))
+        mapping['champs'] = champs
+        conn.execute(
+            "UPDATE mapping_content SET content=? WHERE mapping_id=?",
+            (json.dumps(mapping, ensure_ascii=False), mapping_id)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/rules', methods=['GET'])
 def get_rules():
