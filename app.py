@@ -707,12 +707,12 @@ def apply_business_rules(results, type_formulaire='simple'):
             return not field_value.upper().startswith(value.upper())
         elif operator == 'less_than':
             try:
-                return float(field_value.replace(',', '.')) < float(value)
+                return _parse_amount(field_value) < float(value)
             except:
                 return False
         elif operator == 'greater_than':
             try:
-                return float(field_value.replace(',', '.')) > float(value)
+                return _parse_amount(field_value) > float(value)
             except:
                 return False
         elif operator == 'is_empty':
@@ -722,11 +722,23 @@ def apply_business_rules(results, type_formulaire='simple'):
         
         return False
     
+    def _parse_amount(s):
+        """Parse un montant en float, gère le format français (1.234,56) et anglais (1234.56)."""
+        s = s.strip().replace('\xa0', '').replace(' ', '')
+        if not s:
+            return 0.0
+        if ',' in s and '.' in s:
+            # Format français : point = séparateur de milliers, virgule = décimale
+            s = s.replace('.', '').replace(',', '.')
+        elif ',' in s:
+            s = s.replace(',', '.')
+        return float(s)
+
     def apply_action(action, by_balise):
         """Applique une action"""
         action_type = action.get('type')
         target_field = action.get('field')
-        
+
         target = by_balise.get(target_field)
         if not target:
             return
@@ -778,8 +790,8 @@ def apply_business_rules(results, type_formulaire='simple'):
 
         elif action_type == 'must_be_negative':
             try:
-                value_str = target.get('rdi', '0').strip() or target.get('xml', '0').strip()
-                value = float(value_str.replace(',', '.').replace(' ', ''))
+                value_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
+                value = _parse_amount(value_str)
                 regle_label = 'Doit être négatif'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
@@ -804,12 +816,12 @@ def apply_business_rules(results, type_formulaire='simple'):
                     if not obj:
                         return 0.0
                     s = obj.get('rdi', '').strip() or obj.get('xml', '').strip() or '0'
-                    return float(s.replace(',', '.').replace(' ', ''))
+                    return _parse_amount(s)
                 val1 = _to_float(src1)
                 val2 = _to_float(src2)
                 expected = round(val1 + val2, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
-                val_target = float(val_target_str.replace(',', '.').replace(' ', ''))
+                val_target = _parse_amount(val_target_str)
                 regle_label = f'Doit égaler {field1} + {field2}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
@@ -841,14 +853,14 @@ def apply_business_rules(results, type_formulaire='simple'):
                     line_id = item.get('article_line_id', '')
                     label = f'Ligne {line_id}' if line_id else sum_field
                     try:
-                        v = float(s.replace(',', '.').replace(' ', ''))
+                        v = _parse_amount(s)
                         total += v
                         detail_lines.append(f'{label} : {s}')
                     except:
                         detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
                 total = round(total, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
-                val_target = float(val_target_str.replace(',', '.').replace(' ', ''))
+                val_target = _parse_amount(val_target_str)
                 ecart = abs(val_target - total)
                 n = len(all_items)
                 regle_label = f'Doit égaler la somme des {n} {sum_field}'
