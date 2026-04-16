@@ -835,27 +835,41 @@ def apply_business_rules(results, type_formulaire='simple'):
             try:
                 all_items = [r for r in results if r.get('balise') == sum_field]
                 total = 0.0
+                detail_lines = []
                 for item in all_items:
                     s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
+                    line_id = item.get('article_line_id', '')
+                    label = f'Ligne {line_id}' if line_id else sum_field
                     try:
-                        total += float(s.replace(',', '.').replace(' ', ''))
+                        v = float(s.replace(',', '.').replace(' ', ''))
+                        total += v
+                        detail_lines.append(f'{label} : {s}')
                     except:
-                        pass
+                        detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
                 total = round(total, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = float(val_target_str.replace(',', '.').replace(' ', ''))
+                ecart = abs(val_target - total)
                 n = len(all_items)
                 regle_label = f'Doit égaler la somme des {n} {sum_field}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                if abs(val_target - total) > tolerance:
+                # Stocker le détail du calcul pour le tooltip
+                detail_lines.append(f'─────────────────')
+                detail_lines.append(f'Σ {sum_field} = {total}')
+                detail_lines.append(f'{target_field} = {val_target}')
+                detail_lines.append(f'Écart = {ecart:.4f} (tolérance {tolerance})')
+                if 'rule_details' not in target:
+                    target['rule_details'] = {}
+                target['rule_details'][rule_name] = detail_lines
+                if ecart > tolerance:
                     target['status'] = 'ERREUR'
                     if 'RAS' in target['details_erreurs']:
                         target['details_erreurs'].remove('RAS')
                     msg = (f'Règle métier "{rule_name}" non respectée : '
-                           f'somme des {n} {sum_field} = {total}, '
+                           f'Σ {n} {sum_field} = {total}, '
                            f'trouvé {val_target} '
-                           f'(écart {abs(val_target - total):.4f}, tolérance {tolerance})')
+                           f'(écart {ecart:.4f}, tolérance {tolerance})')
                     if msg not in target['details_erreurs']:
                         target['details_erreurs'].append(msg)
             except:
@@ -1171,8 +1185,11 @@ table.ceg-table th{background:#6d28d9;color:#fff;padding:6px 10px;text-align:lef
 table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#faf5ff}
 .ceg-row-header td{background:#f3e8ff;font-style:italic;font-size:0.78em;color:#7c3aed;padding:4px 10px;border-bottom:1px dashed #ddd6fe}
 /* === TOOLTIP === */
-.tooltip{position:absolute;background:#1e293b;color:#e2e8f0;padding:11px 14px;border-radius:8px;font-size:0.85em;z-index:1000;display:none;max-width:500px;box-shadow:0 8px 24px rgba(0,0,0,0.28);pointer-events:none;line-height:1.5}
-.tooltip strong{color:#fbbf24;display:block;margin-bottom:4px}
+.tooltip{position:absolute;background:#1e293b;color:#e2e8f0;padding:11px 14px;border-radius:8px;font-size:0.85em;z-index:1000;display:none;max-width:560px;box-shadow:0 8px 24px rgba(0,0,0,0.28);pointer-events:none;line-height:1.5}
+.tooltip strong{color:#fbbf24}
+.tooltip>strong,.tooltip br+strong{display:block;margin-bottom:4px}
+.tooltip ul{margin:2px 0 4px 0;padding-left:16px}
+.tooltip li{margin:1px 0}
 .tooltip-separator{border-top:1px solid rgba(255,255,255,0.12);margin:7px 0;padding-top:6px}
 .tooltip-controls{font-size:0.81em;color:#94a3b8}
 /* === PARAMÉTRAGE — LISTE CHAMPS === */
@@ -1415,11 +1432,11 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <button class="btn-clear" id="btnClearSearch" style="display:none">✕ Effacer</button>
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterErrors" style="width:18px;height:18px">
-<span>Afficher uniquement les erreurs</span>
+<span>Uniquement les erreurs</span>
 </label>
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterAmbigus" style="width:18px;height:18px">
-<span>Afficher uniquement les ambigus</span>
+<span>Uniquement les ambigus</span>
 </label>
 <label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="showCegedim" style="width:18px;height:18px">
@@ -2183,6 +2200,23 @@ if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
 valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
 }
+if(r.regles_testees&&r.regles_testees.length>0){
+tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles appliquées :</strong><ul style="margin:2px 0 0 0;padding-left:16px">';
+r.regles_testees.forEach(function(reg){tooltipContent+='<li>'+reg+'</li>';});
+tooltipContent+='</ul>';
+}
+if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){
+tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0 0;padding-left:16px;color:#fcc">';
+r.details_erreurs.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
+tooltipContent+='</ul>';
+}
+if(r.rule_details){
+Object.keys(r.rule_details).forEach(function(ruleName){
+tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+ruleName+' :</strong><ul style="margin:2px 0 0 0;padding-left:16px;font-family:monospace;font-size:0.9em">';
+r.rule_details[ruleName].forEach(function(line){tooltipContent+='<li>'+line+'</li>';});
+tooltipContent+='</ul>';
+});
+}
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
@@ -2254,6 +2288,23 @@ var xmlVal=r.xml||'(vide)';
 if(tooltipContent)tooltipContent+='<br>';
 tooltipContent+='<strong>XML:</strong> '+r.xml_tag_name+' = '+xmlVal;
 valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+xmlVal+'</div>';
+}
+if(r.regles_testees&&r.regles_testees.length>0){
+tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles appliquées :</strong><ul style="margin:2px 0 0 0;padding-left:16px">';
+r.regles_testees.forEach(function(reg){tooltipContent+='<li>'+reg+'</li>';});
+tooltipContent+='</ul>';
+}
+if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){
+tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0 0;padding-left:16px;color:#fcc">';
+r.details_erreurs.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
+tooltipContent+='</ul>';
+}
+if(r.rule_details){
+Object.keys(r.rule_details).forEach(function(ruleName){
+tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+ruleName+' :</strong><ul style="margin:2px 0 0 0;padding-left:16px;font-family:monospace;font-size:0.9em">';
+r.rule_details[ruleName].forEach(function(line){tooltipContent+='<li>'+line+'</li>';});
+tooltipContent+='</ul>';
+});
 }
 var statusIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
 var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r.balise;
@@ -3509,6 +3560,7 @@ def controle():
                 'status': status,
                 'regles_testees': regles_testees,
                 'details_erreurs': details_erreurs,
+                'rule_details': {},
                 'controles_cegedim': ceg_details,
                 'categorie_bg': categorie_bg,
                 'categorie_titre': categorie_titre,
@@ -3596,6 +3648,7 @@ def controle():
                     'status': status,
                     'regles_testees': regles_testees,
                     'details_erreurs': details_erreurs,
+                    'rule_details': {},
                     'controles_cegedim': [],
                     'categorie_bg': 'BG-LIGNES',
                     'categorie_titre': '📋 LIGNES DE FACTURE',
