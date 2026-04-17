@@ -3171,6 +3171,18 @@ type:base.type||undefined
 };
 var oldChamp=currentIndex!==null?Object.assign({},currentMapping.champs[currentIndex]):null;
 var isEdit=currentIndex!==null;
+// Si édition sans modification réelle : sauvegarder silencieusement, sans demander l'auteur ni logguer
+if(isEdit&&oldChamp){
+var AUDIT_FIELDS=['balise','libelle','rdi','type_enregistrement','xpath','attribute','obligatoire','ignore','rdg','categorie_bg','categorie_titre'];
+var hasChanged=AUDIT_FIELDS.some(function(k){return (oldChamp[k]||'')!==(newChamp[k]||'');});
+if(!hasChanged){
+currentMapping.champs[currentIndex]=newChamp;
+await saveMapping();
+document.getElementById('editModal').style.display='none';
+loadMappings();
+return;
+}
+}
 askAuthorThen(async function(author){
 if(isEdit){
 // Édition d'un champ existant
@@ -3267,9 +3279,9 @@ if(!entries||entries.length===0){
 list.innerHTML='<p style="color:#94a3b8;text-align:center;padding:20px">Aucune modification enregistrée pour ce mapping.</p>';
 }else{
 var FIELD_LABELS={balise:'Balise BT',libelle:'Libellé',rdi:'Champ RDI',xpath:'XPath',
-obligatoire:'Obligatoire',type:'Type',ignore:'Ignorer',rdg:'Règle de gestion',
-attribute:'Attribut',type_enregistrement:'Type enreg.'};
-var DIFF_FIELDS=['balise','libelle','rdi','type_enregistrement','xpath','attribute','type','obligatoire','ignore','rdg'];
+obligatoire:'Obligatoire',ignore:'Ignorer',rdg:'Règle de gestion',
+attribute:'Attribut',type_enregistrement:'Type enreg.',categorie_bg:'Catégorie'};
+var DIFF_FIELDS=['balise','libelle','rdi','type_enregistrement','xpath','attribute','obligatoire','ignore','rdg','categorie_bg'];
 
 function buildDiffHtml(oldVal,newVal,action){
 var html='';
@@ -3278,7 +3290,6 @@ var old=JSON.parse(oldVal),nw=JSON.parse(newVal);
 DIFF_FIELDS.forEach(function(k){
 var ov=old[k]||'',nv=nw[k]||'';
 if(ov===nv||(ov===undefined&&nv===undefined))return;
-if(ov&&!nv)return; // champ présent avant mais absent de new (non éditable dans le formulaire, pas une vraie modif)
 html+='<div class="audit-diff-row">'+
 '<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
 '<span class="audit-diff-old">'+escapeHtml(String(ov))+'</span>'+
