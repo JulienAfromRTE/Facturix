@@ -443,7 +443,7 @@ def parse_rdi(rdi_path):
     try:
         with open(rdi_path, 'r', encoding='cp1252') as f:
             for line in f:
-                if line.startswith('DHEADER') or line.startswith('DMAIN') or line.startswith('DZREGLT'):
+                if line.startswith('D'):
                     if len(line) >= 176:
                         try:
                             length_str = line[172:175]
@@ -721,17 +721,22 @@ def apply_business_rules(results, type_formulaire='simple'):
     """
     rules_data = load_business_rules()
     by_balise = {r['balise']: r for r in results}
-    
+    by_rdi_field = {r['rdi_field']: r for r in results if r.get('rdi_field')}
+
     def evaluate_condition(cond, by_balise):
         """Évalue une condition"""
         field = cond.get('field')
         operator = cond.get('operator')
         value = cond.get('value', '')
-        
-        result_obj = by_balise.get(field)
+        field_type = cond.get('field_type', 'bt')
+
+        if field_type == 'rdi':
+            result_obj = by_rdi_field.get(field)
+        else:
+            result_obj = by_balise.get(field)
         if not result_obj:
             return False
-        
+
         field_value = result_obj.get('rdi', '').strip() or result_obj.get('xml', '').strip()
         
         if operator == 'equals':
@@ -779,8 +784,12 @@ def apply_business_rules(results, type_formulaire='simple'):
         """Applique une action"""
         action_type = action.get('type')
         target_field = action.get('field')
+        field_type = action.get('field_type', 'bt')
 
-        target = by_balise.get(target_field)
+        if field_type == 'rdi':
+            target = by_rdi_field.get(target_field)
+        else:
+            target = by_balise.get(target_field)
         if not target:
             return
         if target.get('status') in ('AMBIGU', 'IGNORE'):
@@ -950,7 +959,10 @@ def apply_business_rules(results, type_formulaire='simple'):
             rule_name = rule.get('name', 'Règle métier')
             # Annoter les champs déclencheurs (conditions) avec le nom de la règle
             for cond in rule.get('conditions', []):
-                trigger = by_balise.get(cond.get('field'))
+                if cond.get('field_type') == 'rdi':
+                    trigger = by_rdi_field.get(cond.get('field'))
+                else:
+                    trigger = by_balise.get(cond.get('field'))
                 if trigger is not None:
                     regle_label = f'Règle déclenchée : {rule_name}'
                     if regle_label not in trigger['regles_testees']:
@@ -1205,7 +1217,8 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .ambigu .stat-value{color:#d97706}
 .ignore .stat-value{color:#94a3b8}
 /* === SEARCH BOX === */
-.search-box{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;flex-wrap:nowrap}
+.search-box{display:flex;flex-direction:column;gap:8px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0}
+.search-box-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .search-box label{font-weight:600;font-size:0.84em;color:#475569;white-space:nowrap}
 .search-box input{flex:1;max-width:200px;padding:7px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.88em;font-family:'Outfit',Arial,sans-serif;transition:border-color 0.2s,box-shadow 0.2s}
 .search-box input:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12)}
@@ -1408,6 +1421,9 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .edit-field-header p{color:rgba(255,255,255,0.75);margin:2px 0 0;font-size:0.81rem}
 .edit-field-header .modal-close{color:rgba(255,255,255,0.68);font-size:1.35rem;transition:color 0.2s;line-height:1}
 .edit-field-header .modal-close:hover{color:#fff}
+.edit-field-header-actions{display:flex;align-items:center;gap:10px}
+.btn-clone-field{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1.5px solid rgba(255,255,255,0.45);border-radius:7px;background:rgba(255,255,255,0.13);color:#fff;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:'Outfit',Arial,sans-serif;white-space:nowrap}
+.btn-clone-field:hover{background:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.7)}
 .edit-field-hicon{width:35px;height:35px;min-width:35px;background:rgba(255,255,255,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;margin-right:11px}
 .edit-field-body{padding:16px;display:flex;flex-direction:column;gap:11px;background:#f8fafc;max-height:70vh;overflow-y:auto}
 .edit-section{background:#fff;border-radius:10px;padding:12px 15px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
@@ -1542,24 +1558,31 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 <div class="section">
 <div class="search-box">
+<div class="search-box-row">
 <label for="searchBT">🔍 Rechercher un BT :</label>
 <input type="text" id="searchBT" placeholder="Tapez un n° de BT (ex: 48)">
 <button class="btn-clear" id="btnClearSearch" style="display:none">✕ Effacer</button>
-<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<label for="searchContent" style="margin-left:10px;font-weight:600;font-size:0.84em;color:#475569;white-space:nowrap">🔎 Contenu RDI / XML :</label>
+<input type="text" id="searchContent" placeholder="Ex: FR12345...">
+<button class="btn-clear" id="btnClearContent" style="display:none">✕ Effacer</button>
+</div>
+<div class="search-box-row">
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterErrors" style="width:18px;height:18px">
 <span>Uniquement les erreurs</span>
 </label>
-<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="filterAmbigus" style="width:18px;height:18px">
 <span>Uniquement les ambigus</span>
 </label>
-<label style="margin-left:20px;display:flex;align-items:center;gap:6px;font-weight:normal">
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
 <input type="checkbox" id="showCegedim" style="width:18px;height:18px">
 <span>Afficher contrôles CEGEDIM</span>
 </label>
 <div style="margin-left:auto;display:flex;gap:8px">
 <button class="btn-clear" id="btnExpandAll" style="display:inline-block;font-size:12px;padding:4px 10px">▼ Tout déplier</button>
 <button class="btn-clear" id="btnCollapseAll" style="display:inline-block;font-size:12px;padding:4px 10px">▲ Tout replier</button>
+</div>
 </div>
 </div>
 </div>
@@ -1681,7 +1704,10 @@ utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</co
 <div class="edit-field-hicon">⚙️</div>
 <div><h2 id="modalTitle">Mapping</h2><p id="modalSubtitle">Mise à jour du champ BT</p></div>
 </div>
+<div class="edit-field-header-actions">
+<button class="btn-clone-field" id="btnCloneField" style="display:none" title="Copier ce champ vers un autre mapping">⎘ Cloner vers…</button>
 <span class="modal-close" id="modalClose">&times;</span>
+</div>
 </div>
 <div class="edit-field-body">
 <!-- Identification -->
@@ -2543,23 +2569,25 @@ document.getElementById('results').style.display='block';
 // Filtrage par BT et par erreurs
 var searchInput=document.getElementById('searchBT');
 var clearBtn=document.getElementById('btnClearSearch');
+var searchContentInput=document.getElementById('searchContent');
+var clearContentBtn=document.getElementById('btnClearContent');
 var filterErrorsCheckbox=document.getElementById('filterErrors');
 var filterAmbigusCheckbox=document.getElementById('filterAmbigus');
 
 function applyAllFilters(){
 var searchTerm=searchInput.value.toLowerCase().trim();
+var contentTerm=searchContentInput.value.toLowerCase().trim();
 var showErrorsOnly=filterErrorsCheckbox.checked;
 var showAmbigusOnly=filterAmbigusCheckbox.checked;
-if(searchTerm){
-clearBtn.style.display='inline-block';
-}else{
-clearBtn.style.display='none';
-}
-filterResults(searchTerm,showErrorsOnly,showAmbigusOnly);
+clearBtn.style.display=searchTerm?'inline-block':'none';
+clearContentBtn.style.display=contentTerm?'inline-block':'none';
+filterResults(searchTerm,contentTerm,showErrorsOnly,showAmbigusOnly);
 }
 
 searchInput.removeEventListener('input',applyAllFilters);
 searchInput.addEventListener('input',applyAllFilters);
+searchContentInput.removeEventListener('input',applyAllFilters);
+searchContentInput.addEventListener('input',applyAllFilters);
 filterErrorsCheckbox.removeEventListener('change',applyAllFilters);
 filterErrorsCheckbox.addEventListener('change',applyAllFilters);
 filterAmbigusCheckbox.removeEventListener('change',applyAllFilters);
@@ -2567,6 +2595,11 @@ filterAmbigusCheckbox.addEventListener('change',applyAllFilters);
 clearBtn.onclick=function(){
 searchInput.value='';
 clearBtn.style.display='none';
+applyAllFilters();
+};
+clearContentBtn.onclick=function(){
+searchContentInput.value='';
+clearContentBtn.style.display='none';
 applyAllFilters();
 };
 
@@ -2592,9 +2625,10 @@ cegedimCheckbox.addEventListener('change',toggleCegedim);
 toggleCegedim();
 applyAllFilters();
 
-function filterResults(term,errorsOnly,ambigusOnly){
+function filterResults(term,contentTerm,errorsOnly,ambigusOnly){
 var categories=document.querySelectorAll('.category');
 var visibleCount=0;
+var hasActiveFilter=!!(term||contentTerm||errorsOnly||ambigusOnly);
 categories.forEach(function(cat){
 var hasMatch=false;
 // Filtrer les lignes standard (hors articles)
@@ -2603,15 +2637,18 @@ rows.forEach(function(row){
 var btStrong=row.querySelector('td:nth-child(2) strong');
 if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
+var valCell=row.querySelector('.col-valeurs');
+var valText=valCell?valCell.textContent.toLowerCase():'';
 var statusIcon=row.querySelector('.col-status').textContent.trim();
 var isError=(statusIcon==='❌');
 var isAmbigu=(statusIcon==='⚠️');
 var nextRow=row.nextElementSibling;
 var isCegedimRow=nextRow && nextRow.querySelector('.ceg-table');
 var matchesSearch=!term||btText.includes(term);
+var matchesContent=!contentTerm||valText.includes(contentTerm);
 var matchesErrorFilter=!errorsOnly||isError;
 var matchesAmbigusFilter=!ambigusOnly||isAmbigu;
-if(matchesSearch&&matchesErrorFilter&&matchesAmbigusFilter){
+if(matchesSearch&&matchesContent&&matchesErrorFilter&&matchesAmbigusFilter){
 row.style.display='';
 if(isCegedimRow){nextRow.style.display=cegedimCheckbox.checked?'':'none';}
 hasMatch=true;
@@ -2629,13 +2666,16 @@ artRows.forEach(function(row){
 var btStrong=row.querySelector('td:nth-child(2) strong');
 if(!btStrong) return;
 var btText=btStrong.textContent.toLowerCase();
+var valCell=row.querySelector('.col-valeurs');
+var valText=valCell?valCell.textContent.toLowerCase():'';
 var statusIcon=row.querySelector('.col-status').textContent.trim();
 var isError=(statusIcon==='❌');
 var isAmbigu=(statusIcon==='⚠️');
 var matchesSearch=!term||btText.includes(term);
+var matchesContent=!contentTerm||valText.includes(contentTerm);
 var matchesErrorFilter=!errorsOnly||isError;
 var matchesAmbigusFilter=!ambigusOnly||isAmbigu;
-if(matchesSearch&&matchesErrorFilter&&matchesAmbigusFilter){
+if(matchesSearch&&matchesContent&&matchesErrorFilter&&matchesAmbigusFilter){
 row.style.display='';
 artHasMatch=true;
 }else{
@@ -2646,13 +2686,13 @@ if(artHasMatch){
 block.style.display='';
 hasMatch=true;
 }else{
-block.style.display=errorsOnly||term?'none':'';
+block.style.display=hasActiveFilter?'none':'';
 }
 });
 if(hasMatch){
 cat.classList.remove('hidden');
 var catContent=cat.querySelector('.category-content');
-if(term&&catContent){catContent.classList.add('open');}
+if(hasActiveFilter&&catContent){catContent.classList.add('open');}
 visibleCount++;
 }else{
 cat.classList.add('hidden');
@@ -2921,6 +2961,7 @@ document.getElementById('editAttribute').value=champ.attribute||'';
 document.getElementById('editObligatoire').value=champ.obligatoire;
 document.getElementById('editIgnore').value=champ.ignore||'Non';
 document.getElementById('editRdg').value=champ.rdg||'';
+document.getElementById('btnCloneField').style.display='inline-flex';
 document.getElementById('editModal').style.display='block';
 }
 async function deleteMapping(index){
@@ -2937,6 +2978,8 @@ loadMappings();
 }
 // IDs des mappings cibles pour un ajout multi-mapping
 var addTargetMappingIds = [];
+// Mode clone (depuis le bouton "Cloner vers…" dans editModal)
+var cloneMode = false;
 
 document.getElementById('btnAdd').addEventListener('click',async function(){
 // Charger la liste de tous les mappings disponibles
@@ -2957,19 +3000,62 @@ label.innerHTML = '<input type="checkbox" class="chk-target-mapping" value="'+m.
 listEl.appendChild(label);
 });
 
+cloneMode = false;
+document.querySelector('#selectMappingsModal h2').textContent='Ajouter le champ à quel(s) mapping(s) ?';
+document.querySelector('#selectMappingsModal p').textContent='Sélectionnez les mappings dans lesquels ce nouveau champ sera ajouté. Le mapping actuel est présélectionné.';
 document.getElementById('selectMappingsModal').style.display='block';
 });
 
 document.getElementById('selectMappingsClose').addEventListener('click',function(){
 document.getElementById('selectMappingsModal').style.display='none';
+cloneMode=false;
 });
 document.getElementById('selectMappingsCancel').addEventListener('click',function(){
 document.getElementById('selectMappingsModal').style.display='none';
+cloneMode=false;
 });
-document.getElementById('selectMappingsConfirm').addEventListener('click',function(){
+document.getElementById('selectMappingsConfirm').addEventListener('click',async function(){
 addTargetMappingIds = Array.from(document.querySelectorAll('.chk-target-mapping:checked')).map(function(c){return c.value;});
 if(addTargetMappingIds.length===0){alert('Sélectionnez au moins un mapping.');return;}
 document.getElementById('selectMappingsModal').style.display='none';
+if(cloneMode){
+cloneMode=false;
+// Lire les valeurs actuelles du formulaire
+var categorieValue=document.getElementById('editCategorie').value;
+var categorieParts=categorieValue.split('|');
+var categorieBg=categorieParts[0]||'BG-OTHER';
+var categorieTitre=categorieParts[1]||'Autres';
+var clonedChamp={
+balise:document.getElementById('editBalise').value,
+libelle:document.getElementById('editLibelle').value,
+rdi:document.getElementById('editRdi').value,
+type_enregistrement:document.getElementById('editTypeEnreg').value||undefined,
+xpath:document.getElementById('editXpath').value,
+attribute:document.getElementById('editAttribute').value||undefined,
+is_article:(function(){return (categorieBg==='BG-LIGNES'||/ligne/i.test(categorieBg+' '+categorieTitre))?true:undefined;})(),
+obligatoire:document.getElementById('editObligatoire').value,
+ignore:document.getElementById('editIgnore').value,
+rdg:document.getElementById('editRdg').value,
+categorie_bg:categorieBg,
+categorie_titre:categorieTitre,
+controles_cegedim:[],
+valide:false
+};
+var cloneTargets=addTargetMappingIds.slice();
+addTargetMappingIds=[];
+askAuthorThen(async function(author){
+for(var i=0;i<cloneTargets.length;i++){
+var tid=cloneTargets[i];
+var r=await fetch(BASE+'/api/mapping/'+tid);
+var targetMapping=await r.json();
+targetMapping.champs.push(clonedChamp);
+await fetch(BASE+'/api/mapping/'+tid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(targetMapping)});
+await logAudit(tid,author,'add',clonedChamp.balise,null,clonedChamp);
+}
+alert('✓ Champ "'+clonedChamp.balise+'" cloné vers '+cloneTargets.length+' mapping(s).');
+});
+return;
+}
 // Ouvrir le formulaire d'ajout
 currentIndex=null;
 var selOptAdd=document.getElementById('typeFormulaireParam');
@@ -2986,6 +3072,7 @@ document.getElementById('editAttribute').value='';
 document.getElementById('editObligatoire').value='Non';
 document.getElementById('editIgnore').value='Non';
 document.getElementById('editRdg').value='';
+document.getElementById('btnCloneField').style.display='none';
 // Appliquer la couleur du mapping sur le header pour l'ajout aussi
 var colorAdd=getCurrentMappingColor();
 var headerAdd=document.querySelector('.edit-field-header');
@@ -3000,6 +3087,27 @@ document.getElementById('editModal').style.display='none';
 });
 document.getElementById('editCancelBtn').addEventListener('click',function(){
 document.getElementById('editModal').style.display='none';
+});
+document.getElementById('btnCloneField').addEventListener('click',async function(){
+// Ouvrir le sélecteur de mappings en mode clone (exclure le mapping courant)
+var resp = await fetch(BASE+'/api/mappings/index');
+var data = await resp.json();
+var allMappings = data.mappings || [];
+var currentType = document.getElementById('typeFormulaireParam').value;
+var listEl = document.getElementById('selectMappingsList');
+listEl.innerHTML = '';
+allMappings.forEach(function(m){
+if(m.id === currentType) return; // exclure le mapping courant
+var label = document.createElement('label');
+label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.95em';
+label.innerHTML = '<input type="checkbox" class="chk-target-mapping" value="'+m.id+'" style="width:16px;height:16px"> <span><strong>'+m.name+'</strong></span>';
+listEl.appendChild(label);
+});
+if(!listEl.children.length){alert('Aucun autre mapping disponible.');return;}
+document.querySelector('#selectMappingsModal h2').textContent='Cloner le champ vers quel(s) mapping(s) ?';
+document.querySelector('#selectMappingsModal p').textContent='Sélectionnez les mappings dans lesquels ce champ sera copié (le mapping actuel est exclu).';
+cloneMode = true;
+document.getElementById('selectMappingsModal').style.display='block';
 });
 // ── Fonctions auteur ──────────────────────────────────────────────────────
 function getAuthor(){return sessionStorage.getItem('facturix_author')||'';}
@@ -3275,11 +3383,13 @@ applySearchParamFilter();
 /* ---- RÈGLES MÉTIERS ---- */
 var currentRules={rules:[]};
 var availableBTs=[];
+var availableRDIs=[];
 
 async function loadAvailableBTs(){
 // Charger tous les BT depuis tous les mappings
 var types=['simple','groupee','ventesdiverses'];
 var allBTs={};
+var allRDIs={};
 for(var i=0;i<types.length;i++){
 try{
 var resp=await fetch(BASE+'/api/mapping/'+types[i]);
@@ -3288,6 +3398,9 @@ if(mapping&&mapping.champs){
 mapping.champs.forEach(function(champ){
 if(champ.balise){
 allBTs[champ.balise]=champ.libelle||champ.balise;
+}
+if(champ.rdi&&!allRDIs[champ.rdi]){
+allRDIs[champ.rdi]=champ.balise||champ.rdi;
 }
 });
 }
@@ -3308,6 +3421,10 @@ var bNum2=bMatch[2]?parseInt(bMatch[2]):0;
 return aNum2-bNum2;
 }).map(function(bt){
 return {value:bt,label:bt+' ('+allBTs[bt]+')'};
+});
+// Convertir les RDI en array trié alphabétiquement
+availableRDIs=Object.keys(allRDIs).sort().map(function(rdi){
+return {value:rdi,label:rdi+' ('+allRDIs[rdi]+')'};
 });
 }
 
@@ -3496,14 +3613,19 @@ return;
 editingConditions.forEach(function(cond,i){
 var div=document.createElement('div');
 div.className='condition-item';
-// Construire les options dynamiquement
+var isRdi=(cond.field_type==='rdi');
+// Construire les options selon le type sélectionné
 var fieldOptions='<option value="">Champ...</option>';
-availableBTs.forEach(function(bt){
+var opts=isRdi?availableRDIs:availableBTs;
+opts.forEach(function(bt){
 fieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
 });
-div.innerHTML='<select class="cond-field" data-index="'+i+'">'+
-fieldOptions+
+div.innerHTML=
+'<select class="cond-type" data-index="'+i+'" title="Type de champ" style="width:60px;flex-shrink:0">'+
+'<option value="bt"'+(isRdi?'':' selected')+'>BT</option>'+
+'<option value="rdi"'+(isRdi?' selected':'')+'>RDI</option>'+
 '</select>'+
+'<select class="cond-field" data-index="'+i+'">'+fieldOptions+'</select>'+
 '<select class="cond-op" data-index="'+i+'">'+
 '<option value="equals">= (égal)</option>'+
 '<option value="not_equals">≠ (différent)</option>'+
@@ -3521,6 +3643,14 @@ fieldOptions+
 container.appendChild(div);
 div.querySelector('.cond-field').value=cond.field;
 div.querySelector('.cond-op').value=cond.operator;
+});
+document.querySelectorAll('.cond-type').forEach(function(el){
+el.addEventListener('change',function(){
+var idx=parseInt(this.getAttribute('data-index'));
+editingConditions[idx].field_type=this.value;
+editingConditions[idx].field='';
+renderConditions();
+});
 });
 document.querySelectorAll('.cond-field').forEach(function(el){
 el.addEventListener('change',function(){
@@ -3555,16 +3685,28 @@ return;
 editingActions.forEach(function(action,i){
 var div=document.createElement('div');
 div.className='action-item';
+var isRdi=(action.field_type==='rdi');
 // Construire les options dynamiquement avec libellés complets
 var fieldOptions='<option value="">Champ...</option>';
-availableBTs.forEach(function(bt){
+var opts=isRdi?availableRDIs:availableBTs;
+opts.forEach(function(bt){
 fieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
+});
+// Options BT toujours pour les champs de calcul (field1/field2/sum-field)
+var btFieldOptions='<option value="">Champ...</option>';
+availableBTs.forEach(function(bt){
+btFieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
 });
 var needsValue=(action.type==='must_equal');
 var needsSum=(action.type==='must_equal_sum');
 var needsSumAll=(action.type==='must_equal_sum_of_all');
-// ORDRE: Champ, Type d'action, Valeur (si nécessaire), Supprimer
-div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'</select>'+
+// ORDRE: Type (BT/RDI), Champ, Type d'action, Valeur (si nécessaire), Supprimer
+div.innerHTML=
+'<select class="action-ftype" data-index="'+i+'" title="Type de champ" style="width:60px;flex-shrink:0">'+
+'<option value="bt"'+(isRdi?'':' selected')+'>BT</option>'+
+'<option value="rdi"'+(isRdi?' selected':'')+'>RDI</option>'+
+'</select>'+
+'<select class="action-field" data-index="'+i+'">'+fieldOptions+'</select>'+
 '<select class="action-type" data-index="'+i+'">'+
 '<option value="make_mandatory">Rendre obligatoire</option>'+
 '<option value="make_optional">Rendre non obligatoire</option>'+
@@ -3574,8 +3716,8 @@ div.innerHTML='<select class="action-field" data-index="'+i+'">'+fieldOptions+'<
 '<option value="must_equal_sum_of_all">Doit égaler Σ de toutes les lignes</option>'+
 '</select>'+
 (needsValue?'<input type="text" class="action-value" data-index="'+i+'" placeholder="Valeur" value="'+(action.value||'')+'">':'')+
-(needsSum?'<select class="action-field1" data-index="'+i+'">'+fieldOptions+'</select><span style="padding:0 4px;font-weight:bold">+</span><select class="action-field2" data-index="'+i+'">'+fieldOptions+'</select>':'')+
-(needsSumAll?'<span style="padding:0 4px">Σ</span><select class="action-sum-field" data-index="'+i+'">'+fieldOptions+'</select><input type="number" class="action-tolerance" data-index="'+i+'" placeholder="Tolérance (€)" step="0.01" min="0" style="width:110px" value="'+(action.tolerance!=null?action.tolerance:'0.01')+'"><span style="padding:0 4px;font-size:0.85em;color:#888">€ écart max</span>':'')+
+(needsSum?'<select class="action-field1" data-index="'+i+'">'+btFieldOptions+'</select><span style="padding:0 4px;font-weight:bold">+</span><select class="action-field2" data-index="'+i+'">'+btFieldOptions+'</select>':'')+
+(needsSumAll?'<span style="padding:0 4px">Σ</span><select class="action-sum-field" data-index="'+i+'">'+btFieldOptions+'</select><input type="number" class="action-tolerance" data-index="'+i+'" placeholder="Tolérance (€)" step="0.01" min="0" style="width:110px" value="'+(action.tolerance!=null?action.tolerance:'0.01')+'"><span style="padding:0 4px;font-size:0.85em;color:#888">€ écart max</span>':'')+
 '<button class="btn-remove" data-index="'+i+'">Supprimer</button>';
 container.appendChild(div);
 div.querySelector('.action-field').value=action.field;
@@ -3587,6 +3729,14 @@ if(div.querySelector('.action-field2'))div.querySelector('.action-field2').value
 if(needsSumAll){
 if(div.querySelector('.action-sum-field'))div.querySelector('.action-sum-field').value=action.sum_field||'';
 }
+});
+document.querySelectorAll('.action-ftype').forEach(function(el){
+el.addEventListener('change',function(){
+var idx=parseInt(this.getAttribute('data-index'));
+editingActions[idx].field_type=this.value;
+editingActions[idx].field='';
+renderActions();
+});
 });
 document.querySelectorAll('.action-type').forEach(function(el){
 el.addEventListener('change',function(){
@@ -3634,12 +3784,12 @@ renderActions();
 }
 
 document.getElementById('btnAddCondition').addEventListener('click',function(){
-editingConditions.push({field:'',operator:'equals',value:''});
+editingConditions.push({field_type:'bt',field:'',operator:'equals',value:''});
 renderConditions();
 });
 
 document.getElementById('btnAddAction').addEventListener('click',function(){
-editingActions.push({type:'make_mandatory',field:''});
+editingActions.push({field_type:'bt',type:'make_mandatory',field:''});
 renderActions();
 });
 
