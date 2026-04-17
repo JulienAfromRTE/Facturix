@@ -3,6 +3,7 @@
 """Factur-X V12.0 - Enhanced Mapping Management"""
 from flask import Flask, request, jsonify, send_file
 import os, json, sqlite3, PyPDF2, io
+import pikepdf
 import logging
 from lxml import etree
 from collections import defaultdict
@@ -530,6 +531,29 @@ def extract_xml_from_pdf(pdf_path):
     except:
         pass
     return None
+
+def remove_pdf_signature(pdf_path):
+    """Reconstruit le PDF sans les signatures numériques (champs /Sig, /Perms, SigFlags).
+    Les fichiers embarqués (XML Factur-X) sont préservés."""
+    with pikepdf.open(pdf_path, allow_overwriting_input=False) as pdf:
+        # Supprimer /Perms qui verrouille les modifications
+        if '/Perms' in pdf.Root:
+            del pdf.Root['/Perms']
+        # Supprimer les champs de signature dans AcroForm
+        if '/AcroForm' in pdf.Root:
+            acroform = pdf.Root['/AcroForm']
+            if '/Fields' in acroform:
+                acroform['/Fields'] = pikepdf.Array([
+                    f for f in acroform['/Fields']
+                    if pdf.get_object(f.objgen).get('/FT') != pikepdf.Name('/Sig')
+                ])
+            if '/SigFlags' in acroform:
+                del acroform['/SigFlags']
+        output = io.BytesIO()
+        pdf.save(output)
+        output.seek(0)
+        return output
+
 
 def get_xml_tag_name(xpath):
     """Extrait le nom complet du dernier tag dans le XPath (ex: 'ram:TypeCode' depuis '//ram:TypeCode')"""
@@ -1481,6 +1505,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <label>PDF ou XML :</label>
 <input type="file" id="pdfFile" accept=".pdf,.xml">
 <button class="btn-secondary" id="btnDownloadXml" style="display:none;margin-top:6px;font-size:12px;padding:4px 10px"><span>📄</span> Télécharger XML</button>
+<button class="btn-secondary" id="btnRemoveSignature" style="display:none;margin-top:6px;margin-left:6px;font-size:12px;padding:4px 10px"><span>✂️</span> Supprimer signature</button>
 </div>
 <div class="form-group" id="groupeCii" style="display:none">
 <label>Fichier XML CII :</label>
@@ -2209,11 +2234,12 @@ groupeRdi.style.display='flex';
 document.getElementById('typeControle').addEventListener('change',updateHelp);
 updateHelp();
 
-/* ---- AFFICHER/MASQUER BOUTON TELECHARGER XML ---- */
+/* ---- AFFICHER/MASQUER BOUTONS PDF ---- */
 document.getElementById('pdfFile').addEventListener('change',function(){
-var btn=document.getElementById('btnDownloadXml');
 var file=this.files[0];
-btn.style.display=(file && file.name.toLowerCase().endsWith('.pdf'))?'inline-block':'none';
+var isPdf=(file && file.name.toLowerCase().endsWith('.pdf'));
+document.getElementById('btnDownloadXml').style.display=isPdf?'inline-block':'none';
+document.getElementById('btnRemoveSignature').style.display=isPdf?'inline-block':'none';
 });
 document.getElementById('btnDownloadXml').addEventListener('click',async function(){
 var pdf=document.getElementById('pdfFile').files[0];
@@ -2233,6 +2259,29 @@ a.click();
 a.remove();
 URL.revokeObjectURL(url);
 }catch(e){alert('Erreur: '+e.message)}
+});
+
+/* ---- SUPPRIMER SIGNATURE PDF ---- */
+document.getElementById('btnRemoveSignature').addEventListener('click',async function(){
+var pdf=document.getElementById('pdfFile').files[0];
+if(!pdf){alert('Selectionnez un fichier PDF');return}
+var fd=new FormData();
+fd.append('pdf',pdf);
+try{
+this.disabled=true;this.textContent='⏳ En cours...';
+var resp=await fetch(BASE+'/api/remove-signature',{method:'POST',body:fd});
+if(!resp.ok){var err=await resp.json();alert('Erreur: '+(err.error||'Impossible de traiter ce PDF'));return}
+var blob=await resp.blob();
+var url=URL.createObjectURL(blob);
+var a=document.createElement('a');
+a.href=url;
+a.download=pdf.name.replace(/\.pdf$/i,'_unsigned.pdf');
+document.body.appendChild(a);
+a.click();
+a.remove();
+URL.revokeObjectURL(url);
+}catch(e){alert('Erreur: '+e.message)
+}finally{this.disabled=false;this.innerHTML='<span>✂️</span> Supprimer signature';}
 });
 
 /* ---- LANCER CONTROLE ---- */
@@ -4339,6 +4388,29 @@ def api_delete_mapping():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/remove-signature', methods=['POST'])
+def api_remove_signature():
+    """Supprime les signatures numériques d'un PDF et renvoie le PDF reconstruit."""
+    pdf_file = request.files.get('pdf')
+    if not pdf_file:
+        return jsonify({'error': 'Fichier PDF manquant'}), 400
+    pdf_path = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
+    pdf_file.save(pdf_path)
+    try:
+        output = remove_pdf_signature(pdf_path)
+        out_filename = os.path.splitext(pdf_file.filename)[0] + '_unsigned.pdf'
+        return send_file(
+            output,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=out_filename
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
 
 # ===== FIN NOUVELLES ROUTES API =====
 
