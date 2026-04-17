@@ -1642,7 +1642,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
     <li><strong>Règles Métiers</strong> — les règles ci-dessous s'appliquent <em>après</em> le mapping et <strong>prennent le dessus</strong> sur les contrôles par défaut.</li>
   </ol>
   Exemples de surcharge possibles : rendre un champ <em>obligatoire</em> ou <em>non obligatoire</em> selon la valeur d'un autre champ, imposer une valeur fixe, exiger un signe négatif.<br>
-  <span style="color:#555">⚠️ Le fichier <code>business_rules.json</code> est créé une seule fois au premier démarrage. Si vous avez mis à jour l'application, les nouvelles règles par défaut n'apparaîtront pas automatiquement — ajoutez-les manuellement ici si besoin.</span>
 </div>
 <div class="form-row" style="margin-bottom:15px">
 <div class="form-group">
