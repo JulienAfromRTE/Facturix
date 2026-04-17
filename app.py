@@ -163,10 +163,25 @@ def init_db():
             created_date TEXT,
             is_default   INTEGER DEFAULT 0
         );
-        CREATE TABLE IF NOT EXISTS mapping_content (
-            mapping_id  TEXT PRIMARY KEY
-                        REFERENCES mappings(id) ON DELETE CASCADE,
-            content     TEXT NOT NULL
+        CREATE TABLE IF NOT EXISTS mapping_champs (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            mapping_id          TEXT NOT NULL REFERENCES mappings(id) ON DELETE CASCADE,
+            position            INTEGER NOT NULL DEFAULT 0,
+            balise              TEXT NOT NULL,
+            libelle             TEXT DEFAULT '',
+            rdi                 TEXT DEFAULT '',
+            xpath               TEXT DEFAULT '',
+            type                TEXT DEFAULT 'String',
+            obligatoire         TEXT DEFAULT 'Non',
+            ignore_field        TEXT DEFAULT 'Non',
+            rdg                 TEXT DEFAULT '',
+            categorie_bg        TEXT DEFAULT '',
+            categorie_titre     TEXT DEFAULT '',
+            attribute           TEXT DEFAULT '',
+            is_article          INTEGER DEFAULT 0,
+            valide              INTEGER DEFAULT 1,
+            controles_cegedim   TEXT DEFAULT '[]',
+            type_enregistrement TEXT DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS mapping_versions (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,14 +196,31 @@ def init_db():
             content     TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS mapping_audit (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            mapping_id  TEXT NOT NULL,
-            timestamp   TEXT NOT NULL,
-            author      TEXT NOT NULL,
-            action      TEXT NOT NULL,
-            bt_balise   TEXT NOT NULL,
-            old_value   TEXT,
-            new_value   TEXT
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            mapping_id              TEXT NOT NULL,
+            timestamp               TEXT NOT NULL,
+            author                  TEXT NOT NULL,
+            action                  TEXT NOT NULL,
+            bt_balise               TEXT NOT NULL,
+            old_libelle             TEXT,
+            new_libelle             TEXT,
+            old_rdi                 TEXT,
+            new_rdi                 TEXT,
+            old_xpath               TEXT,
+            new_xpath               TEXT,
+            old_obligatoire         TEXT,
+            new_obligatoire         TEXT,
+            old_ignore              TEXT,
+            new_ignore              TEXT,
+            old_rdg                 TEXT,
+            new_rdg                 TEXT,
+            old_categorie_bg        TEXT,
+            new_categorie_bg        TEXT,
+            old_attribute           TEXT,
+            new_attribute           TEXT,
+            old_type_enregistrement TEXT,
+            new_type_enregistrement TEXT,
+            snapshot                TEXT
         );
     ''')
     # Migrations pour bases existantes
@@ -197,10 +229,159 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # colonne déjà présente
+    _migrate_to_relational(conn)
     conn.commit()
     _seed_default_data(conn)
     conn.close()
     print("[DB] Base SQLite prête.")
+
+# ── Helpers : champ dict ↔ mapping_champs row ───────────────────────────────
+
+def _champ_to_row(mapping_id, position, champ):
+    """Convertit un dict champ en tuple de valeurs pour mapping_champs."""
+    return (
+        mapping_id,
+        position,
+        champ.get('balise', ''),
+        champ.get('libelle', ''),
+        champ.get('rdi', ''),
+        champ.get('xpath', ''),
+        champ.get('type', 'String'),
+        champ.get('obligatoire', 'Non'),
+        champ.get('ignore', 'Non'),
+        champ.get('rdg', ''),
+        champ.get('categorie_bg', ''),
+        champ.get('categorie_titre', ''),
+        champ.get('attribute', ''),
+        1 if champ.get('is_article') else 0,
+        1 if champ.get('valide', True) else 0,
+        json.dumps(champ.get('controles_cegedim', []), ensure_ascii=False),
+        champ.get('type_enregistrement', ''),
+    )
+
+def _row_to_champ(row):
+    """Convertit une Row mapping_champs en dict champ."""
+    c = {
+        'balise':              row['balise'],
+        'libelle':             row['libelle'] or '',
+        'rdi':                 row['rdi'] or '',
+        'xpath':               row['xpath'] or '',
+        'type':                row['type'] or 'String',
+        'obligatoire':         row['obligatoire'] or 'Non',
+        'ignore':              row['ignore_field'] or 'Non',
+        'rdg':                 row['rdg'] or '',
+        'categorie_bg':        row['categorie_bg'] or '',
+        'categorie_titre':     row['categorie_titre'] or '',
+        'valide':              bool(row['valide']),
+        'controles_cegedim':   json.loads(row['controles_cegedim'] or '[]'),
+    }
+    if row['attribute']:
+        c['attribute'] = row['attribute']
+    if row['is_article']:
+        c['is_article'] = True
+    if row['type_enregistrement']:
+        c['type_enregistrement'] = row['type_enregistrement']
+    return c
+
+_CHAMP_INSERT_SQL = '''
+    INSERT INTO mapping_champs
+        (mapping_id, position, balise, libelle, rdi, xpath, type, obligatoire,
+         ignore_field, rdg, categorie_bg, categorie_titre, attribute,
+         is_article, valide, controles_cegedim, type_enregistrement)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+'''
+
+# ── Migration mapping_content → mapping_champs ──────────────────────────────
+
+def _migrate_to_relational(conn):
+    """Migration one-shot : mapping_content (blob JSON) → mapping_champs (colonnes)."""
+    # ── 1. Migration mapping_champs ──────────────────────────────────────────
+    has_content = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='mapping_content'"
+    ).fetchone()
+    if has_content:
+        already_done = conn.execute(
+            "SELECT COUNT(*) FROM mapping_champs"
+        ).fetchone()[0]
+        if not already_done:
+            print("[MIGRATION] mapping_content → mapping_champs …")
+            rows = conn.execute("SELECT mapping_id, content FROM mapping_content").fetchall()
+            for row in rows:
+                mapping_id = row['mapping_id']
+                try:
+                    data = json.loads(row['content'])
+                    champs = data.get('champs', [])
+                    for pos, champ in enumerate(champs):
+                        conn.execute(_CHAMP_INSERT_SQL, _champ_to_row(mapping_id, pos, champ))
+                except Exception as e:
+                    print(f"[MIGRATION] Erreur {mapping_id}: {e}")
+            conn.commit()
+            print("[MIGRATION] mapping_champs : OK")
+
+    # ── 2. Migration mapping_audit → nouveau schéma (colonnes individuelles) ─
+    has_old_col = conn.execute(
+        "SELECT COUNT(*) FROM pragma_table_info('mapping_audit') WHERE name='old_value'"
+    ).fetchone()[0]
+    if has_old_col:
+        conn.execute("DROP TABLE IF EXISTS mapping_audit")
+        conn.execute('''
+            CREATE TABLE mapping_audit (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                mapping_id              TEXT NOT NULL,
+                timestamp               TEXT NOT NULL,
+                author                  TEXT NOT NULL,
+                action                  TEXT NOT NULL,
+                bt_balise               TEXT NOT NULL,
+                old_libelle             TEXT,
+                new_libelle             TEXT,
+                old_rdi                 TEXT,
+                new_rdi                 TEXT,
+                old_xpath               TEXT,
+                new_xpath               TEXT,
+                old_obligatoire         TEXT,
+                new_obligatoire         TEXT,
+                old_ignore              TEXT,
+                new_ignore              TEXT,
+                old_rdg                 TEXT,
+                new_rdg                 TEXT,
+                old_categorie_bg        TEXT,
+                new_categorie_bg        TEXT,
+                old_attribute           TEXT,
+                new_attribute           TEXT,
+                old_type_enregistrement TEXT,
+                new_type_enregistrement TEXT,
+                snapshot                TEXT,
+                revert_of               INTEGER
+            )
+        ''')
+        conn.commit()
+        print("[MIGRATION] mapping_audit recréé avec le nouveau schéma.")
+
+    # ── 3. Migration mapping_audit → ajout colonne revert_of ──────────────────
+    has_revert_of = conn.execute(
+        "SELECT COUNT(*) FROM pragma_table_info('mapping_audit') WHERE name='revert_of'"
+    ).fetchone()[0]
+    if not has_revert_of:
+        conn.execute("ALTER TABLE mapping_audit ADD COLUMN revert_of INTEGER")
+        conn.commit()
+        print("[MIGRATION] mapping_audit : colonne revert_of ajoutée.")
+
+    # ── 3. Archiver les fichiers JSON originaux (une seule fois) ─────────────
+    archive_dir = os.path.join(SCRIPT_DIR, 'mapping_archive')
+    if has_content and not os.path.exists(archive_dir):
+        import shutil
+        os.makedirs(archive_dir, exist_ok=True)
+        for fname in os.listdir(SCRIPT_DIR):
+            if fname.endswith('.json') and (
+                fname.startswith('mapping_v5') or fname.startswith('mappings_index')
+            ):
+                try:
+                    shutil.copy2(os.path.join(SCRIPT_DIR, fname),
+                                 os.path.join(archive_dir, fname))
+                except Exception:
+                    pass
+        print(f"[MIGRATION] Fichiers JSON archivés dans {archive_dir}")
+    print("[MIGRATION] Terminée.")
 
 def _seed_default_data(conn):
     """Insère les données initiales si la DB est vide (exécuté une seule fois)."""
@@ -224,12 +405,12 @@ def _seed_default_data(conn):
             ("default_flux",    "Flux Générique", "Flux Générique", "mapping_fluxGénérique_1504.json"),
         ]
         for mid, name, mtype, filename in seeds:
-            content = {"champs": []}
+            champs = []
             filepath = os.path.join(SCRIPT_DIR, filename)
             if os.path.exists(filepath):
                 try:
                     with open(filepath, 'r', encoding='utf-8') as f:
-                        content = json.load(f)
+                        champs = json.load(f).get('champs', [])
                 except Exception:
                     pass
             c.execute(
@@ -237,10 +418,8 @@ def _seed_default_data(conn):
                 "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,1)",
                 (mid, name, mtype, filename, "2025-04-15")
             )
-            c.execute(
-                "INSERT INTO mapping_content (mapping_id, content) VALUES (?,?)",
-                (mid, json.dumps(content, ensure_ascii=False))
-            )
+            for pos, champ in enumerate(champs):
+                c.execute(_CHAMP_INSERT_SQL, _champ_to_row(mid, pos, champ))
             print(f"[DB] Mapping initialisé : {name} ({filename})")
         conn.commit()
 
@@ -327,31 +506,29 @@ def save_mappings_index(index_data):
 # ── Mapping content ─────────────────────────────────────────────────────────
 
 def load_mapping(type_formulaire='CARTsimple'):
-    """Charge le contenu d'un mapping depuis la base de données."""
+    """Charge le contenu d'un mapping depuis mapping_champs."""
     mapping_id = _get_mapping_id(type_formulaire)
     try:
         conn = get_db()
-        row = conn.execute(
-            "SELECT content FROM mapping_content WHERE mapping_id = ?", (mapping_id,)
-        ).fetchone()
+        rows = conn.execute(
+            "SELECT * FROM mapping_champs WHERE mapping_id=? ORDER BY position",
+            (mapping_id,)
+        ).fetchall()
         conn.close()
-        if row:
-            return json.loads(row['content'])
+        return {'champs': [_row_to_champ(r) for r in rows]}
     except Exception as e:
         print(f"Erreur chargement mapping {mapping_id}: {e}")
     return None
 
 def save_mapping(data, type_formulaire='simple'):
-    """Sauvegarde le contenu d'un mapping."""
+    """Sauvegarde le contenu d'un mapping dans mapping_champs."""
     mapping_id = _get_mapping_id(type_formulaire)
     try:
-        content = json.dumps(data, ensure_ascii=False)
+        champs = data.get('champs', [])
         conn = get_db()
-        conn.execute(
-            "INSERT INTO mapping_content (mapping_id, content) VALUES (?, ?) "
-            "ON CONFLICT(mapping_id) DO UPDATE SET content = excluded.content",
-            (mapping_id, content)
-        )
+        conn.execute("DELETE FROM mapping_champs WHERE mapping_id=?", (mapping_id,))
+        for pos, champ in enumerate(champs):
+            conn.execute(_CHAMP_INSERT_SQL, _champ_to_row(mapping_id, pos, champ))
         conn.commit()
         conn.close()
         return True
@@ -1391,7 +1568,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 /* ── Modal historique ── */
 #historyModal .modal-content{max-width:760px}
 .audit-list{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow-y:auto;margin-bottom:12px}
-.audit-item{display:flex;flex-direction:column;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden}
+.audit-item{display:flex;flex-direction:column;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0}
 .audit-item-header{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:0.87em}
 .audit-item .audit-ts{color:#94a3b8;font-size:0.81em;white-space:nowrap;min-width:130px}
 .audit-item .audit-author{font-weight:700;color:#4f46e5;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1409,6 +1586,10 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .audit-diff-single{color:#475569;font-family:'JetBrains Mono',monospace;font-size:0.82em;padding:2px 7px;background:#f1f5f9;border-radius:5px;word-break:break-all}
 .audit-revert-btn{background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:0.78em;cursor:pointer;font-family:'Outfit',Arial,sans-serif;font-weight:600;color:#475569;transition:all 0.15s;white-space:nowrap;margin-left:auto}
 .audit-revert-btn:hover{background:#e0e7ff;border-color:#818cf8;color:#4338ca}
+.audit-action.revert{background:#f3e8ff;color:#7c3aed}
+.audit-item-revert{border-color:#e9d5ff!important;background:#faf5ff}
+.audit-num{color:#94a3b8;font-family:'JetBrains Mono',monospace;font-size:0.75em;font-weight:700;min-width:36px;flex-shrink:0}
+.audit-rollback-label{font-size:0.78em;color:#7c3aed;font-style:italic;white-space:nowrap;margin-left:auto;padding-right:6px}
 .btn-history{background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%);color:#fff;padding:8px 15px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.84em;font-family:'Outfit',Arial,sans-serif;transition:all 0.18s}
 .warning-text{background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:0 7px 7px 0;margin:10px 0;color:#92400e;font-size:0.85em;line-height:1.5}
 .warning-text strong{display:block;margin-bottom:3px}
@@ -1610,9 +1791,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 <div class="btn-group">
 <button class="btn-add" id="btnAdd"><span>➕</span> Ajouter un champ</button>
-<button class="btn-download" id="btnDownload"><span>📥</span> Télécharger JSON</button>
-<button class="btn-history" id="btnHistory"><span>📋</span> Historique</button>
-<label class="mapping-color-btn" id="mappingColorBtn" title="Couleur du mapping">
+<button class="btn-history" id="btnHistory"><span>📋</span> Historique</button><label class="mapping-color-btn" id="mappingColorBtn" title="Couleur du mapping">
 <span class="color-swatch" id="mappingColorSwatch"></span>
 <input type="color" id="mappingColorPicker" value="#667eea">
 </label>
@@ -1642,7 +1821,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
     <li><strong>Règles Métiers</strong> — les règles ci-dessous s'appliquent <em>après</em> le mapping et <strong>prennent le dessus</strong> sur les contrôles par défaut.</li>
   </ol>
   Exemples de surcharge possibles : rendre un champ <em>obligatoire</em> ou <em>non obligatoire</em> selon la valeur d'un autre champ, imposer une valeur fixe, exiger un signe négatif.<br>
-  <span style="color:#555">⚠️ Le fichier <code>business_rules.json</code> est créé une seule fois au premier démarrage. Si vous avez mis à jour l'application, les nouvelles règles par défaut n'apparaîtront pas automatiquement — ajoutez-les manuellement ici si besoin.</span>
 </div>
 <div class="form-row" style="margin-bottom:15px">
 <div class="form-group">
@@ -1668,28 +1846,54 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <!-- ONGLET AIDE -->
 <div id="contentAide" class="tab-content">
 <div class="section">
-<h2>Guide V12.0</h2>
-<h3>Nouveautes V12</h3>
-<ul>
-<li>Pop-up améliórée : affichage des contrôles de cohérence et du tag XML complet</li>
-<li>Image Gaulois 30% plus grande au survol de la barre de progression</li>
-<li>Meilleure extraction XML pour les champs avec attributs (ex: format="102")</li>
-</ul>
-<h3>Nouveautes V11</h3>
-<ul>
-<li>Case a cocher "Valide" dans le paramétrage, fond vert</li>
-<li>Tableau CEGEDIM detaille par BT dans les resultats</li>
-<li>XPath visible dans le paramétrage</li>
-<li>Stats simplifiees : Total / OK / Erreurs</li>
-<li>Upload PDF masque en mode RDI</li>
-</ul>
-<h3>Mode RDI - Sortie SAP</h3>
-<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li></ol>
-<h3>Mode XML - Sortie Exstream</h3>
-<ol><li>Présence obligatoire</li><li>Regles de gestion</li><li>Contrôles CEGEDIM</li><li>Comparaison RDI vs XML</li></ol>
-<h3>Extraction XML avec attributs</h3>
-<p>Pour les champs comme <code>&lt;udt:DateTimeString format="102"&gt;20250103&lt;/udt:DateTimeString&gt;</code>, 
-utilisez le XPath complet incluant le tag final : <code>//udt:DateTimeString</code></p>
+<div style="max-width:680px;margin:0 auto">
+
+  <p style="color:#64748b;font-size:0.95em;margin-bottom:24px;line-height:1.6">
+    Facturix contrôle les factures électroniques <strong>Factur-X / CII</strong> en comparant champ par champ la sortie SAP (RDI) et le XML embarqué dans le PDF.
+  </p>
+
+  <!-- Contrôle -->
+  <div style="background:#f0fdf4;border-left:4px solid #10b981;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:1em;color:#065f46;margin-bottom:8px">🔍 Contrôle</div>
+    <ul style="margin:0;padding-left:18px;color:#374151;font-size:0.9em;line-height:1.8">
+      <li><strong>RDI seul</strong> — vérifie la présence des champs obligatoires et les règles de gestion</li>
+      <li><strong>XML / PDF seul</strong> — contrôle le XML Factur-X embarqué dans le PDF</li>
+      <li><strong>CII direct</strong> — analyse un fichier XML CII brut sans PDF</li>
+      <li><strong>RDI vs XML</strong> — comparaison complète sortie SAP ↔ sortie Exstream</li>
+    </ul>
+  </div>
+
+  <!-- Paramétrage -->
+  <div style="background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:1em;color:#1e40af;margin-bottom:8px">⚙️ Paramétrage des mappings</div>
+    <ul style="margin:0;padding-left:18px;color:#374151;font-size:0.9em;line-height:1.8">
+      <li>Ajouter, modifier, supprimer ou cloner des champs BT</li>
+      <li>Configurer le tag RDI, le XPath XML, le caractère obligatoire, la règle de gestion</li>
+      <li>Plusieurs mappings disponibles : CART Simple, CART Groupée, Ventes Diverses, custom</li>
+      <li>Champ "Ignorer les erreurs" pour masquer un BT défaillant connu</li>
+    </ul>
+  </div>
+
+  <!-- Historique -->
+  <div style="background:#faf5ff;border-left:4px solid #8b5cf6;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:1em;color:#6b21a8;margin-bottom:8px">📋 Historique des modifications</div>
+    <ul style="margin:0;padding-left:18px;color:#374151;font-size:0.9em;line-height:1.8">
+      <li>Chaque modification est horodatée et attribuée à un auteur</li>
+      <li>Affichage des valeurs avant / après pour chaque champ modifié</li>
+      <li>Bouton <strong>↩ Revenir</strong> pour annuler une modification individuelle</li>
+      <li>Le rollback est lui-même tracé dans l'historique (<em>Rollback de la modification #X</em>)</li>
+    </ul>
+  </div>
+
+  <!-- Règles métiers -->
+  <div style="background:#fff7ed;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:1em;color:#92400e;margin-bottom:8px">📐 Règles métiers</div>
+    <ul style="margin:0;padding-left:18px;color:#374151;font-size:0.9em;line-height:1.8">
+      <li>Règles configurables via l'interface (conditions + actions sur les champs)</li>
+      <li>Règles en dur : BT-21-SUR/ISU obligatoires, B2G Chorus, avoirs (BT-3=381), etc.</li>
+    </ul>
+  </div>
+
 </div>
 </div>
 </div>
@@ -2208,13 +2412,18 @@ window.onclick = function(event) {
     if (t === authorModal  && md === authorModal)  { authorModal.style.display = 'none'; pendingAuditCallback = null; }
 }
 
-// Echap → ferme le modal d'édition ouvert ; Entrée dans un input (hors textarea) → sauvegarde
+// Echap → ferme le modal ouvert ; Entrée dans un input (hors textarea) → sauvegarde
 document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var historyModal = document.getElementById('historyModal');
+        if (historyModal && historyModal.style.display !== 'none') { historyModal.style.display = 'none'; return; }
+        var editModal = document.getElementById('editModal');
+        if (editModal && editModal.style.display !== 'none') { editModal.style.display = 'none'; return; }
+        return;
+    }
     var editModal = document.getElementById('editModal');
     if (!editModal || editModal.style.display === 'none') return;
-    if (e.key === 'Escape') {
-        editModal.style.display = 'none';
-    } else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
         e.preventDefault();
         document.getElementById('btnSave').click();
     }
@@ -2986,13 +3195,14 @@ document.getElementById('btnAdd').addEventListener('click',async function(){
 var resp = await fetch(BASE+'/api/mappings/index');
 var data = await resp.json();
 var allMappings = data.mappings || [];
-var currentType = document.getElementById('typeFormulaireParam').value;
+var sel = document.getElementById('typeFormulaireParam');
+var currentMappingId = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].dataset.mappingId) || sel.value;
 
 // Remplir les checkboxes
 var listEl = document.getElementById('selectMappingsList');
 listEl.innerHTML = '';
 allMappings.forEach(function(m){
-var isCurrent = (m.id === currentType);
+var isCurrent = (m.id === currentMappingId);
 var label = document.createElement('label');
 label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.95em';
 label.innerHTML = '<input type="checkbox" class="chk-target-mapping" value="'+m.id+'"'+(isCurrent?' checked':'')+' style="width:16px;height:16px"> '+
@@ -3094,11 +3304,12 @@ document.getElementById('btnCloneField').addEventListener('click',async function
 var resp = await fetch(BASE+'/api/mappings/index');
 var data = await resp.json();
 var allMappings = data.mappings || [];
-var currentType = document.getElementById('typeFormulaireParam').value;
+var sel2 = document.getElementById('typeFormulaireParam');
+var currentMappingId2 = (sel2.options[sel2.selectedIndex] && sel2.options[sel2.selectedIndex].dataset.mappingId) || sel2.value;
 var listEl = document.getElementById('selectMappingsList');
 listEl.innerHTML = '';
 allMappings.forEach(function(m){
-if(m.id === currentType) return; // exclure le mapping courant
+if(m.id === currentMappingId2) return; // exclure le mapping courant
 var label = document.createElement('label');
 label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.95em';
 label.innerHTML = '<input type="checkbox" class="chk-target-mapping" value="'+m.id+'" style="width:16px;height:16px"> <span><strong>'+m.name+'</strong></span>';
@@ -3136,13 +3347,23 @@ document.getElementById('authorInput').addEventListener('keydown',function(e){
 if(e.key==='Enter')document.getElementById('authorConfirmBtn').click();
 });
 
-async function logAudit(type,author,action,btBalise,oldValue,newValue){
+var AUDIT_DIFF_FIELDS=['libelle','rdi','xpath','obligatoire','ignore','rdg','categorie_bg','attribute','type_enregistrement'];
+async function logAudit(type,author,action,btBalise,oldChamp,newChamp){
+var payload={author:author,action:action,bt_balise:btBalise};
+if(action==='edit'){
+AUDIT_DIFF_FIELDS.forEach(function(f){
+payload['old_'+f]=oldChamp?String(oldChamp[f]||''):'';
+payload['new_'+f]=newChamp?String(newChamp[f]||''):'';
+});
+}else if(action==='add'&&newChamp){
+payload.snapshot=JSON.stringify(newChamp);
+}else if(action==='delete'&&oldChamp){
+payload.snapshot=JSON.stringify(oldChamp);
+}
 await fetch(BASE+'/api/mapping/'+type+'/audit',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
-body:JSON.stringify({author:author,action:action,bt_balise:btBalise,
-old_value:oldValue?JSON.stringify(oldValue):null,
-new_value:newValue?JSON.stringify(newValue):null})
+body:JSON.stringify(payload)
 });
 }
 
@@ -3221,17 +3442,6 @@ loadMappings();
 });
 });
 
-// Télécharger le JSON
-document.getElementById('btnDownload').addEventListener('click',function(){
-var type=document.getElementById('typeFormulaireParam').value;
-var dataStr=JSON.stringify(currentMapping,null,2);
-var dataUri='data:application/json;charset=utf-8,'+encodeURIComponent(dataStr);
-var exportFileDefaultName='mapping_v5_'+type+'.json';
-var linkElement=document.createElement('a');
-linkElement.setAttribute('href',dataUri);
-linkElement.setAttribute('download',exportFileDefaultName);
-linkElement.click();
-});
 
 // Sauvegarder une version horodatée
 async function saveMapping(){
@@ -3271,6 +3481,42 @@ controleOpts.forEach(function(opt){if(opt.value===sel.value)opt.dataset.color=co
 });
 
 // ── Historique (audit) ────────────────────────────────────────────────────
+var AUDIT_FIELD_LABELS={libelle:'Libellé',rdi:'Champ RDI',xpath:'XPath',
+obligatoire:'Obligatoire',ignore:'Ignorer',rdg:'Règle de gestion',
+attribute:'Attribut',type_enregistrement:'Type enreg.',categorie_bg:'Catégorie'};
+
+function buildDiffHtml(e){
+var html='';
+var action=e.action==='revert'?'edit':e.action;
+if(action==='edit'){
+AUDIT_DIFF_FIELDS.forEach(function(f){
+var ov=e['old_'+f]||'',nv=e['new_'+f]||'';
+if(ov===nv)return;
+html+='<div class="audit-diff-row">'+
+'<span class="audit-diff-key">'+(AUDIT_FIELD_LABELS[f]||f)+'</span>'+
+'<span class="audit-diff-old">'+escapeHtml(ov)+'</span>'+
+'<span class="audit-diff-arrow">→</span>'+
+'<span class="audit-diff-new">'+escapeHtml(nv)+'</span>'+
+'</div>';
+});
+}else if((action==='add'||action==='delete')&&e.snapshot){
+try{
+var snap=JSON.parse(e.snapshot);
+var SNAP_FIELDS=['balise','libelle','rdi','xpath','obligatoire','ignore','rdg','categorie_bg','attribute','type_enregistrement'];
+var SNAP_LABELS=Object.assign({balise:'Balise BT'},AUDIT_FIELD_LABELS);
+SNAP_FIELDS.forEach(function(f){
+var v=snap[f];
+if(!v)return;
+html+='<div class="audit-diff-row">'+
+'<span class="audit-diff-key">'+(SNAP_LABELS[f]||f)+'</span>'+
+'<span class="audit-diff-new" style="color:'+(action==='add'?'#059669':'#dc2626')+'">'+escapeHtml(String(v))+'</span>'+
+'</div>';
+});
+}catch(err){}
+}
+return html;
+}
+
 document.getElementById('btnHistory').addEventListener('click',async function(){
 var type=document.getElementById('typeFormulaireParam').value;
 var entries=await (await fetch(BASE+'/api/mapping/'+type+'/audit')).json();
@@ -3279,73 +3525,62 @@ list.innerHTML='';
 if(!entries||entries.length===0){
 list.innerHTML='<p style="color:#94a3b8;text-align:center;padding:20px">Aucune modification enregistrée pour ce mapping.</p>';
 }else{
-var FIELD_LABELS={balise:'Balise BT',libelle:'Libellé',rdi:'Champ RDI',xpath:'XPath',
-obligatoire:'Obligatoire',ignore:'Ignorer',rdg:'Règle de gestion',
-attribute:'Attribut',type_enregistrement:'Type enreg.',categorie_bg:'Catégorie'};
-var DIFF_FIELDS=['balise','libelle','rdi','type_enregistrement','xpath','attribute','obligatoire','ignore','rdg','categorie_bg'];
-
-function buildDiffHtml(oldVal,newVal,action){
-var html='';
-if(action==='edit'&&oldVal&&newVal){
-var old=JSON.parse(oldVal),nw=JSON.parse(newVal);
-DIFF_FIELDS.forEach(function(k){
-var ov=old[k]||'',nv=nw[k]||'';
-if(ov===nv||(ov===undefined&&nv===undefined))return;
-html+='<div class="audit-diff-row">'+
-'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
-'<span class="audit-diff-old">'+escapeHtml(String(ov))+'</span>'+
-'<span class="audit-diff-arrow">→</span>'+
-'<span class="audit-diff-new">'+escapeHtml(String(nv))+'</span>'+
-'</div>';
-});
-}else if(action==='add'&&newVal){
-var nw=JSON.parse(newVal);
-DIFF_FIELDS.forEach(function(k){
-if(!nw[k])return;
-html+='<div class="audit-diff-row">'+
-'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
-'<span class="audit-diff-new" style="grid-column:2/5">'+escapeHtml(String(nw[k]))+'</span>'+
-'</div>';
-});
-}else if(action==='delete'&&oldVal){
-var old=JSON.parse(oldVal);
-DIFF_FIELDS.forEach(function(k){
-if(!old[k])return;
-html+='<div class="audit-diff-row">'+
-'<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
-'<span class="audit-diff-old" style="grid-column:2/5">'+escapeHtml(String(old[k]))+'</span>'+
-'</div>';
-});
-}
-return html;
-}
-
 entries.forEach(function(e){
 var item=document.createElement('div');
-item.className='audit-item';
-var actionLabel={'edit':'Modif','add':'Ajout','delete':'Suppression'}[e.action]||e.action;
-var actionClass={'edit':'edit','add':'add','delete':'delete'}[e.action]||'edit';
-var diffHtml=buildDiffHtml(e.old_value,e.new_value,e.action);
-item.innerHTML=
-'<div class="audit-item-header">'+
-'<span class="audit-ts">'+e.timestamp+'</span>'+
-'<span class="audit-author">'+escapeHtml(e.author)+'</span>'+
-'<span class="audit-action '+actionClass+'">'+actionLabel+'</span>'+
-'<span class="audit-bt">'+escapeHtml(e.bt_balise)+'</span>'+
-(e.action!=='add'?'<button class="audit-revert-btn" data-id="'+e.id+'">↩ Revenir</button>':'')+
-'</div>'+
-(diffHtml?'<div class="audit-diff">'+diffHtml+'</div>':'');
+var isRevert=e.action==='revert';
+item.className='audit-item'+(isRevert?' audit-item-revert':'');
+var actionLabel={'edit':'MODIF','add':'AJOUT','delete':'SUPPRESSION','revert':'ROLLBACK'}[e.action]||e.action;
+var actionClass={'edit':'edit','add':'add','delete':'delete','revert':'revert'}[e.action]||'edit';
+
+var header=document.createElement('div');
+header.className='audit-item-header';
+
+var numSpan=document.createElement('span');numSpan.className='audit-num';numSpan.textContent='#'+e.id;
+var tsSpan=document.createElement('span');tsSpan.className='audit-ts';tsSpan.textContent=e.timestamp||'';
+var authSpan=document.createElement('span');authSpan.className='audit-author';authSpan.textContent=e.author||'';
+var actSpan=document.createElement('span');actSpan.className='audit-action '+actionClass;actSpan.textContent=actionLabel;
+var btSpan=document.createElement('span');btSpan.className='audit-bt';btSpan.textContent=e.bt_balise||'';
+header.appendChild(numSpan);header.appendChild(tsSpan);header.appendChild(authSpan);header.appendChild(actSpan);header.appendChild(btSpan);
+
+if(isRevert&&e.revert_of){
+var rbSpan=document.createElement('span');rbSpan.className='audit-rollback-label';rbSpan.textContent='Rollback de la modification #'+e.revert_of;
+header.appendChild(rbSpan);
+}
+
+if(e.action==='edit'||e.action==='delete'){
+var btn=document.createElement('button');
+btn.className='audit-revert-btn';
+btn.textContent='↩ Revenir';
+btn.dataset.id=String(e.id);
+header.appendChild(btn);
+}
+item.appendChild(header);
+
+var diffHtml=buildDiffHtml(e);
+if(diffHtml){
+var diffDiv=document.createElement('div');
+diffDiv.className='audit-diff';
+diffDiv.innerHTML=diffHtml;
+item.appendChild(diffDiv);
+}
 list.appendChild(item);
 });
+
 list.querySelectorAll('.audit-revert-btn').forEach(function(btn){
-btn.addEventListener('click',async function(){
-var id=this.getAttribute('data-id');
+btn.addEventListener('click',function(){
+var id=this.dataset.id;
 if(!confirm('Revenir à l\'état précédent de ce champ ?'))return;
-var res=await (await fetch(BASE+'/api/mapping/'+type+'/audit/'+id+'/revert',{method:'POST'})).json();
+askAuthorThen(async function(author){
+var res=await (await fetch(BASE+'/api/mapping/'+type+'/audit/'+id+'/revert',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({author:author})
+})).json();
 if(res.success){
-document.getElementById('historyModal').style.display='none';
 loadMappings();
+document.getElementById('btnHistory').click();
 }else{alert('Erreur : '+(res.error||'Impossible de revenir en arrière'));}
+});
 });
 });
 }
@@ -3871,7 +4106,7 @@ document.getElementById('editRuleModal').style.display='none';
 @app.route('/img/<path:filename>')
 def serve_image(filename):
     from flask import send_from_directory
-    return send_from_directory(SCRIPT_DIR, filename)
+    return send_from_directory(os.path.join(SCRIPT_DIR, 'img'), filename)
 
 @app.route('/')
 def index():
@@ -3923,22 +4158,38 @@ def save_color_route(type_formulaire):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+_AUDIT_FIELDS = ['libelle', 'rdi', 'xpath', 'obligatoire', 'ignore',
+                 'rdg', 'categorie_bg', 'attribute', 'type_enregistrement']
+
 @app.route('/api/mapping/<type_formulaire>/audit', methods=['GET'])
 def get_audit_route(type_formulaire):
     mapping_id = _get_mapping_id(type_formulaire)
     try:
         conn = get_db()
         rows = conn.execute(
-            "SELECT id, timestamp, author, action, bt_balise, old_value, new_value "
+            "SELECT id, timestamp, author, action, bt_balise, revert_of, snapshot, "
+            "old_libelle, new_libelle, old_rdi, new_rdi, old_xpath, new_xpath, "
+            "old_obligatoire, new_obligatoire, old_ignore, new_ignore, "
+            "old_rdg, new_rdg, old_categorie_bg, new_categorie_bg, "
+            "old_attribute, new_attribute, old_type_enregistrement, new_type_enregistrement "
             "FROM mapping_audit WHERE mapping_id=? ORDER BY id DESC LIMIT 100",
             (mapping_id,)
         ).fetchall()
         conn.close()
-        return jsonify([{
-            'id': r['id'], 'timestamp': r['timestamp'], 'author': r['author'],
-            'action': r['action'], 'bt_balise': r['bt_balise'],
-            'old_value': r['old_value'], 'new_value': r['new_value']
-        } for r in rows])
+        result = []
+        for r in rows:
+            entry = {
+                'id': r['id'], 'timestamp': r['timestamp'],
+                'author': r['author'], 'action': r['action'],
+                'bt_balise': r['bt_balise'],
+                'revert_of': r['revert_of'],
+                'snapshot': r['snapshot'],
+            }
+            for f in _AUDIT_FIELDS:
+                entry[f'old_{f}'] = r[f'old_{f}']
+                entry[f'new_{f}'] = r[f'new_{f}']
+            result.append(entry)
+        return jsonify(result)
     except Exception:
         return jsonify([])
 
@@ -3948,13 +4199,25 @@ def log_audit_route(type_formulaire):
     data = request.json
     mapping_id = _get_mapping_id(type_formulaire)
     try:
+        cols = ['mapping_id', 'timestamp', 'author', 'action', 'bt_balise']
+        vals = [
+            mapping_id,
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            data.get('author', ''),
+            data.get('action', 'edit'),
+            data.get('bt_balise', ''),
+        ]
+        for f in _AUDIT_FIELDS:
+            cols.append(f'old_{f}'); vals.append(data.get(f'old_{f}'))
+            cols.append(f'new_{f}'); vals.append(data.get(f'new_{f}'))
+        # snapshot pour add/delete
+        snapshot = data.get('snapshot')
+        if snapshot is not None:
+            cols.append('snapshot'); vals.append(snapshot)
+        ph = ','.join('?' * len(vals))
         conn = get_db()
         conn.execute(
-            "INSERT INTO mapping_audit (mapping_id, timestamp, author, action, bt_balise, old_value, new_value) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (mapping_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-             data.get('author', ''), data.get('action', 'edit'),
-             data.get('bt_balise', ''), data.get('old_value'), data.get('new_value'))
+            f"INSERT INTO mapping_audit ({','.join(cols)}) VALUES ({ph})", vals
         )
         conn.commit()
         conn.close()
@@ -3964,46 +4227,67 @@ def log_audit_route(type_formulaire):
 
 @app.route('/api/mapping/<type_formulaire>/audit/<int:audit_id>/revert', methods=['POST'])
 def revert_audit_route(type_formulaire, audit_id):
-    """Revenir à l'état old_value d'une entrée d'audit."""
+    """Revenir à l'état précédent d'un champ via l'entrée d'audit."""
+    from datetime import datetime
     mapping_id = _get_mapping_id(type_formulaire)
+    author = (request.json or {}).get('author', '') if request.is_json else ''
     try:
         conn = get_db()
         row = conn.execute(
-            "SELECT action, bt_balise, old_value FROM mapping_audit WHERE id=? AND mapping_id=?",
+            "SELECT * FROM mapping_audit WHERE id=? AND mapping_id=?",
             (audit_id, mapping_id)
         ).fetchone()
         if not row:
             conn.close()
             return jsonify({'success': False, 'error': 'Entrée introuvable'}), 404
-        action = row['action']
+
+        action   = row['action']
         bt_balise = row['bt_balise']
-        old_value = row['old_value']
-        # Charger le mapping courant
-        content_row = conn.execute(
-            "SELECT content FROM mapping_content WHERE mapping_id=?", (mapping_id,)
-        ).fetchone()
-        if not content_row:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Mapping introuvable'}), 404
-        mapping = json.loads(content_row['content'])
-        champs = mapping.get('champs', [])
-        if action == 'edit' and old_value:
-            old_champ = json.loads(old_value)
-            for i, c in enumerate(champs):
-                if c.get('balise') == bt_balise:
-                    champs[i] = old_champ
-                    break
+
+        if action == 'edit':
+            # Mettre à jour les colonnes individuelles avec les anciennes valeurs
+            updates = {}
+            for f in _AUDIT_FIELDS:
+                old_val = row[f'old_{f}']
+                if old_val is not None:
+                    db_col = 'ignore_field' if f == 'ignore' else f
+                    updates[db_col] = old_val
+            if updates:
+                set_clause = ', '.join(f'{k}=?' for k in updates)
+                conn.execute(
+                    f"UPDATE mapping_champs SET {set_clause} WHERE mapping_id=? AND balise=?",
+                    list(updates.values()) + [mapping_id, bt_balise]
+                )
+
         elif action == 'add':
             # Annuler un ajout = supprimer le champ
-            champs = [c for c in champs if c.get('balise') != bt_balise]
-        elif action == 'delete' and old_value:
-            # Annuler une suppression = réinsérer le champ
-            champs.append(json.loads(old_value))
-        mapping['champs'] = champs
-        conn.execute(
-            "UPDATE mapping_content SET content=? WHERE mapping_id=?",
-            (json.dumps(mapping, ensure_ascii=False), mapping_id)
-        )
+            conn.execute(
+                "DELETE FROM mapping_champs WHERE mapping_id=? AND balise=?",
+                (mapping_id, bt_balise)
+            )
+
+        elif action in ('delete', 'revert'):
+            # Annuler une suppression ou un revert = réinsérer depuis snapshot
+            snapshot = row['snapshot']
+            if snapshot:
+                champ = json.loads(snapshot)
+                # Position en fin de liste
+                pos_row = conn.execute(
+                    "SELECT COALESCE(MAX(position)+1, 0) AS pos FROM mapping_champs WHERE mapping_id=?",
+                    (mapping_id,)
+                ).fetchone()
+                pos = pos_row['pos'] if pos_row else 0
+                conn.execute(_CHAMP_INSERT_SQL, _champ_to_row(mapping_id, pos, champ))
+
+        # Enregistrer le rollback dans l'audit (old/new inversés par rapport à la modif d'origine)
+        rb_cols = ['mapping_id', 'timestamp', 'author', 'action', 'bt_balise', 'revert_of']
+        rb_vals = [mapping_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), author, 'revert', bt_balise, audit_id]
+        for f in _AUDIT_FIELDS:
+            rb_cols.append(f'old_{f}'); rb_vals.append(row[f'new_{f}'])
+            rb_cols.append(f'new_{f}'); rb_vals.append(row[f'old_{f}'])
+        ph = ','.join('?' * len(rb_vals))
+        conn.execute(f"INSERT INTO mapping_audit ({','.join(rb_cols)}) VALUES ({ph})", rb_vals)
+
         conn.commit()
         conn.close()
         return jsonify({'success': True})
@@ -4487,29 +4771,24 @@ def api_create_mapping():
             "is_default":   False
         }
 
-        # Déterminer le contenu source
-        mapping_data = {"champs": []}
+        # Insérer le nouveau mapping
         conn = get_db()
-        if copy_from:
-            row = conn.execute(
-                "SELECT content FROM mapping_content WHERE mapping_id = ?", (copy_from,)
-            ).fetchone()
-            if row:
-                try:
-                    mapping_data = json.loads(row['content'])
-                except Exception:
-                    pass
-
-        # Insérer le nouveau mapping et son contenu
         conn.execute(
             "INSERT INTO mappings (id, name, type, filename, created_date, is_default) "
             "VALUES (?, ?, ?, ?, ?, 0)",
             (new_id, name, "", new_mapping['filename'], created)
         )
-        conn.execute(
-            "INSERT INTO mapping_content (mapping_id, content) VALUES (?, ?)",
-            (new_id, json.dumps(mapping_data, ensure_ascii=False))
-        )
+
+        # Copier les champs depuis le mapping source si demandé
+        if copy_from:
+            src_rows = conn.execute(
+                "SELECT * FROM mapping_champs WHERE mapping_id=? ORDER BY position",
+                (copy_from,)
+            ).fetchall()
+            for row in src_rows:
+                champ = _row_to_champ(row)
+                conn.execute(_CHAMP_INSERT_SQL, _champ_to_row(new_id, row['position'], champ))
+
         conn.commit()
         conn.close()
 
