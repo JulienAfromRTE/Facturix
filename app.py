@@ -3039,7 +3039,8 @@ rdg:document.getElementById('editRdg').value,
 categorie_bg:categorieBg,
 categorie_titre:categorieTitre,
 controles_cegedim:[],
-valide:false
+valide:false,
+type:(currentIndex!==null&&currentMapping.champs[currentIndex]?currentMapping.champs[currentIndex].type:undefined)||undefined
 };
 var cloneTargets=addTargetMappingIds.slice();
 addTargetMappingIds=[];
@@ -3166,7 +3167,8 @@ rdg:document.getElementById('editRdg').value,
 categorie_bg:categorieBg,
 categorie_titre:categorieTitre,
 controles_cegedim:base.controles_cegedim||[],
-valide:base.valide||false
+valide:base.valide||false,
+type:base.type||undefined
 };
 var oldChamp=currentIndex!==null?Object.assign({},currentMapping.champs[currentIndex]):null;
 var isEdit=currentIndex!==null;
@@ -3277,6 +3279,7 @@ var old=JSON.parse(oldVal),nw=JSON.parse(newVal);
 DIFF_FIELDS.forEach(function(k){
 var ov=old[k]||'',nv=nw[k]||'';
 if(ov===nv||(ov===undefined&&nv===undefined))return;
+if(ov&&!nv)return; // champ présent avant mais absent de new (non éditable dans le formulaire, pas une vraie modif)
 html+='<div class="audit-diff-row">'+
 '<span class="audit-diff-key">'+(FIELD_LABELS[k]||k)+'</span>'+
 '<span class="audit-diff-old">'+escapeHtml(String(ov))+'</span>'+
