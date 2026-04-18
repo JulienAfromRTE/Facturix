@@ -2029,6 +2029,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" id="batchResultsSub"></span>
 </div>
 <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap" id="batchStatsGlobal"></div>
+<div id="batchSkippedWarning" style="display:none;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.84em;color:#92400e;line-height:1.5"></div>
 <div class="batch-wrap">
 <div class="batch-thead">
 <span>Facture</span>
@@ -2501,11 +2502,19 @@ function batchUpdateLaunchBtn(){
   var mode=document.getElementById('batchTypeControle').value;
   var needPdf=(mode!=='rdi');
   var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-  var ready=Object.values(batchFilesMap).filter(function(e){
-    return(!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile);
-  }).length;
-  if(ready>0){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.textContent='▶ Lancer le contrôle ('+ready+' facture'+(ready>1?'s':'')+')';}
-  else{btn.style.opacity='0.5';btn.style.pointerEvents='none';btn.textContent='▶ Lancer le contrôle (0 facture)';}
+  var all=Object.values(batchFilesMap);
+  var ready=all.filter(function(e){return(!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile);}).length;
+  var incomplete=all.filter(function(e){return !((!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile));}).length;
+  var total=ready+incomplete;
+  if(total>0){
+    btn.style.opacity='1';btn.style.pointerEvents='auto';
+    var lbl='▶ Lancer le contrôle ('+ready+' facture'+(ready>1?'s':'');
+    if(incomplete>0)lbl+=' · '+incomplete+' incomplète'+(incomplete>1?'s':'')+' ignorée'+(incomplete>1?'s':'');
+    lbl+=')';
+    btn.textContent=lbl;
+  } else {
+    btn.style.opacity='0.5';btn.style.pointerEvents='none';btn.textContent='▶ Lancer le contrôle (0 facture)';
+  }
 }
 
 async function batchLaunch(){
@@ -2516,6 +2525,7 @@ async function batchLaunch(){
   var fd=new FormData();
   fd.append('type_formulaire',typeForm);fd.append('type_controle',mode);
   var count=0;
+  var skipped=[];
   Object.values(batchFilesMap).forEach(function(e){
     if((!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile)){
       if(e.pdfFile)fd.append('pdf_'+count,e.pdfFile);
@@ -2523,9 +2533,17 @@ async function batchLaunch(){
       fd.append('name_'+count,e.rdiName||e.pdfName||('Facture '+(count+1)));
       fd.append('invoice_number_'+count,e.invoiceNumber||'');
       count++;
+    } else {
+      // Fichier sans paire — ignoré, on mémorise pour le rapport
+      var fname=e.rdiName||e.pdfName||e.key;
+      var missing=[];
+      if(needPdf&&!e.pdfFile)missing.push('PDF manquant');
+      if(needRdi&&!e.rdiFile)missing.push('RDI manquant');
+      skipped.push({name:fname,invoiceNumber:e.invoiceNumber,reason:missing.join(', ')});
     }
   });
   fd.append('pair_count',count);
+  fd.append('skipped_json',JSON.stringify(skipped));
   document.getElementById('batchLoading').style.display='block';
   document.getElementById('batchResults').style.display='none';
   document.getElementById('batchLoadingMsg').textContent='Contrôle en cours… ('+count+' facture'+(count>1?'s':'')+')';
@@ -2533,209 +2551,35 @@ async function batchLaunch(){
     var resp=await fetch(BASE+'/controle-batch',{method:'POST',body:fd});
     var data=await resp.json();
     if(data.error){alert('Erreur: '+data.error);return;}
+    data.skipped=skipped;
     batchRenderResults(data);
   }catch(e){alert('Erreur réseau: '+e);}
   finally{document.getElementById('batchLoading').style.display='none';}
 }
 
-// ── Ancienne fonction stub (plus utilisée) ──────────────────
-function batchAddPairRow(pdfPreset,rdiPreset){
-  var idx=batchPairCounter++;
-  batchPairIds.push(idx);
-
-  var container=document.getElementById('batchPairsContainer');
-  // Supprimer le placeholder vide si présent
-  var empty=container.querySelector('.batch-empty');
-  if(empty)empty.remove();
-
-  var mode=document.getElementById('batchTypeControle').value;
-  var needPdf=(mode!=='rdi');
-  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-
-  var row=document.createElement('div');
-  row.className='batch-pair-row';
-  row.dataset.pairid=idx;
-
-  // Inputs cachés
-  var pdfInput=document.createElement('input');
-  pdfInput.type='file'; pdfInput.accept='.pdf,.xml'; pdfInput.style.display='none';
-  pdfInput.id='batchPdfInput_'+idx;
-  var rdiInput=document.createElement('input');
-  rdiInput.type='file'; rdiInput.accept='.txt,.rdi'; rdiInput.style.display='none';
-  rdiInput.id='batchRdiInput_'+idx;
-  row.appendChild(pdfInput);
-  row.appendChild(rdiInput);
-
-  // Colonne PDF
-  var pdfCol=document.createElement('div');
-  var pdfLbl=document.createElement('span');
-  pdfLbl.className='batch-file-label';
-  pdfLbl.id='batchPdfLbl_'+idx;
-  pdfLbl.textContent=needPdf?'Fichier PDF':'PDF (non requis)';
-  var pdfDrop=document.createElement('div');
-  pdfDrop.className='batch-file-drop'+(needPdf?'':' missing');
-  pdfDrop.id='batchPdfDrop_'+idx;
-  pdfDrop.innerHTML='<span>📄</span> Choisir un fichier…';
-  pdfDrop.onclick=function(){if(needPdf)pdfInput.click();};
-  pdfCol.appendChild(pdfLbl); pdfCol.appendChild(pdfDrop);
-
-  // Colonne RDI
-  var rdiCol=document.createElement('div');
-  var rdiLbl=document.createElement('span');
-  rdiLbl.className='batch-file-label';
-  rdiLbl.id='batchRdiLbl_'+idx;
-  rdiLbl.textContent=needRdi?'Fichier RDI':'RDI (non requis)';
-  var rdiDrop=document.createElement('div');
-  rdiDrop.className='batch-file-drop'+(needRdi?'':' missing');
-  rdiDrop.id='batchRdiDrop_'+idx;
-  rdiDrop.innerHTML='<span>📋</span> Choisir un fichier…';
-  rdiDrop.onclick=function(){if(needRdi)rdiInput.click();};
-  rdiCol.appendChild(rdiLbl); rdiCol.appendChild(rdiDrop);
-
-  // Statut
-  var statusCol=document.createElement('div');
-  statusCol.className='batch-pair-status';
-  statusCol.id='batchPairStatus_'+idx;
-  statusCol.textContent='—';
-
-  // Bouton supprimer
-  var removeBtn=document.createElement('button');
-  removeBtn.className='btn-batch-remove'; removeBtn.textContent='✕';
-  removeBtn.title='Supprimer';
-  removeBtn.onclick=function(){
-    row.remove();
-    batchPairIds=batchPairIds.filter(function(id){return id!==idx;});
-    if(batchPairIds.length===0){
-      var c=document.getElementById('batchPairsContainer');
-      c.innerHTML='<div class="batch-empty">Aucun fichier ajouté — cliquez sur <strong>+ Ajouter une facture</strong>.</div>';
-    }
-    batchUpdateLaunchBtn();
-  };
-
-  row.appendChild(pdfCol); row.appendChild(rdiCol);
-  row.appendChild(statusCol); row.appendChild(removeBtn);
-
-  // Handlers fichiers
-  pdfInput.onchange=function(){
-    if(pdfInput.files[0]){
-      pdfDrop.className='batch-file-drop filled';
-      pdfDrop.innerHTML='<span>📄</span> '+pdfInput.files[0].name;
-    }
-    batchUpdatePairStatus(idx); batchUpdateLaunchBtn();
-  };
-  rdiInput.onchange=function(){
-    if(rdiInput.files[0]){
-      rdiDrop.className='batch-file-drop filled';
-      rdiDrop.innerHTML='<span>📋</span> '+rdiInput.files[0].name;
-    }
-    batchUpdatePairStatus(idx); batchUpdateLaunchBtn();
-  };
-
-  container.appendChild(row);
-
-  if(pdfPreset){pdfInput.files; /* can't preset programmatically */}
-  batchUpdatePairStatus(idx);
-  batchUpdateLaunchBtn();
-}
-
-function batchUpdatePairStatus(idx){
-  var mode=document.getElementById('batchTypeControle').value;
-  var needPdf=(mode!=='rdi');
-  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-  var pdfInput=document.getElementById('batchPdfInput_'+idx);
-  var rdiInput=document.getElementById('batchRdiInput_'+idx);
-  var statusEl=document.getElementById('batchPairStatus_'+idx);
-  if(!statusEl)return;
-  var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
-  var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
-  var ok=(!needPdf||hasPdf)&&(!needRdi||hasRdi);
-  statusEl.className='batch-pair-status '+(ok?'ok':'err');
-  statusEl.textContent=ok?'✓ prêt':'⚠ incomplet';
-}
-
-function batchUpdatePairLabels(){
-  // Mettre à jour les labels et curseurs quand on change le mode
-  var mode=document.getElementById('batchTypeControle').value;
-  var needPdf=(mode!=='rdi');
-  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-  batchPairIds.forEach(function(idx){
-    var pdfLbl=document.getElementById('batchPdfLbl_'+idx);
-    var rdiLbl=document.getElementById('batchRdiLbl_'+idx);
-    var pdfDrop=document.getElementById('batchPdfDrop_'+idx);
-    var rdiDrop=document.getElementById('batchRdiDrop_'+idx);
-    if(pdfLbl)pdfLbl.textContent=needPdf?'Fichier PDF':'PDF (non requis)';
-    if(rdiLbl)rdiLbl.textContent=needRdi?'Fichier RDI':'RDI (non requis)';
-    batchUpdatePairStatus(idx);
-  });
-  batchUpdateLaunchBtn();
-}
-
-function batchUpdateLaunchBtn(){
-  var btn=document.getElementById('btnLaunchBatch');
-  var mode=document.getElementById('batchTypeControle').value;
-  var needPdf=(mode!=='rdi');
-  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-  var ready=0;
-  batchPairIds.forEach(function(idx){
-    var pdfInput=document.getElementById('batchPdfInput_'+idx);
-    var rdiInput=document.getElementById('batchRdiInput_'+idx);
-    var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
-    var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
-    if((!needPdf||hasPdf)&&(!needRdi||hasRdi))ready++;
-  });
-  if(ready>0){
-    btn.style.opacity='1'; btn.style.pointerEvents='auto';
-    btn.textContent='▶ Lancer le contrôle ('+ready+' facture'+(ready>1?'s':'')+')';}
-  else{
-    btn.style.opacity='0.5'; btn.style.pointerEvents='none';
-    btn.textContent='▶ Lancer le contrôle (0 facture)';}
-}
-
-async function batchLaunch(){
-  var mode=document.getElementById('batchTypeControle').value;
-  var typeForm=document.getElementById('batchTypeFormulaire').value;
-  var needPdf=(mode!=='rdi');
-  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
-  var fd=new FormData();
-  fd.append('type_formulaire',typeForm);
-  fd.append('type_controle',mode);
-  var count=0;
-  batchPairIds.forEach(function(idx){
-    var pdfInput=document.getElementById('batchPdfInput_'+idx);
-    var rdiInput=document.getElementById('batchRdiInput_'+idx);
-    var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
-    var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
-    if((!needPdf||hasPdf)&&(!needRdi||hasRdi)){
-      if(hasPdf)fd.append('pdf_'+count,pdfInput.files[0]);
-      if(hasRdi)fd.append('rdi_'+count,rdiInput.files[0]);
-      var pdfName=hasPdf?pdfInput.files[0].name:(hasRdi?rdiInput.files[0].name:'Facture '+(count+1));
-      fd.append('name_'+count,pdfName);
-      count++;
-    }
-  });
-  fd.append('pair_count',count);
-  document.getElementById('batchLoading').style.display='block';
-  document.getElementById('batchResults').style.display='none';
-  document.getElementById('batchLoadingMsg').textContent='Contrôle en cours… (0/'+count+')';
-  try{
-    var resp=await fetch(BASE+'/controle-batch',{method:'POST',body:fd});
-    var data=await resp.json();
-    if(data.error){alert('Erreur: '+data.error);document.getElementById('batchLoading').style.display='none';return;}
-    batchRenderResults(data);
-  }catch(e){
-    alert('Erreur réseau: '+e);
-  }finally{
-    document.getElementById('batchLoading').style.display='none';
-  }
-}
-
 function batchRenderResults(data){
   var batch=data.batch||[];
+  var skipped=data.skipped||[];
   var now=new Date();
   var dateStr=now.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})
     +' '+now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('batchResultsSub').textContent=
     batch.length+' facture'+(batch.length>1?'s':'')+' analysée'+(batch.length>1?'s':'')+' · '+dateStr;
+
+  // Bandeau fichiers ignorés
+  var skippedEl=document.getElementById('batchSkippedWarning');
+  if(skippedEl){
+    if(skipped.length>0){
+      var skippedRows=skipped.map(function(s){
+        var num=s.invoiceNumber?(' <span style="font-weight:700">N°'+escHtml(s.invoiceNumber)+'</span>'):'';
+        return '<li>'+escHtml(s.name)+num+' — <em>'+escHtml(s.reason)+'</em></li>';
+      }).join('');
+      skippedEl.innerHTML='<span style="font-weight:700">⚠ '+skipped.length+' fichier'+(skipped.length>1?'s':'')+' ignoré'+(skipped.length>1?'s':'')+' (paire incomplète) :</span><ul style="margin:6px 0 0 16px;padding:0">'+skippedRows+'</ul>';
+      skippedEl.style.display='block';
+    } else {
+      skippedEl.style.display='none';
+    }
+  }
 
   // Stats globales
   var nbTotal=batch.length;
