@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Facturix — Maquette Batch</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Bangers&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Outfit', Arial, sans-serif; background: #3a5282; min-height: 100vh; padding: 24px 16px; }
+
+.container {
+  max-width: 1300px;
+  margin: 0 auto;
+  background: #f8fafc;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+}
+
+/* Header */
+.header {
+  background: #506aab;
+  color: #fff;
+  padding: 12px 30px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header h1 {
+  font-family: 'Bangers', cursive;
+  font-size: 2em;
+  letter-spacing: 0.08em;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+  line-height: 1;
+}
+.header .badge {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  font-size: 0.72em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.header .sub { font-size: 0.82em; color: rgba(255,255,255,0.65); margin-left: 4px; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 20px;
+  gap: 2px;
+}
+.tab {
+  padding: 13px 22px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #64748b;
+  font-family: 'Outfit', Arial, sans-serif;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+.tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+
+/* Content */
+.content { padding: 24px 28px; background: #f8fafc; }
+
+/* Section card */
+.section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.section h2 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 16px;
+}
+
+/* Upload rows */
+.upload-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px 36px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+.upload-col label {
+  display: block;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+.file-fake {
+  border: 1.5px dashed #c7d2fe;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #94a3b8;
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+.file-fake.filled { border-color: #667eea; color: #4f46e5; background: #eef2ff; }
+.file-fake.error  { border-color: #fca5a5; color: #ef4444; background: #fff5f5; }
+
+.pair-status { font-size: 0.8em; font-weight: 700; padding-bottom: 10px; white-space: nowrap; }
+.pair-status.ok  { color: #10b981; }
+.pair-status.err { color: #ef4444; }
+
+.btn-remove {
+  background: #fff;
+  color: #94a3b8;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all 0.15s;
+}
+.btn-remove:hover { background: #fff5f5; border-color: #fca5a5; color: #ef4444; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.toolbar .hint { font-size: 0.78em; color: #94a3b8; }
+
+.btn-add {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Outfit', Arial, sans-serif;
+}
+.btn-launch {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 26px;
+  font-size: 0.95em;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Outfit', Arial, sans-serif;
+  box-shadow: 0 3px 10px rgba(102,126,234,0.3);
+  margin-left: auto;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.form-row label {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-row select {
+  padding: 8px 11px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-family: 'Outfit', Arial, sans-serif;
+  color: #1e293b;
+  background: #fff;
+  min-width: 180px;
+}
+
+/* Stats globales */
+.stats-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.stat-card {
+  background: #fff;
+  padding: 13px 18px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8em;
+  color: #64748b;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-width: 110px;
+}
+.stat-card .stat-value { font-size: 2em; font-weight: 700; line-height: 1; display: block; margin-bottom: 4px; }
+.stat-card.ok .stat-value  { color: #10b981; }
+.stat-card.err .stat-value { color: #ef4444; }
+.stat-card.amb .stat-value { color: #d97706; }
+.stat-card.tot .stat-value { color: #667eea; }
+
+/* Résultats en-tête */
+.results-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.results-title .sub { font-size: 0.78em; color: #94a3b8; font-weight: 400; }
+
+/* Batch table */
+.batch-wrap {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 14px;
+}
+.batch-thead {
+  display: grid;
+  grid-template-columns: 220px 70px 70px 70px 130px 1fr 100px;
+  background: #f1f5f9;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 8px 14px;
+  gap: 0;
+}
+.batch-thead span {
+  font-size: 0.73em;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.batch-thead span.center { text-align: center; }
+
+/* Ligne invoice */
+.invoice-row { border-bottom: 1px solid #f1f5f9; }
+.invoice-row:last-child { border-bottom: none; }
+
+.inv-main {
+  display: grid;
+  grid-template-columns: 220px 70px 70px 70px 130px 1fr 100px;
+  align-items: center;
+  padding: 11px 14px;
+  gap: 0;
+  transition: background 0.15s;
+  cursor: default;
+}
+.inv-main:hover { background: #f8fafc; }
+.inv-main.has-err { border-left: 3px solid #ef4444; }
+.inv-main.all-ok  { border-left: 3px solid #10b981; }
+
+.inv-name { font-weight: 600; font-size: 0.88em; color: #1e293b; }
+.inv-name .sub { display: block; font-weight: 400; font-size: 0.76em; color: #94a3b8; margin-top: 2px; }
+
+.sc { text-align: center; font-size: 0.88em; font-weight: 700; }
+.sc.ok  { color: #10b981; }
+.sc.err { color: #ef4444; }
+.sc.amb { color: #d97706; }
+
+/* Barre score */
+.pct-wrap { display: flex; align-items: center; gap: 8px; padding-right: 10px; }
+.pct-track { flex: 1; height: 7px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.pct-fill { height: 100%; border-radius: 999px; }
+.pct-fill.good { background: linear-gradient(90deg,#10b981,#34d399); }
+.pct-fill.mid  { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+.pct-fill.bad  { background: linear-gradient(90deg,#ef4444,#f87171); }
+.pct-lbl { font-size: 0.8em; font-weight: 700; min-width: 38px; text-align: right; }
+.pct-lbl.good { color: #10b981; }
+.pct-lbl.mid  { color: #d97706; }
+.pct-lbl.bad  { color: #ef4444; }
+
+/* Tags erreur inline */
+.err-tags { padding: 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 3px; }
+.etag {
+  display: inline-block;
+  background: #fff5f5;
+  color: #ef4444;
+  border: 1px solid #fca5a5;
+  font-size: 0.71em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.etag.amb {
+  background: #fffbeb;
+  color: #d97706;
+  border-color: #fde68a;
+}
+.etag-more {
+  font-size: 0.75em;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.etag-more:hover { color: #667eea; }
+.ok-label { font-size: 0.82em; color: #10b981; font-weight: 600; padding: 0 6px; }
+
+/* Bouton détail */
+.btn-detail {
+  background: #fff;
+  color: #667eea;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.82em;
+  font-weight: 700;
+  font-family: 'Outfit', Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-detail:hover { background: #eef2ff; border-color: #818cf8; }
+.btn-detail.open  { background: #eef2ff; border-color: #667eea; color: #4f46e5; }
+.btn-detail .arrow { display: inline-block; transition: transform 0.2s; font-size: 0.8em; }
+.btn-detail.open .arrow { transform: rotate(90deg); }
+
+/* Zone détail */
+.detail-zone {
+  display: none;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  padding: 18px 22px;
+}
+.detail-zone.open { display: block; }
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn-secondary {
+  background: #fff;
+  color: #667eea;
+  padding: 6px 13px;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8em;
+  font-family: 'Outfit', Arial, sans-serif;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { background: #eef2ff; border-color: #818cf8; }
+.detail-actions .lbl { font-size: 0.78em; color: #94a3b8; margin-left: auto; }
+
+/* Catégorie dans le détail */
+.detail-cat {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 9px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.detail-cat-hdr {
+  background: linear-gradient(135deg, #1e1b4b, #4338ca);
+  color: #fff;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+}
+.detail-cat-hdr.err { background: linear-gradient(135deg, #7b1e1e, #b91c1c); }
+.detail-cat-hdr.ok  { background: linear-gradient(135deg, #14532d, #15803d); }
+
+.detail-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+.detail-table th {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.76em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+}
+.detail-table td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
+.detail-table tr:last-child td { border-bottom: none; }
+.detail-table tr.err-row { background: #fff5f5; }
+.st-ok  { color: #10b981; }
+.st-err { color: #ef4444; }
+.st-ign { color: #94a3b8; }
+.bt-oblig { border: 1.5px solid #ef4444; border-radius: 5px; padding: 2px 5px; color: #ef4444; font-size: 0.82em; font-weight: 700; }
+
+.all-ok-msg { padding: 14px 16px; color: #10b981; font-size: 0.85em; font-weight: 600; }
+
+/* Actions bas */
+.bottom-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <span style="font-size:1.5em">💵</span>
+    <h1>Facturix</h1>
+    <span class="badge">BATCH</span>
+    <span class="sub">Contrôle de factures en lot</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab">Contrôle</button>
+    <button class="tab active">Contrôle Batch</button>
+    <button class="tab">Mapping</button>
+    <button class="tab">Règles Métier</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Upload ── -->
+    <div class="section">
+      <h2>Fichiers à contrôler</h2>
+
+      <div class="form-row">
+        <label>
+          Type de formulaire
+          <select><option>CART Simple</option><option>CART Groupée</option><option>Ventes Diverses</option></select>
+        </label>
+        <label>
+          Mode de contrôle
+          <select><option>RDI vs XML (PDF)</option><option>XML / PDF seul</option><option>CII direct</option></select>
+        </label>
+      </div>
+
+      <!-- Paire 1 — ok -->
+      <div class="upload-row">
+        <div class="upload-col">
+          <label>Fichier PDF</label>
+          <div class="file-fake filled">📄 FAC-2024-0042.pdf</div>
+        </div>
+        <div class="upload-col">
+          <label>Fichier RDI</label>
+          <div class="file-fake filled">📋 FAC-2024-0042.txt</div>
+        </div>
+        <div class="pair-status ok">✓ appairé</div>
+        <button class="btn-remove">✕</button>
+      </div>
+
+      <!-- Paire 2 — ok -->
+      <div class="upload-row">
+        <div class="upload-col">
+          <label>Fichier PDF</label>
+          <div class="file-fake filled">📄 FAC-2024-0043.pdf</div>
+        </div>
+        <div class="upload-col">
+          <label>Fichier RDI</label>
+          <div class="file-fake filled">📋 FAC-2024-0043.txt</div>
+        </div>
+        <div class="pair-status ok">✓ appairé</div>
+        <button class="btn-remove">✕</button>
+      </div>
+
+      <!-- Paire 3 — incomplète -->
+      <div class="upload-row">
+        <div class="upload-col">
+          <label>Fichier PDF</label>
+          <div class="file-fake filled">📄 FAC-2024-0044.pdf</div>
+        </div>
+        <div class="upload-col">
+          <label>Fichier RDI</label>
+          <div class="file-fake error">⚠ Aucun fichier sélectionné</div>
+        </div>
+        <div class="pair-status err">⚠ incomplet</div>
+        <button class="btn-remove">✕</button>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn-add">+ Ajouter une facture</button>
+        <span class="hint">ou glissez-déposez plusieurs fichiers d'un coup</span>
+        <button class="btn-launch">▶ Lancer le contrôle (2 factures)</button>
+      </div>
+    </div>
+
+    <!-- ── Résultats ── -->
+    <div class="results-title">
+      Résultats du lot
+      <span class="sub">3 factures analysées · 18 avril 2026 14:32</span>
+    </div>
+
+    <!-- Stats globales -->
+    <div class="stats-row">
+      <div class="stat-card tot"><span class="stat-value">3</span>Factures analysées</div>
+      <div class="stat-card err"><span class="stat-value">2</span>Avec erreurs</div>
+      <div class="stat-card ok"><span class="stat-value">1</span>Sans erreur</div>
+      <div class="stat-card" style="border-color:#fca5a5">
+        <span class="stat-value" style="color:#ef4444">23</span>Erreurs au total
+      </div>
+    </div>
+
+    <!-- Tableau batch -->
+    <div class="batch-wrap">
+      <div class="batch-thead">
+        <span>Facture</span>
+        <span class="center">✅ OK</span>
+        <span class="center">❌ ERR</span>
+        <span class="center">⚠️ AMB</span>
+        <span>Score</span>
+        <span>Erreurs détectées</span>
+        <span></span>
+      </div>
+
+      <!-- ── Facture 1 — erreurs ── -->
+      <div class="invoice-row">
+        <div class="inv-main has-err">
+          <div>
+            <div class="inv-name">FAC-2024-0042.pdf<span class="sub">FAC-2024-0042.txt · CART Simple</span></div>
+          </div>
+          <div class="sc ok">39</div>
+          <div class="sc err">8</div>
+          <div class="sc amb">1</div>
+          <div class="pct-wrap">
+            <div class="pct-track"><div class="pct-fill bad" style="width:82%"></div></div>
+            <div class="pct-lbl bad">82%</div>
+          </div>
+          <div class="err-tags">
+            <span class="etag">BT-1</span>
+            <span class="etag">BT-22-BAR</span>
+            <span class="etag">BT-48</span>
+            <span class="etag">BT-131</span>
+            <span class="etag">BT-10</span>
+            <span class="etag amb">BT-9 ⚠</span>
+            <span class="etag-more" onclick="toggleDetail('a')">+3 autres…</span>
+          </div>
+          <div>
+            <button class="btn-detail" id="btn-a" onclick="toggleDetail('a')">
+              <span class="arrow">▶</span> Détail
+            </button>
+          </div>
+        </div>
+        <!-- Détail -->
+        <div class="detail-zone" id="zone-a">
+          <div class="detail-actions">
+            <button class="btn-secondary">Tout déplier</button>
+            <button class="btn-secondary">Tout replier</button>
+            <button class="btn-secondary">⬇ Exporter CSV</button>
+            <span class="lbl">FAC-2024-0042.pdf · 48 champs contrôlés</span>
+          </div>
+
+          <div class="detail-cat">
+            <div class="detail-cat-hdr err">
+              <span>INFORMATIONS GÉNÉRALES DE LA FACTURE</span>
+              <span>12 champs | OK: 4 | Err: 8</span>
+            </div>
+            <table class="detail-table">
+              <thead><tr>
+                <th style="width:28px"></th>
+                <th>BT</th>
+                <th>Libellé</th>
+                <th>Règles testées</th>
+                <th>RDI</th>
+                <th>XML</th>
+                <th>Détail erreur</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td class="st-ok">✅</td>
+                  <td><strong>BT-2</strong></td>
+                  <td>Date de la facture</td>
+                  <td><small>Format date, obligatoire</small></td>
+                  <td>20240315</td><td>2024-03-15</td>
+                  <td style="color:#94a3b8">RAS</td>
+                </tr>
+                <tr class="err-row">
+                  <td class="st-err">❌</td>
+                  <td><strong><span class="bt-oblig">BT-1</span></strong></td>
+                  <td>Numéro de la facture</td>
+                  <td><small>Obligatoire, correspondance RDI↔XML</small></td>
+                  <td>FAC-0042</td><td>FAC-42</td>
+                  <td style="color:#ef4444">Valeur RDI ≠ XML</td>
+                </tr>
+                <tr class="err-row">
+                  <td class="st-err">❌</td>
+                  <td><strong><span class="bt-oblig">BT-22-BAR</span></strong></td>
+                  <td>Traitement attendu</td>
+                  <td><small>Obligatoire, valeur dans [B2B, B2G, B2BINT]</small></td>
+                  <td>B2B</td><td>(vide)</td>
+                  <td style="color:#ef4444">XML manquant</td>
+                </tr>
+                <tr>
+                  <td class="st-ok">✅</td>
+                  <td><strong>BT-3</strong></td>
+                  <td>Code type de facture</td>
+                  <td><small>Obligatoire</small></td>
+                  <td>380</td><td>380</td>
+                  <td style="color:#94a3b8">RAS</td>
+                </tr>
+                <tr>
+                  <td class="st-ign">⏸</td>
+                  <td>BT-5</td>
+                  <td>Code devise</td>
+                  <td><small>Ignoré</small></td>
+                  <td>EUR</td><td>EUR</td>
+                  <td style="color:#94a3b8">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="detail-cat">
+            <div class="detail-cat-hdr ok">
+              <span>INFORMATIONS VENDEUR</span>
+              <span>10 champs | OK: 10 | Err: 0</span>
+            </div>
+            <div class="all-ok-msg">✅ Tous les champs sont conformes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Facture 2 — OK ── -->
+      <div class="invoice-row">
+        <div class="inv-main all-ok">
+          <div>
+            <div class="inv-name">FAC-2024-0043.pdf<span class="sub">FAC-2024-0043.txt · CART Simple</span></div>
+          </div>
+          <div class="sc ok">47</div>
+          <div class="sc err">0</div>
+          <div class="sc amb">0</div>
+          <div class="pct-wrap">
+            <div class="pct-track"><div class="pct-fill good" style="width:100%"></div></div>
+            <div class="pct-lbl good">100%</div>
+          </div>
+          <div class="ok-label">✅ Aucune erreur détectée</div>
+          <div>
+            <button class="btn-detail" id="btn-b" onclick="toggleDetail('b')">
+              <span class="arrow">▶</span> Détail
+            </button>
+          </div>
+        </div>
+        <div class="detail-zone" id="zone-b">
+          <div style="padding:10px 4px;color:#64748b;font-size:0.85em;font-style:italic">
+            Tous les champs sont conformes (47/47). Cliquez "Tout déplier" pour voir le détail complet.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Facture 3 — beaucoup d'erreurs ── -->
+      <div class="invoice-row">
+        <div class="inv-main has-err">
+          <div>
+            <div class="inv-name">FAC-2024-0044.pdf<span class="sub">FAC-2024-0044.txt · CART Simple</span></div>
+          </div>
+          <div class="sc ok">32</div>
+          <div class="sc err">15</div>
+          <div class="sc amb">2</div>
+          <div class="pct-wrap">
+            <div class="pct-track"><div class="pct-fill bad" style="width:65%"></div></div>
+            <div class="pct-lbl bad">65%</div>
+          </div>
+          <div class="err-tags">
+            <span class="etag">BT-13</span>
+            <span class="etag">BT-25</span>
+            <span class="etag">BT-26</span>
+            <span class="etag">BT-29</span>
+            <span class="etag">BT-48</span>
+            <span class="etag">BT-58</span>
+            <span class="etag amb">BT-131 ⚠</span>
+            <span class="etag-more" onclick="toggleDetail('c')">+10 autres…</span>
+          </div>
+          <div>
+            <button class="btn-detail" id="btn-c" onclick="toggleDetail('c')">
+              <span class="arrow">▶</span> Détail
+            </button>
+          </div>
+        </div>
+        <div class="detail-zone" id="zone-c">
+          <div style="padding:10px 4px;color:#64748b;font-size:0.85em;font-style:italic">
+            [Rendu complet des catégories — identique à la vue actuelle de Facturix]
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /batch-wrap -->
+
+    <div class="bottom-actions">
+      <button class="btn-secondary" style="padding:8px 16px">⬇ Exporter tout en CSV</button>
+      <button class="btn-secondary" style="padding:8px 16px">🔁 Nouveau lot</button>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /container -->
+
+<script>
+function toggleDetail(id) {
+  var zone = document.getElementById('zone-' + id);
+  var btn  = document.getElementById('btn-' + id);
+  var open = zone.classList.contains('open');
+  if (open) { zone.classList.remove('open'); btn.classList.remove('open'); }
+  else       { zone.classList.add('open');   btn.classList.add('open'); }
+}
+</script>
+</body>
+</html>

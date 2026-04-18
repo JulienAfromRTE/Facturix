@@ -1633,7 +1633,84 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .konami-box img{max-width:70vw;max-height:70vh;border-radius:20px;box-shadow:0 0 80px rgba(255,215,0,0.6),0 0 20px rgba(0,0,0,0.8)}
 .konami-stars{position:absolute;inset:0;pointer-events:none}
 .konami-close{margin-top:20px;color:#fff;font-size:0.9em;opacity:0.65;cursor:pointer}
-@keyframes konami-pop{0%{transform:scale(0) rotate(-10deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}</style>
+@keyframes konami-pop{0%{transform:scale(0) rotate(-10deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
+/* === BATCH MODE === */
+.batch-pair-row{display:grid;grid-template-columns:1fr 1fr 110px 36px;gap:10px;align-items:end;margin-bottom:10px}
+.batch-file-label{font-weight:600;font-size:0.78rem;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px}
+.batch-file-drop{border:1.5px dashed #c7d2fe;border-radius:8px;padding:8px 12px;color:#94a3b8;font-size:0.85em;display:flex;align-items:center;gap:8px;background:#f8fafc;cursor:pointer;transition:all 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-file-drop:hover{border-color:#818cf8;background:#eef2ff}
+.batch-file-drop.filled{border-color:#667eea;color:#4f46e5;background:#eef2ff}
+.batch-file-drop.missing{border-color:#fca5a5;color:#ef4444;background:#fff5f5}
+.batch-pair-status{font-size:0.8em;font-weight:700;padding-bottom:10px;white-space:nowrap;text-align:center}
+.batch-pair-status.ok{color:#10b981}
+.batch-pair-status.err{color:#ef4444}
+.btn-batch-remove{background:#fff;color:#94a3b8;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:0.85em;transition:all 0.15s}
+.btn-batch-remove:hover{background:#fff5f5;border-color:#fca5a5;color:#ef4444}
+.batch-wrap{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:14px}
+.batch-thead{display:grid;grid-template-columns:220px 70px 70px 70px 140px 1fr 110px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;padding:8px 14px;gap:0}
+.batch-thead span{font-size:0.73em;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.06em}
+.batch-thead .bcenter{text-align:center}
+.batch-inv-row{border-bottom:1px solid #f1f5f9}
+.batch-inv-row:last-child{border-bottom:none}
+.batch-inv-main{display:grid;grid-template-columns:220px 70px 70px 70px 140px 1fr 110px;align-items:center;padding:11px 14px;gap:0;transition:background 0.15s}
+.batch-inv-main:hover{background:#f8fafc}
+.batch-inv-main.has-err{border-left:3px solid #ef4444}
+.batch-inv-main.all-ok{border-left:3px solid #10b981}
+.batch-inv-main.inv-error{border-left:3px solid #f59e0b}
+.batch-inv-name{font-weight:600;font-size:0.88em;color:#1e293b}
+.batch-inv-name .bsub{display:block;font-weight:400;font-size:0.76em;color:#94a3b8;margin-top:2px}
+.batch-sc{text-align:center;font-size:0.88em;font-weight:700}
+.batch-sc.ok{color:#10b981}
+.batch-sc.err{color:#ef4444}
+.batch-sc.amb{color:#d97706}
+.batch-pct-wrap{display:flex;align-items:center;gap:8px;padding-right:10px}
+.batch-pct-track{flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.batch-pct-fill{height:100%;border-radius:999px}
+.batch-pct-fill.good{background:linear-gradient(90deg,#10b981,#34d399)}
+.batch-pct-fill.mid{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.batch-pct-fill.bad{background:linear-gradient(90deg,#ef4444,#f87171)}
+.batch-pct-lbl{font-size:0.8em;font-weight:700;min-width:38px;text-align:right}
+.batch-pct-lbl.good{color:#10b981}
+.batch-pct-lbl.mid{color:#d97706}
+.batch-pct-lbl.bad{color:#ef4444}
+.batch-etag{display:inline-block;background:#fff5f5;color:#ef4444;border:1px solid #fca5a5;font-size:0.71em;padding:2px 7px;border-radius:4px;font-weight:700;margin:1px 2px 1px 0}
+.batch-etag.amb{background:#fffbeb;color:#d97706;border-color:#fde68a}
+.batch-etag-more{font-size:0.75em;color:#94a3b8;cursor:pointer;padding:2px 4px;border-radius:4px}
+.batch-etag-more:hover{color:#667eea}
+.btn-batch-detail{background:#fff;color:#667eea;border:1.5px solid #c7d2fe;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:0.82em;font-weight:700;font-family:'Outfit',Arial,sans-serif;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;white-space:nowrap}
+.btn-batch-detail:hover{background:#eef2ff;border-color:#818cf8}
+.btn-batch-detail.open{background:#eef2ff;border-color:#667eea;color:#4f46e5}
+.btn-batch-detail .b-arrow{display:inline-block;transition:transform 0.2s;font-size:0.8em}
+.btn-batch-detail.open .b-arrow{transform:rotate(90deg)}
+.batch-detail-zone{display:none;background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 22px}
+.batch-detail-zone.open{display:block}
+.batch-loading{display:none;text-align:center;padding:30px}
+.batch-empty{color:#94a3b8;font-size:0.85em;text-align:center;padding:20px;border:1.5px dashed #e2e8f0;border-radius:8px}
+/* Dropzone */
+.batch-dropzone{border:2px dashed #c7d2fe;border-radius:12px;padding:36px 24px;text-align:center;cursor:pointer;transition:all 0.2s;background:#fafbff;position:relative}
+.batch-dropzone:hover,.batch-dropzone.drag-over{border-color:#667eea;background:#eef2ff}
+.batch-dropzone .dz-icon{font-size:2.4em;margin-bottom:10px;display:block}
+.batch-dropzone .dz-title{font-weight:700;font-size:1em;color:#1e293b;margin-bottom:4px}
+.batch-dropzone .dz-hint{font-size:0.82em;color:#94a3b8;margin-bottom:14px}
+/* Table fichiers */
+.batch-files-table{width:100%;border-collapse:collapse;font-size:0.85em;margin-top:14px}
+.batch-files-table th{background:#f1f5f9;color:#475569;padding:7px 12px;text-align:left;font-weight:700;font-size:0.75em;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e2e8f0}
+.batch-files-table td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.batch-files-table tr:last-child td{border-bottom:none}
+.batch-files-table tr:hover td{background:#f8fafc}
+.batch-file-num{font-weight:700;font-size:0.95em;color:#1e293b}
+.batch-file-pending{color:#94a3b8;font-style:italic;font-size:0.82em}
+.batch-file-chip{display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;border-radius:6px;padding:3px 9px;font-size:0.8em;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.batch-file-chip.pdf{background:#eef2ff;color:#4f46e5}
+.batch-file-chip.rdi{background:#f0fdf4;color:#15803d}
+.batch-file-chip.missing{background:#fff5f5;color:#ef4444;border:1px dashed #fca5a5}
+.batch-status-chip{font-size:0.75em;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.batch-status-chip.ok{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+.batch-status-chip.warn{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+.batch-status-chip.pending{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
+/* Résultats — colonne facture */
+.batch-inv-num{font-weight:800;font-size:1em;color:#1e293b;letter-spacing:0.01em}
+.batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}</style>
 </head>
 <body>
 
@@ -1665,6 +1742,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 <div class="tabs">
 <button class="tab active" id="tabControle">Contrôle</button>
+<button class="tab" id="tabBatch">📦 Batch</button>
 <button class="tab" id="tabParam">Paramétrage</button>
 <button class="tab" id="tabRules">Règles Métiers</button>
 <button class="tab" id="tabAide">Aide</button>
@@ -1894,6 +1972,78 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
     </ul>
   </div>
 
+</div>
+</div>
+</div>
+
+<!-- ONGLET BATCH -->
+<div id="contentBatch" class="tab-content">
+<div class="section">
+<h2>Configuration</h2>
+<div class="form-row">
+<div class="form-group">
+<label>Type de Factures :</label>
+<select id="batchTypeFormulaire">
+<option value="simple">CART Simple</option>
+<option value="groupee">CART Groupée</option>
+<option value="ventesdiverses">Ventes Diverses</option>
+</select>
+</div>
+<div class="form-group">
+<label>Type de Contrôle :</label>
+<select id="batchTypeControle" onchange="batchUpdatePairLabels()">
+<option value="xml">RDI vs XML — comparaison SAP / Exstream</option>
+<option value="rdi">RDI seul — sortie SAP</option>
+<option value="xmlonly">XML / PDF seul</option>
+<option value="cii">CII direct — XML brut</option>
+</select>
+</div>
+</div>
+</div>
+<div class="section">
+<h2>Factures à contrôler</h2>
+<input type="file" id="batchFileInput" multiple accept=".pdf,.xml,.txt,.rdi" style="display:none" onchange="batchHandleFileInput(this.files)">
+<div id="batchDropZone" class="batch-dropzone" onclick="document.getElementById('batchFileInput').click()">
+  <span class="dz-icon">📂</span>
+  <div class="dz-title">Glissez vos fichiers ici ou cliquez pour parcourir</div>
+  <div class="dz-hint" id="batchDzHint">PDF + RDI — les numéros de facture sont détectés automatiquement</div>
+  <button class="btn-secondary" style="pointer-events:none;margin-top:2px">Parcourir les fichiers</button>
+</div>
+<div id="batchFilesSection" style="display:none;margin-top:12px">
+  <table class="batch-files-table" id="batchFilesTable">
+    <thead id="batchFilesHead"></thead>
+    <tbody id="batchFilesBody"></tbody>
+  </table>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+    <button class="btn-secondary" onclick="batchReset()" style="font-size:0.82em;padding:6px 13px">🗑 Tout effacer</button>
+    <button class="btn" id="btnLaunchBatch" onclick="batchLaunch()" style="width:auto;padding:10px 26px;margin-left:auto;opacity:0.5;pointer-events:none">▶ Lancer le contrôle (0 facture)</button>
+  </div>
+</div>
+</div>
+<div class="batch-loading" id="batchLoading">
+<div class="spinner"></div>
+<p id="batchLoadingMsg">Contrôle en cours…</p>
+</div>
+<div id="batchResults" style="display:none">
+<div style="font-size:1em;font-weight:700;color:#1e293b;margin-bottom:12px;display:flex;align-items:baseline;gap:10px">
+Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" id="batchResultsSub"></span>
+</div>
+<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap" id="batchStatsGlobal"></div>
+<div class="batch-wrap">
+<div class="batch-thead">
+<span>Facture</span>
+<span class="bcenter">✅ OK</span>
+<span class="bcenter">❌ ERR</span>
+<span class="bcenter">⚠️ AMB</span>
+<span>Score</span>
+<span>Erreurs détectées</span>
+<span></span>
+</div>
+<div id="batchTableBody"></div>
+</div>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px">
+<button class="btn-secondary" id="btnBatchCsvAll" style="padding:8px 16px">⬇ Exporter tout en CSV</button>
+<button class="btn-secondary" onclick="batchReset()" style="padding:8px 16px">🔁 Nouveau lot</button>
 </div>
 </div>
 </div>
@@ -2217,6 +2367,638 @@ document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove
 this.classList.add('active');
 document.getElementById('contentAide').classList.add('active');
 });
+document.getElementById('tabBatch').addEventListener('click',function(){
+document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
+this.classList.add('active');
+document.getElementById('contentBatch').classList.add('active');
+});
+
+/* ============================================================
+   BATCH MODE
+   ============================================================ */
+// batchFilesMap : clé = numéro de facture (ou "tmp_N") → {key, invoiceNumber, pdfFile, rdiFile, pdfName, rdiName, pending}
+var batchFilesMap={};
+var batchTmpCounter=0;
+
+// ── Dropzone setup ──────────────────────────────────────────
+(function(){
+  var dz=document.getElementById('batchDropZone');
+  if(!dz)return;
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
+  dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault();dz.classList.remove('drag-over');
+    batchHandleFileInput(e.dataTransfer.files);
+  });
+  // Empêcher le click du bouton interne de remonter deux fois
+  dz.querySelector('button').addEventListener('click',function(e){e.stopPropagation();document.getElementById('batchFileInput').click();});
+})();
+
+document.getElementById('batchTypeControle').onchange=function(){batchUpdateDzHint();batchRenderFileList();batchUpdateLaunchBtn();};
+
+function batchUpdateDzHint(){
+  var mode=document.getElementById('batchTypeControle').value;
+  var hints={xml:'PDF + RDI — les numéros de facture sont détectés automatiquement',rdi:'Fichiers RDI (.txt/.rdi) uniquement',xmlonly:'Fichiers PDF uniquement',cii:'Fichiers XML CII uniquement'};
+  var el=document.getElementById('batchDzHint');
+  if(el)el.textContent=hints[mode]||hints.xml;
+  var inp=document.getElementById('batchFileInput');
+  if(mode==='rdi')inp.accept='.txt,.rdi';
+  else if(mode==='xmlonly')inp.accept='.pdf,.xml';
+  else if(mode==='cii')inp.accept='.xml';
+  else inp.accept='.pdf,.xml,.txt,.rdi';
+}
+
+async function batchHandleFileInput(files){
+  if(!files||files.length===0)return;
+  var arr=Array.from(files);
+  // Afficher section fichiers immédiatement
+  document.getElementById('batchFilesSection').style.display='block';
+  // Ajouter chaque fichier en mode pending, puis résoudre
+  var promises=arr.map(function(f){return batchAddFile(f);});
+  await Promise.all(promises);
+  batchRenderFileList();
+  batchUpdateLaunchBtn();
+  // Reset l'input pour permettre de re-sélectionner les mêmes fichiers
+  document.getElementById('batchFileInput').value='';
+}
+
+async function batchAddFile(file){
+  var ext=file.name.toLowerCase().split('.').pop();
+  var isRdi=(ext==='txt'||ext==='rdi');
+  var isPdf=(ext==='pdf'||ext==='xml');
+  // Appel preview pour obtenir le N° de facture
+  var invoiceNumber=null;
+  try{
+    var fd=new FormData();fd.append('file',file);
+    fd.append('type_formulaire',document.getElementById('batchTypeFormulaire').value);
+    var resp=await fetch(BASE+'/api/batch-preview',{method:'POST',body:fd});
+    if(resp.ok){var d=await resp.json();invoiceNumber=d.invoice_number||null;}
+  }catch(e){}
+  // Clé : numéro de facture si dispo, sinon tmp
+  var key=invoiceNumber||('tmp_'+(batchTmpCounter++));
+  if(!batchFilesMap[key]){
+    batchFilesMap[key]={key:key,invoiceNumber:invoiceNumber,pdfFile:null,rdiFile:null,pdfName:null,rdiName:null};
+  } else if(invoiceNumber&&batchFilesMap[key].invoiceNumber!==invoiceNumber){
+    // Collision de clé tmp → forcer nouveau
+    key='tmp_'+(batchTmpCounter++);
+    batchFilesMap[key]={key:key,invoiceNumber:invoiceNumber,pdfFile:null,rdiFile:null,pdfName:null,rdiName:null};
+  }
+  if(isRdi){batchFilesMap[key].rdiFile=file;batchFilesMap[key].rdiName=file.name;}
+  else if(isPdf){batchFilesMap[key].pdfFile=file;batchFilesMap[key].pdfName=file.name;}
+}
+
+function batchRenderFileList(){
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var keys=Object.keys(batchFilesMap);
+  var section=document.getElementById('batchFilesSection');
+  if(keys.length===0){section.style.display='none';return;}
+  section.style.display='block';
+  // En-tête
+  var head=document.getElementById('batchFilesHead');
+  var headCols='<tr><th>N° Facture</th>';
+  if(needPdf)headCols+='<th>PDF</th>';
+  if(needRdi)headCols+='<th>RDI</th>';
+  headCols+='<th>Statut</th><th style="width:36px"></th></tr>';
+  head.innerHTML=headCols;
+  // Corps
+  var body=document.getElementById('batchFilesBody');
+  body.innerHTML='';
+  keys.forEach(function(key){
+    var e=batchFilesMap[key];
+    var hasPdf=!!e.pdfFile;
+    var hasRdi=!!e.rdiFile;
+    var ready=(!needPdf||hasPdf)&&(!needRdi||hasRdi);
+    var hasExtra=(needPdf&&hasPdf)||(needRdi&&hasRdi);
+    var tr=document.createElement('tr');
+    // Colonne N° facture
+    var numCell='<td><div class="batch-file-num">'+(e.invoiceNumber?escHtml(e.invoiceNumber):'<span style="color:#94a3b8;font-weight:400;font-style:italic">Inconnu</span>')+'</div></td>';
+    // Colonnes fichiers
+    var pdfCell='',rdiCell='';
+    if(needPdf)pdfCell='<td>'+(hasPdf?'<span class="batch-file-chip pdf">📄 '+escHtml(e.pdfName)+'</span>':'<span class="batch-file-chip missing">— manquant</span>')+'</td>';
+    if(needRdi)rdiCell='<td>'+(hasRdi?'<span class="batch-file-chip rdi">📋 '+escHtml(e.rdiName)+'</span>':'<span class="batch-file-chip missing">— manquant</span>')+'</td>';
+    // Statut
+    var statusLabel=ready?'✓ Prêt':(hasExtra?'⚠ Incomplet':'⚠ Vide');
+    var statusClass=ready?'ok':'warn';
+    var statusCell='<td><span class="batch-status-chip '+statusClass+'">'+statusLabel+'</span></td>';
+    // Supprimer
+    var removeCell='<td><button class="btn-batch-remove" data-key="'+escHtml(key)+'" title="Supprimer">✕</button></td>';
+    tr.innerHTML=numCell+pdfCell+rdiCell+statusCell+removeCell;
+    tr.querySelector('.btn-batch-remove').addEventListener('click',function(){
+      delete batchFilesMap[this.dataset.key];
+      batchRenderFileList();
+      batchUpdateLaunchBtn();
+    });
+    body.appendChild(tr);
+  });
+}
+
+function batchUpdateLaunchBtn(){
+  var btn=document.getElementById('btnLaunchBatch');
+  if(!btn)return;
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var ready=Object.values(batchFilesMap).filter(function(e){
+    return(!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile);
+  }).length;
+  if(ready>0){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.textContent='▶ Lancer le contrôle ('+ready+' facture'+(ready>1?'s':'')+')';}
+  else{btn.style.opacity='0.5';btn.style.pointerEvents='none';btn.textContent='▶ Lancer le contrôle (0 facture)';}
+}
+
+async function batchLaunch(){
+  var mode=document.getElementById('batchTypeControle').value;
+  var typeForm=document.getElementById('batchTypeFormulaire').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var fd=new FormData();
+  fd.append('type_formulaire',typeForm);fd.append('type_controle',mode);
+  var count=0;
+  Object.values(batchFilesMap).forEach(function(e){
+    if((!needPdf||!!e.pdfFile)&&(!needRdi||!!e.rdiFile)){
+      if(e.pdfFile)fd.append('pdf_'+count,e.pdfFile);
+      if(e.rdiFile)fd.append('rdi_'+count,e.rdiFile);
+      fd.append('name_'+count,e.rdiName||e.pdfName||('Facture '+(count+1)));
+      fd.append('invoice_number_'+count,e.invoiceNumber||'');
+      count++;
+    }
+  });
+  fd.append('pair_count',count);
+  document.getElementById('batchLoading').style.display='block';
+  document.getElementById('batchResults').style.display='none';
+  document.getElementById('batchLoadingMsg').textContent='Contrôle en cours… ('+count+' facture'+(count>1?'s':'')+')';
+  try{
+    var resp=await fetch(BASE+'/controle-batch',{method:'POST',body:fd});
+    var data=await resp.json();
+    if(data.error){alert('Erreur: '+data.error);return;}
+    batchRenderResults(data);
+  }catch(e){alert('Erreur réseau: '+e);}
+  finally{document.getElementById('batchLoading').style.display='none';}
+}
+
+// ── Ancienne fonction stub (plus utilisée) ──────────────────
+function batchAddPairRow(pdfPreset,rdiPreset){
+  var idx=batchPairCounter++;
+  batchPairIds.push(idx);
+
+  var container=document.getElementById('batchPairsContainer');
+  // Supprimer le placeholder vide si présent
+  var empty=container.querySelector('.batch-empty');
+  if(empty)empty.remove();
+
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+
+  var row=document.createElement('div');
+  row.className='batch-pair-row';
+  row.dataset.pairid=idx;
+
+  // Inputs cachés
+  var pdfInput=document.createElement('input');
+  pdfInput.type='file'; pdfInput.accept='.pdf,.xml'; pdfInput.style.display='none';
+  pdfInput.id='batchPdfInput_'+idx;
+  var rdiInput=document.createElement('input');
+  rdiInput.type='file'; rdiInput.accept='.txt,.rdi'; rdiInput.style.display='none';
+  rdiInput.id='batchRdiInput_'+idx;
+  row.appendChild(pdfInput);
+  row.appendChild(rdiInput);
+
+  // Colonne PDF
+  var pdfCol=document.createElement('div');
+  var pdfLbl=document.createElement('span');
+  pdfLbl.className='batch-file-label';
+  pdfLbl.id='batchPdfLbl_'+idx;
+  pdfLbl.textContent=needPdf?'Fichier PDF':'PDF (non requis)';
+  var pdfDrop=document.createElement('div');
+  pdfDrop.className='batch-file-drop'+(needPdf?'':' missing');
+  pdfDrop.id='batchPdfDrop_'+idx;
+  pdfDrop.innerHTML='<span>📄</span> Choisir un fichier…';
+  pdfDrop.onclick=function(){if(needPdf)pdfInput.click();};
+  pdfCol.appendChild(pdfLbl); pdfCol.appendChild(pdfDrop);
+
+  // Colonne RDI
+  var rdiCol=document.createElement('div');
+  var rdiLbl=document.createElement('span');
+  rdiLbl.className='batch-file-label';
+  rdiLbl.id='batchRdiLbl_'+idx;
+  rdiLbl.textContent=needRdi?'Fichier RDI':'RDI (non requis)';
+  var rdiDrop=document.createElement('div');
+  rdiDrop.className='batch-file-drop'+(needRdi?'':' missing');
+  rdiDrop.id='batchRdiDrop_'+idx;
+  rdiDrop.innerHTML='<span>📋</span> Choisir un fichier…';
+  rdiDrop.onclick=function(){if(needRdi)rdiInput.click();};
+  rdiCol.appendChild(rdiLbl); rdiCol.appendChild(rdiDrop);
+
+  // Statut
+  var statusCol=document.createElement('div');
+  statusCol.className='batch-pair-status';
+  statusCol.id='batchPairStatus_'+idx;
+  statusCol.textContent='—';
+
+  // Bouton supprimer
+  var removeBtn=document.createElement('button');
+  removeBtn.className='btn-batch-remove'; removeBtn.textContent='✕';
+  removeBtn.title='Supprimer';
+  removeBtn.onclick=function(){
+    row.remove();
+    batchPairIds=batchPairIds.filter(function(id){return id!==idx;});
+    if(batchPairIds.length===0){
+      var c=document.getElementById('batchPairsContainer');
+      c.innerHTML='<div class="batch-empty">Aucun fichier ajouté — cliquez sur <strong>+ Ajouter une facture</strong>.</div>';
+    }
+    batchUpdateLaunchBtn();
+  };
+
+  row.appendChild(pdfCol); row.appendChild(rdiCol);
+  row.appendChild(statusCol); row.appendChild(removeBtn);
+
+  // Handlers fichiers
+  pdfInput.onchange=function(){
+    if(pdfInput.files[0]){
+      pdfDrop.className='batch-file-drop filled';
+      pdfDrop.innerHTML='<span>📄</span> '+pdfInput.files[0].name;
+    }
+    batchUpdatePairStatus(idx); batchUpdateLaunchBtn();
+  };
+  rdiInput.onchange=function(){
+    if(rdiInput.files[0]){
+      rdiDrop.className='batch-file-drop filled';
+      rdiDrop.innerHTML='<span>📋</span> '+rdiInput.files[0].name;
+    }
+    batchUpdatePairStatus(idx); batchUpdateLaunchBtn();
+  };
+
+  container.appendChild(row);
+
+  if(pdfPreset){pdfInput.files; /* can't preset programmatically */}
+  batchUpdatePairStatus(idx);
+  batchUpdateLaunchBtn();
+}
+
+function batchUpdatePairStatus(idx){
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var pdfInput=document.getElementById('batchPdfInput_'+idx);
+  var rdiInput=document.getElementById('batchRdiInput_'+idx);
+  var statusEl=document.getElementById('batchPairStatus_'+idx);
+  if(!statusEl)return;
+  var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
+  var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
+  var ok=(!needPdf||hasPdf)&&(!needRdi||hasRdi);
+  statusEl.className='batch-pair-status '+(ok?'ok':'err');
+  statusEl.textContent=ok?'✓ prêt':'⚠ incomplet';
+}
+
+function batchUpdatePairLabels(){
+  // Mettre à jour les labels et curseurs quand on change le mode
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  batchPairIds.forEach(function(idx){
+    var pdfLbl=document.getElementById('batchPdfLbl_'+idx);
+    var rdiLbl=document.getElementById('batchRdiLbl_'+idx);
+    var pdfDrop=document.getElementById('batchPdfDrop_'+idx);
+    var rdiDrop=document.getElementById('batchRdiDrop_'+idx);
+    if(pdfLbl)pdfLbl.textContent=needPdf?'Fichier PDF':'PDF (non requis)';
+    if(rdiLbl)rdiLbl.textContent=needRdi?'Fichier RDI':'RDI (non requis)';
+    batchUpdatePairStatus(idx);
+  });
+  batchUpdateLaunchBtn();
+}
+
+function batchUpdateLaunchBtn(){
+  var btn=document.getElementById('btnLaunchBatch');
+  var mode=document.getElementById('batchTypeControle').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var ready=0;
+  batchPairIds.forEach(function(idx){
+    var pdfInput=document.getElementById('batchPdfInput_'+idx);
+    var rdiInput=document.getElementById('batchRdiInput_'+idx);
+    var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
+    var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
+    if((!needPdf||hasPdf)&&(!needRdi||hasRdi))ready++;
+  });
+  if(ready>0){
+    btn.style.opacity='1'; btn.style.pointerEvents='auto';
+    btn.textContent='▶ Lancer le contrôle ('+ready+' facture'+(ready>1?'s':'')+')';}
+  else{
+    btn.style.opacity='0.5'; btn.style.pointerEvents='none';
+    btn.textContent='▶ Lancer le contrôle (0 facture)';}
+}
+
+async function batchLaunch(){
+  var mode=document.getElementById('batchTypeControle').value;
+  var typeForm=document.getElementById('batchTypeFormulaire').value;
+  var needPdf=(mode!=='rdi');
+  var needRdi=(mode!=='xmlonly'&&mode!=='cii');
+  var fd=new FormData();
+  fd.append('type_formulaire',typeForm);
+  fd.append('type_controle',mode);
+  var count=0;
+  batchPairIds.forEach(function(idx){
+    var pdfInput=document.getElementById('batchPdfInput_'+idx);
+    var rdiInput=document.getElementById('batchRdiInput_'+idx);
+    var hasPdf=pdfInput&&pdfInput.files&&pdfInput.files.length>0;
+    var hasRdi=rdiInput&&rdiInput.files&&rdiInput.files.length>0;
+    if((!needPdf||hasPdf)&&(!needRdi||hasRdi)){
+      if(hasPdf)fd.append('pdf_'+count,pdfInput.files[0]);
+      if(hasRdi)fd.append('rdi_'+count,rdiInput.files[0]);
+      var pdfName=hasPdf?pdfInput.files[0].name:(hasRdi?rdiInput.files[0].name:'Facture '+(count+1));
+      fd.append('name_'+count,pdfName);
+      count++;
+    }
+  });
+  fd.append('pair_count',count);
+  document.getElementById('batchLoading').style.display='block';
+  document.getElementById('batchResults').style.display='none';
+  document.getElementById('batchLoadingMsg').textContent='Contrôle en cours… (0/'+count+')';
+  try{
+    var resp=await fetch(BASE+'/controle-batch',{method:'POST',body:fd});
+    var data=await resp.json();
+    if(data.error){alert('Erreur: '+data.error);document.getElementById('batchLoading').style.display='none';return;}
+    batchRenderResults(data);
+  }catch(e){
+    alert('Erreur réseau: '+e);
+  }finally{
+    document.getElementById('batchLoading').style.display='none';
+  }
+}
+
+function batchRenderResults(data){
+  var batch=data.batch||[];
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})
+    +' '+now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('batchResultsSub').textContent=
+    batch.length+' facture'+(batch.length>1?'s':'')+' analysée'+(batch.length>1?'s':'')+' · '+dateStr;
+
+  // Stats globales
+  var nbTotal=batch.length;
+  var nbOk=batch.filter(function(b){return !b.error&&b.stats&&b.stats.erreur===0;}).length;
+  var nbErr=batch.filter(function(b){return b.error||(b.stats&&b.stats.erreur>0);}).length;
+  var totalErreurs=batch.reduce(function(acc,b){return acc+(b.stats?b.stats.erreur:0);},0);
+  var statsEl=document.getElementById('batchStatsGlobal');
+  statsEl.innerHTML=
+    '<div class="stat-card" style="min-width:110px"><div>Factures</div><div class="stat-value" style="color:#667eea">'+nbTotal+'</div></div>'+
+    '<div class="stat-card erreur"><div>Avec erreurs</div><div class="stat-value">'+nbErr+'</div></div>'+
+    '<div class="stat-card ok"><div>Sans erreur</div><div class="stat-value">'+nbOk+'</div></div>'+
+    '<div class="stat-card" style="border-color:#fca5a5"><div>Erreurs totales</div><div class="stat-value" style="color:#ef4444">'+totalErreurs+'</div></div>';
+
+  // Tableau
+  var tbody=document.getElementById('batchTableBody');
+  tbody.innerHTML='';
+
+  batch.forEach(function(inv,i){
+    var invRow=document.createElement('div');
+    invRow.className='batch-inv-row';
+
+    if(inv.error){
+      // Ligne en erreur technique
+      var mainDiv=document.createElement('div');
+      mainDiv.className='batch-inv-main inv-error';
+      mainDiv.innerHTML=
+        '<div><div class="batch-inv-name">'+escHtml(inv.name)+'<span class="bsub">Erreur technique</span></div></div>'+
+        '<div class="batch-sc" colspan="3" style="grid-column:span 3;color:#f59e0b">—</div>'+
+        '<div></div>'+
+        '<div style="padding:0 6px;color:#f59e0b;font-size:0.82em">⚠ '+escHtml(inv.error)+'</div>'+
+        '<div></div>';
+      invRow.appendChild(mainDiv);
+      tbody.appendChild(invRow);
+      return;
+    }
+
+    var stats=inv.stats||{};
+    var nbOkInv=stats.ok||0;
+    var nbErrInv=stats.erreur||0;
+    var nbAmbInv=stats.ambigu||0;
+    var nbTotInv=stats.total||1;
+    var pct=Math.round(nbOkInv/nbTotInv*100);
+    var pctClass=pct>=90?'good':(pct>=70?'mid':'bad');
+
+    // Tags d'erreur (les BTs en ERREUR)
+    var errTags='';
+    if(nbErrInv===0&&nbAmbInv===0){
+      errTags='<span style="font-size:0.82em;color:#10b981;font-weight:600;padding:0 6px">✅ Aucune erreur</span>';
+    } else {
+      var errResults=(inv.results||[]).filter(function(r){return r.status==='ERREUR'||r.status==='AMBIGU';});
+      var shown=errResults.slice(0,6);
+      shown.forEach(function(r){
+        errTags+='<span class="batch-etag'+(r.status==='AMBIGU'?' amb':'')+'">'+escHtml(r.balise)+'</span>';
+      });
+      if(errResults.length>6){
+        errTags+='<span class="batch-etag-more" onclick="batchToggleDetail('+i+')" style="cursor:pointer">+'+(errResults.length-6)+' autres…</span>';
+      }
+    }
+
+    // N° de facture depuis BT-1 des résultats (RDI en priorité, sinon XML)
+    var bt1res=(inv.results||[]).find(function(r){return r.balise==='BT-1';});
+    var invoiceNum=inv.invoice_number||(bt1res?(bt1res.rdi||bt1res.xml||''):'');
+
+    var mainDiv=document.createElement('div');
+    mainDiv.className='batch-inv-main '+(nbErrInv>0?'has-err':'all-ok');
+    mainDiv.innerHTML=
+      '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename">'+escHtml(inv.name)+'</div></div>'+
+      '<div class="batch-sc ok">'+nbOkInv+'</div>'+
+      '<div class="batch-sc err">'+nbErrInv+'</div>'+
+      '<div class="batch-sc amb">'+nbAmbInv+'</div>'+
+      '<div class="batch-pct-wrap"><div class="batch-pct-track"><div class="batch-pct-fill '+pctClass+'" style="width:'+pct+'%"></div></div><span class="batch-pct-lbl '+pctClass+'">'+pct+'%</span></div>'+
+      '<div style="padding:0 6px;display:flex;flex-wrap:wrap;align-items:center;gap:2px">'+errTags+'</div>'+
+      '<div style="padding:0 6px"><button class="btn-batch-detail" id="batchDetailBtn_'+i+'" onclick="batchToggleDetail('+i+')"><span class="b-arrow">▶</span> Détail</button></div>';
+
+    // Zone détail
+    var detailZone=document.createElement('div');
+    detailZone.className='batch-detail-zone';
+    detailZone.id='batchDetailZone_'+i;
+    if(inv.categories_results){
+      var actionsBar='<div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'+
+        '<button class="btn-secondary" onclick="batchExpandAll(\''+i+'\')" style="font-size:0.8em;padding:5px 11px">Tout déplier</button>'+
+        '<button class="btn-secondary" onclick="batchCollapseAll(\''+i+'\')" style="font-size:0.8em;padding:5px 11px">Tout replier</button>'+
+        '<span style="font-size:0.78em;color:#94a3b8;margin-left:auto">'+(invoiceNum?escHtml(invoiceNum)+' — ':'')+escHtml(inv.name)+' · '+nbTotInv+' champs</span>'+
+        '</div>';
+      var catHtml=batchBuildCategoriesHTML(inv.categories_results,inv.type_controle,'b'+i+'_');
+      detailZone.innerHTML=actionsBar+catHtml;
+      // Attacher les événements après injection
+      setTimeout(function(di,dz){return function(){batchAttachDetailEvents(dz,di);};}(i,detailZone),0);
+    } else {
+      detailZone.innerHTML='<div style="color:#94a3b8;font-size:0.85em;font-style:italic">Aucune donnée disponible.</div>';
+    }
+
+    invRow.appendChild(mainDiv);
+    invRow.appendChild(detailZone);
+    tbody.appendChild(invRow);
+  });
+
+  document.getElementById('batchResults').style.display='block';
+
+  // Export CSV
+  document.getElementById('btnBatchCsvAll').onclick=function(){batchExportCsv(batch);};
+}
+
+function batchToggleDetail(i){
+  var zone=document.getElementById('batchDetailZone_'+i);
+  var btn=document.getElementById('batchDetailBtn_'+i);
+  if(!zone||!btn)return;
+  var open=zone.classList.contains('open');
+  if(open){zone.classList.remove('open');btn.classList.remove('open');}
+  else{zone.classList.add('open');btn.classList.add('open');}
+}
+
+function batchExpandAll(i){
+  var zone=document.getElementById('batchDetailZone_'+i);
+  if(!zone)return;
+  zone.querySelectorAll('.category-content').forEach(function(c){c.classList.add('open');});
+  zone.querySelectorAll('.article-content').forEach(function(c){c.style.display='block';});
+}
+function batchCollapseAll(i){
+  var zone=document.getElementById('batchDetailZone_'+i);
+  if(!zone)return;
+  zone.querySelectorAll('.category-content').forEach(function(c){c.classList.remove('open');});
+  zone.querySelectorAll('.article-content').forEach(function(c){c.style.display='none';});
+}
+
+function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx){
+  var categoryOrder={'BG-INFOS-GENERALES':1,'BG-TOTAUX':2,'BG-TVA':3,'BG-LIGNES':4,'BG-VENDEUR':5,'BG-ACHETEUR':6};
+  var sorted=Object.keys(categoriesResults).sort(function(a,b){
+    return (categoryOrder[a]||999)-(categoryOrder[b]||999);
+  });
+  var out='';
+  sorted.forEach(function(bgId){
+    var cat=categoriesResults[bgId];
+    if(!cat.champs||cat.champs.length===0)return;
+    var errCount=cat.stats.erreur||0;
+    var headerBg=errCount>0?'background:#7b1e1e':(cat.stats.ok===cat.stats.total&&cat.stats.total>0?'background:#2e7d32':'background:#366092');
+    var catId=idPfx+'cat-'+bgId;
+    out+='<div class="category">'+
+      '<div class="category-header" data-cat="'+catId+'" style="'+headerBg+'">'+
+      '<div>'+escHtml(cat.titre)+'</div>'+
+      '<div>'+cat.stats.total+' champs | OK: '+cat.stats.ok+' | Err: '+errCount+'</div></div>'+
+      '<div class="category-content" id="'+catId+'">';
+    var nonArt=cat.champs.filter(function(r){return r.article_index===undefined;});
+    var artChamps=cat.champs.filter(function(r){return r.article_index!==undefined;});
+    if(nonArt.length>0){
+      out+='<table class="main-table"><thead><tr>'+
+        '<th class="col-status"></th><th class="col-bt">BT</th>'+
+        '<th class="col-libelle">Libellé</th><th class="col-regles">Règles testées</th>'+
+        '<th class="col-valeurs">Valeurs</th><th class="col-erreurs">Détails erreurs</th>'+
+        '</tr></thead><tbody>';
+      nonArt.forEach(function(r){
+        var isXmlOnly=(typeControle==='cii'||typeControle==='xmlonly');
+        var valHtml='';
+        var tooltipContent='';
+        if(!isXmlOnly){var rv=r.rdi||'(vide)';tooltipContent='<strong>RDI:</strong> '+escHtml(r.rdi_field)+' = '+escHtml(rv);valHtml+='<div class="val-line"><span class="val-label">RDI:</span> '+escHtml(rv)+'</div>';}
+        if(typeControle==='xml'||isXmlOnly){var xv=r.xml||'(vide)';if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+escHtml(r.xml_tag_name)+' = '+escHtml(xv);valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+escHtml(xv)+'</div>';}
+        if(r.regles_testees&&r.regles_testees.length>0){tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles :</strong><ul style="margin:2px 0 0;padding-left:16px">';r.regles_testees.forEach(function(rg){tooltipContent+='<li>'+escHtml(rg)+'</li>';});tooltipContent+='</ul>';}
+        if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0;padding-left:16px;color:#fcc">';r.details_erreurs.forEach(function(e){tooltipContent+='<li>'+escHtml(e)+'</li>';});tooltipContent+='</ul>';}
+        var sIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
+        var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
+        var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
+        var errClass=(r.details_erreurs&&r.details_erreurs.length>0)?'col-erreurs':'col-erreurs-hidden';
+        out+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+          '<td class="col-status">'+sIcon+'</td>'+
+          '<td class="col-bt"><strong>'+btLbl+'</strong></td>'+
+          '<td>'+escHtml(r.libelle)+'</td>'+
+          '<td><ul>'; r.regles_testees.forEach(function(rg){out+='<li>'+escHtml(rg)+'</li>';}); out+='</ul></td>'+
+          '<td class="col-valeurs">'+valHtml+'</td>'+
+          '<td class="'+errClass+'"><ul>'; r.details_erreurs.forEach(function(e){out+='<li>'+escHtml(e)+'</li>';}); out+='</ul></td></tr>';
+      });
+      out+='</tbody></table>';
+    }
+    if(artChamps.length>0){
+      var artGroups={};var artOrder=[];
+      artChamps.forEach(function(r){var k=r.article_index;if(!artGroups[k]){artGroups[k]=[];artOrder.push(k);}artGroups[k].push(r);});
+      out+='<div style="margin-top:8px;padding:4px 10px;font-size:12px;color:#aaa;border-top:1px solid #333">'+artOrder.length+' article(s) — cliquez pour déplier</div>';
+      artOrder.forEach(function(aIdx){
+        var ac=artGroups[aIdx];
+        var aLid=ac[0].article_line_id||'?';
+        var aName=ac[0].article_name||'';
+        var aErr=ac.filter(function(r){return r.status==='ERREUR';}).length;
+        var aOk=ac.filter(function(r){return r.status==='OK';}).length;
+        var aHdrBg=aErr>0?'background:#5a1a1a':'background:#1a3a1a';
+        var artContentId=idPfx+'art-'+aIdx;
+        out+='<div class="article-block" style="margin:4px 0;border:1px solid #444;border-radius:6px;overflow:hidden">'+
+          '<div class="article-header" data-art="'+artContentId+'" style="'+aHdrBg+';padding:8px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px">'+
+          '<div><strong>📦 Ligne '+escHtml(aLid)+'</strong>'+(aName?' — '+escHtml(aName):'')+'</div>'+
+          '<div>'+ac.length+' champs | ✅ '+aOk+' | ❌ '+aErr+'</div></div>'+
+          '<div class="article-content" id="'+artContentId+'" style="display:none">'+
+          '<table class="main-table"><thead><tr><th class="col-status"></th><th class="col-bt">BT</th><th class="col-libelle">Libellé</th><th class="col-regles">Règles</th><th class="col-valeurs">Valeurs</th><th class="col-erreurs">Erreurs</th></tr></thead><tbody>';
+        ac.forEach(function(r){
+          var isXmlOnly=(typeControle==='cii'||typeControle==='xmlonly');
+          var valHtml='';var tooltipContent='';
+          if(!isXmlOnly){var rv=r.rdi||'(vide)';tooltipContent='<strong>RDI:</strong> '+escHtml(r.rdi_field)+' = '+escHtml(rv);valHtml+='<div class="val-line"><span class="val-label">RDI:</span> '+escHtml(rv)+'</div>';}
+          if(typeControle==='xml'||isXmlOnly){var xv=r.xml||'(vide)';if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+escHtml(r.xml_tag_name)+' = '+escHtml(xv);valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+escHtml(xv)+'</div>';}
+          var sIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
+          var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
+          var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
+          var errClass=(r.details_erreurs&&r.details_erreurs.length>0)?'col-erreurs':'col-erreurs-hidden';
+          out+='<tr class="data-row" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+            '<td class="col-status">'+sIcon+'</td><td class="col-bt"><strong>'+btLbl+'</strong></td>'+
+            '<td>'+escHtml(r.libelle)+'</td><td><ul>';
+          r.regles_testees.forEach(function(rg){out+='<li>'+escHtml(rg)+'</li>';});
+          out+='</ul></td><td class="col-valeurs">'+valHtml+'</td><td class="'+errClass+'"><ul>';
+          r.details_erreurs.forEach(function(e){out+='<li>'+escHtml(e)+'</li>';});
+          out+='</ul></td></tr>';
+        });
+        out+='</tbody></table></div></div>';
+      });
+    }
+    out+='</div></div>';
+  });
+  return out;
+}
+
+function batchAttachDetailEvents(containerEl,i){
+  containerEl.querySelectorAll('.category-header').forEach(function(hdr){
+    hdr.addEventListener('click',function(){
+      document.getElementById(this.getAttribute('data-cat')).classList.toggle('open');
+    });
+  });
+  containerEl.querySelectorAll('.article-header').forEach(function(hdr){
+    hdr.addEventListener('click',function(){
+      var el=document.getElementById(this.getAttribute('data-art'));
+      if(el)el.style.display=el.style.display==='none'?'block':'none';
+    });
+  });
+  containerEl.querySelectorAll('.data-row').forEach(function(row){
+    row.addEventListener('mouseenter',function(e){tooltip.innerHTML=this.getAttribute('data-tooltip');tooltip.style.display='block';positionTooltip(e);});
+    row.addEventListener('mousemove',function(e){positionTooltip(e);});
+    row.addEventListener('mouseleave',function(){tooltip.style.display='none';});
+  });
+}
+
+function batchExportCsv(batch){
+  var lines=['Facture,BT,Libellé,Statut,RDI,XML,Erreurs'];
+  batch.forEach(function(inv){
+    if(!inv.results)return;
+    inv.results.forEach(function(r){
+      var cols=[inv.name,r.balise,r.libelle,r.status,r.rdi||'',r.xml||'',(r.details_erreurs||[]).join(' | ')];
+      lines.push(cols.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(','));
+    });
+  });
+  var blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='facturix-batch-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function batchReset(){
+  batchFilesMap={};
+  batchTmpCounter=0;
+  document.getElementById('batchResults').style.display='none';
+  document.getElementById('batchFilesSection').style.display='none';
+  document.getElementById('batchFilesBody').innerHTML='';
+  batchUpdateLaunchBtn();
+}
+
+function escHtml(s){
+  if(s==null)return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 /* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
 function updateDeleteButtonVisibility() {
@@ -4305,6 +5087,327 @@ def save_rules():
     success = save_business_rules(rules_data)
     return jsonify({'success': success})
 
+def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_controle):
+    """Traite une facture à partir de chemins de fichiers déjà sauvegardés.
+    Retourne (result_dict, error_str). result_dict contient results, stats, categories_results, type_controle."""
+    try:
+        rdi_data = {}
+        rdi_articles = []
+        rdi_multi = {}
+        if rdi_path:
+            rdi_data, rdi_articles, rdi_multi = parse_rdi(rdi_path)
+
+        xml_doc = None
+        if type_controle == 'cii' and cii_path:
+            with open(cii_path, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+            try:
+                xml_doc = etree.fromstring(xml_content.encode('utf-8'))
+            except Exception:
+                return None, 'XML CII invalide'
+        elif pdf_path:
+            if pdf_path.lower().endswith('.pdf'):
+                xml_content = extract_xml_from_pdf(pdf_path)
+                if not xml_content:
+                    return None, 'XML introuvable dans le PDF'
+            else:
+                with open(pdf_path, 'r', encoding='utf-8') as f:
+                    xml_content = f.read()
+            try:
+                xml_doc = etree.fromstring(xml_content.encode('utf-8'))
+            except Exception:
+                return None, 'XML invalide'
+
+        mapping_data = load_mapping(type_formulaire)
+        if not mapping_data:
+            return None, 'Mapping introuvable'
+
+        mapping = mapping_data.get('champs', [])
+        namespaces = {
+            'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
+            'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
+            'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100'
+        }
+
+        xpath_cache = {}
+        if xml_doc is not None:
+            for field in mapping:
+                _xpath_raw = field.get('xpath', '') or ''
+                if _xpath_raw and _xpath_raw not in xpath_cache:
+                    _xpath = _xpath_raw if _xpath_raw.startswith('/') else '//' + _xpath_raw
+                    try:
+                        xpath_cache[_xpath_raw] = etree.XPath(_xpath, namespaces=namespaces)
+                    except Exception:
+                        xpath_cache[_xpath_raw] = None
+
+        # Articles XML
+        xml_articles = []
+        if xml_doc is not None:
+            try:
+                line_items_xpath = etree.XPath(
+                    '/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem',
+                    namespaces=namespaces)
+                for item in line_items_xpath(xml_doc):
+                    xml_art = {}
+                    for field in mapping:
+                        if not field.get('is_article'):
+                            continue
+                        _xpath_raw = field.get('xpath', '') or ''
+                        if not _xpath_raw:
+                            continue
+                        marker = 'ram:IncludedSupplyChainTradeLineItem/'
+                        idx = _xpath_raw.find(marker)
+                        if idx < 0:
+                            continue
+                        rel_xpath = './' + _xpath_raw[idx + len(marker):]
+                        try:
+                            elements = etree.XPath(rel_xpath, namespaces=namespaces)(item)
+                            if elements:
+                                attribute = field.get('attribute')
+                                if attribute and hasattr(elements[0], 'get'):
+                                    xml_art[field['balise']] = elements[0].get(attribute, '').strip()
+                                elif hasattr(elements[0], 'text') and elements[0].text:
+                                    xml_art[field['balise']] = elements[0].text.strip()
+                        except Exception:
+                            pass
+                    xml_articles.append(xml_art)
+            except Exception as e:
+                print(f'[batch] Erreur articles XML: {e}')
+
+        article_fields = [f for f in mapping if f.get('is_article')]
+        header_fields = [f for f in mapping if not f.get('is_article')]
+        results = []
+
+        for index, field in enumerate(header_fields):
+            rdi_field_name = field.get('rdi', '')
+            type_enreg = (field.get('type_enregistrement') or '').strip().upper()
+            is_ambiguous = False
+            rdi_value = ''
+            if rdi_field_name:
+                field_upper = rdi_field_name.upper()
+                occurrences = rdi_multi.get(field_upper, [])
+                if type_enreg:
+                    matches = [v for rt, v in occurrences if rt.upper() == type_enreg]
+                    rdi_value = matches[0].strip() if matches else ''
+                elif len(occurrences) > 1:
+                    is_ambiguous = True
+                else:
+                    rdi_value = rdi_data.get(rdi_field_name, '').strip()
+                    if not rdi_value:
+                        for key in rdi_data.keys():
+                            if key.upper() == field_upper:
+                                rdi_value = rdi_data[key].strip()
+                                break
+
+            xml_value = ''
+            if xml_doc is not None:
+                try:
+                    _xpath_raw = field.get('xpath', '') or ''
+                    if _xpath_raw:
+                        compiled = xpath_cache.get(_xpath_raw)
+                        if compiled is not None:
+                            elements = compiled(xml_doc)
+                            if elements:
+                                attribute = field.get('attribute')
+                                if attribute and hasattr(elements[0], 'get'):
+                                    xml_value = elements[0].get(attribute, '').strip()
+                                elif hasattr(elements[0], 'text') and elements[0].text:
+                                    xml_value = elements[0].text.strip()
+                except Exception:
+                    pass
+
+            if is_ambiguous:
+                status = 'AMBIGU'
+                regles_testees = []
+                details_erreurs = [f"Plusieurs valeurs pour '{rdi_field_name}' dans le RDI."]
+            else:
+                status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
+
+            categorie_bg_raw = field.get('categorie_bg', 'BG-OTHER')
+            categorie_titre_raw = field.get('categorie_titre', 'Autres')
+            categorie_bg, categorie_titre = normalize_category(categorie_bg_raw, categorie_titre_raw)
+
+            ceg_details = []
+            for c in field.get('controles_cegedim', []):
+                ceg_details.append({
+                    'ref': c.get('ref', ''), 'categorie': c.get('categorie', ''),
+                    'nature': c.get('nature', ''),
+                    'description': c.get('description', c.get('controle', '')),
+                    'message': c.get('message', '')
+                })
+
+            results.append({
+                'balise': field.get('balise', ''), 'libelle': field.get('libelle', ''),
+                'rdi': rdi_value, 'xml': xml_value, 'rdi_field': rdi_field_name,
+                'xml_short_name': get_xml_short_name(field.get('xpath', '')),
+                'xml_tag_name': get_xml_tag_name(field.get('xpath', '')),
+                'status': status, 'regles_testees': regles_testees,
+                'details_erreurs': details_erreurs, 'rule_details': {},
+                'controles_cegedim': ceg_details,
+                'categorie_bg': categorie_bg, 'categorie_titre': categorie_titre,
+                'obligatoire': field.get('obligatoire', 'Non'), 'order_index': index
+            })
+
+        # Articles
+        def _get_rdi_art_line_id(rdi_art):
+            for k, v in rdi_art.items():
+                if 'BT126' in k:
+                    return v.strip().lstrip('0') or '0'
+            return ''
+
+        def _get_rdi_art_name(rdi_art):
+            for k, v in rdi_art.items():
+                if 'BT153' in k:
+                    return v.strip()
+            return ''
+
+        xml_by_line_id = {}
+        for xi, xa in enumerate(xml_articles):
+            lid = xa.get('BT-126', '').strip().lstrip('0') or '0'
+            xml_by_line_id.setdefault(lid, []).append((xi, xa))
+
+        matched_pairs = []
+        xml_used = set()
+        for rdi_art in rdi_articles:
+            rdi_lid = _get_rdi_art_line_id(rdi_art)
+            xml_art = {}
+            if rdi_lid in xml_by_line_id:
+                for xi, xa in xml_by_line_id[rdi_lid]:
+                    if xi not in xml_used:
+                        xml_art = xa
+                        xml_used.add(xi)
+                        break
+            matched_pairs.append((rdi_art, xml_art, rdi_lid))
+        for xi, xa in enumerate(xml_articles):
+            if xi not in xml_used:
+                xml_lid = xa.get('BT-126', '').strip().lstrip('0') or '0'
+                matched_pairs.append(({}, xa, xml_lid))
+
+        nb_articles = len(matched_pairs)
+        articles_results = []
+        for art_idx, (rdi_art, xml_art, line_id) in enumerate(matched_pairs):
+            display_line_id = line_id or str(art_idx + 1)
+            article_name = _get_rdi_art_name(rdi_art) or xml_art.get('BT-153', '').strip() or ''
+            for field in article_fields:
+                rdi_field_name = field.get('rdi', '')
+                rdi_value = ''
+                if rdi_art:
+                    rdi_value = rdi_art.get(rdi_field_name, '').strip()
+                    if not rdi_value and rdi_field_name:
+                        for key in rdi_art.keys():
+                            if key.upper() == rdi_field_name.upper():
+                                rdi_value = rdi_art[key].strip()
+                                break
+                xml_value = xml_art.get(field.get('balise', ''), '').strip()
+                status, regles_testees, details_erreurs = perform_controls(field, rdi_value, xml_value, type_controle)
+                articles_results.append({
+                    'balise': field.get('balise', ''), 'libelle': field.get('libelle', ''),
+                    'rdi': rdi_value, 'xml': xml_value, 'rdi_field': rdi_field_name,
+                    'xml_short_name': get_xml_short_name(field.get('xpath', '')),
+                    'xml_tag_name': get_xml_tag_name(field.get('xpath', '')),
+                    'status': status, 'regles_testees': regles_testees,
+                    'details_erreurs': details_erreurs, 'rule_details': {},
+                    'controles_cegedim': [],
+                    'categorie_bg': 'BG-LIGNES', 'categorie_titre': '📋 LIGNES DE FACTURE',
+                    'obligatoire': field.get('obligatoire', 'Non'),
+                    'order_index': 1000 + art_idx * 100 + article_fields.index(field),
+                    'article_index': art_idx, 'article_line_id': display_line_id,
+                    'article_name': article_name,
+                })
+        results.extend(articles_results)
+        results = apply_business_rules(results, type_formulaire)
+
+        stats = {
+            'total': len(results),
+            'ok': sum(1 for r in results if r['status'] == 'OK'),
+            'erreur': sum(1 for r in results if r['status'] == 'ERREUR'),
+            'ignore': sum(1 for r in results if r['status'] == 'IGNORE'),
+            'ambigu': sum(1 for r in results if r['status'] == 'AMBIGU'),
+            'nb_articles': nb_articles,
+        }
+
+        categories_results = defaultdict(lambda: {'champs': [], 'stats': {'total': 0, 'ok': 0, 'erreur': 0}})
+        for result in results:
+            bg_id = result['categorie_bg']
+            categories_results[bg_id]['champs'].append(result)
+            categories_results[bg_id]['titre'] = result['categorie_titre']
+            categories_results[bg_id]['stats']['total'] += 1
+            if result['status'] == 'OK':
+                categories_results[bg_id]['stats']['ok'] += 1
+            elif result['status'] == 'ERREUR':
+                categories_results[bg_id]['stats']['erreur'] += 1
+        for bg_id in categories_results:
+            categories_results[bg_id]['champs'].sort(key=lambda x: x.get('order_index', 9999))
+
+        return {
+            'results': results,
+            'stats': stats,
+            'categories_results': dict(categories_results),
+            'type_controle': type_controle
+        }, None
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return None, str(e)
+
+
+@app.route('/controle-batch', methods=['POST'])
+def controle_batch():
+    try:
+        type_formulaire = request.form.get('type_formulaire', 'simple')
+        type_controle = request.form.get('type_controle', 'xml')
+        pair_count = int(request.form.get('pair_count', 0))
+
+        batch_results = []
+        saved_paths = []
+
+        for i in range(pair_count):
+            pdf_file = request.files.get(f'pdf_{i}')
+            rdi_file = request.files.get(f'rdi_{i}')
+            name = request.form.get(f'name_{i}', f'Facture {i + 1}')
+            invoice_number_hint = request.form.get(f'invoice_number_{i}', '')
+
+            pdf_path = None
+            rdi_path = None
+
+            if pdf_file:
+                pdf_path = os.path.join(UPLOAD_FOLDER, f'batch_{i}_{pdf_file.filename}')
+                pdf_file.save(pdf_path)
+                saved_paths.append(pdf_path)
+            if rdi_file:
+                rdi_path = os.path.join(UPLOAD_FOLDER, f'batch_{i}_{rdi_file.filename}')
+                rdi_file.save(rdi_path)
+                saved_paths.append(rdi_path)
+
+            result, error = _process_invoice(rdi_path, pdf_path, None, type_formulaire, type_controle)
+
+            if error:
+                batch_results.append({'name': name, 'error': error,
+                                       'stats': None, 'results': None,
+                                       'categories_results': None,
+                                       'type_controle': type_controle})
+            else:
+                result['name'] = name
+                result['invoice_number'] = invoice_number_hint or None
+                batch_results.append(result)
+
+        for p in saved_paths:
+            try:
+                if p and os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
+        return jsonify({'batch': batch_results})
+
+    except Exception as e:
+        print(f"ERREUR batch: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/controle', methods=['POST'])
 def controle():
     try:
@@ -4687,6 +5790,72 @@ def controle():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/batch-preview', methods=['POST'])
+def api_batch_preview():
+    """Lit le numéro de facture (BT-1) depuis un fichier RDI ou PDF/XML.
+    Accepte type_formulaire pour trouver la clé RDI exacte de BT-1.
+    Retourne {filename, invoice_number, type}."""
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'Pas de fichier'}), 400
+    type_formulaire = request.form.get('type_formulaire', 'simple')
+    fname = file.filename
+    ext = fname.lower().rsplit('.', 1)[-1] if '.' in fname else ''
+    tmp_path = os.path.join(UPLOAD_FOLDER, f'preview_{fname}')
+    file.save(tmp_path)
+    invoice_number = None
+    file_type = 'pdf'
+    try:
+        if ext in ('txt', 'rdi'):
+            file_type = 'rdi'
+            rdi_data, _, _ = parse_rdi(tmp_path)
+            # Trouver la clé RDI de BT-1 via le mapping actif
+            bt1_rdi_key = None
+            mapping_data = load_mapping(type_formulaire)
+            if mapping_data:
+                for field in mapping_data.get('champs', []):
+                    if field.get('balise') == 'BT-1':
+                        bt1_rdi_key = field.get('rdi', '')
+                        break
+            if bt1_rdi_key:
+                # Recherche insensible à la casse
+                for key, val in rdi_data.items():
+                    if key.upper() == bt1_rdi_key.upper():
+                        invoice_number = val.strip()
+                        break
+            # Fallback : clés courantes si mapping introuvable
+            if not invoice_number:
+                for fallback in ('WNUM_FACT', 'GS_CHORUS_MD-INVOICE-NUMBER', 'NUM_FACTURE'):
+                    if fallback in rdi_data and rdi_data[fallback].strip():
+                        invoice_number = rdi_data[fallback].strip()
+                        break
+        elif ext in ('pdf', 'xml'):
+            file_type = 'pdf'
+            if ext == 'pdf':
+                xml_content = extract_xml_from_pdf(tmp_path)
+            else:
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    xml_content = f.read()
+            if xml_content:
+                xml_doc = etree.fromstring(xml_content.encode('utf-8'))
+                ns = {
+                    'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
+                    'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
+                }
+                els = xml_doc.xpath('/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:ID', namespaces=ns)
+                if els and els[0].text:
+                    invoice_number = els[0].text.strip()
+    except Exception as e:
+        print(f'[batch-preview] Erreur: {e}')
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+    return jsonify({'filename': fname, 'invoice_number': invoice_number, 'type': file_type})
+
 
 @app.route('/api/extract-xml', methods=['POST'])
 def api_extract_xml():
