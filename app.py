@@ -2492,12 +2492,18 @@ async function statsLoadTypeOptions(){
   try{
     var r = await fetch(BASE+'/api/stats/types');
     var d = await r.json();
+    // Enrichit la table de libellés avec ceux résolus côté serveur
+    if(d.labels){
+      Object.keys(d.labels).forEach(function(k){ STATS_TYPE_LABELS[k] = d.labels[k]; });
+    }
     var sel = document.getElementById('statsFilterType');
     var current = sel.value || 'all';
     sel.innerHTML = '<option value="all">Tous les types</option>';
     (d.types||[]).forEach(function(t){
+      var id = (typeof t === 'string') ? t : t.id;
+      var label = (typeof t === 'string') ? statsLabel(t) : (t.label || statsLabel(t.id));
       var o = document.createElement('option');
-      o.value = t; o.textContent = statsLabel(t);
+      o.value = id; o.textContent = label;
       sel.appendChild(o);
     });
     sel.value = current;
@@ -6502,6 +6508,41 @@ def api_stats_history():
         return jsonify({'error': str(e)}), 500
 
 
+_STATS_BUILTIN_LABELS = {
+    'simple':         'CART Simple',
+    'CARTsimple':     'CART Simple',
+    'groupee':        'CART Groupée',
+    'flux':           'Flux Générique',
+    'ventesdiverses': 'Ventes Diverses',
+}
+
+
+def _resolve_type_label(type_formulaire, names_by_id=None):
+    """Convertit un type_formulaire stocké en libellé humain.
+    - 'simple'/'groupee'/'flux'/'ventesdiverses'/'CARTsimple' : libellé fixe
+    - 'custom_<id>' : nom du mapping correspondant en base, sinon fallback
+    """
+    if not type_formulaire:
+        return 'inconnu'
+    if type_formulaire in _STATS_BUILTIN_LABELS:
+        return _STATS_BUILTIN_LABELS[type_formulaire]
+    mapping_id = _get_mapping_id(type_formulaire)
+    if names_by_id is None:
+        try:
+            conn = get_db()
+            row = conn.execute(
+                "SELECT name FROM mappings WHERE id = ?", (mapping_id,)
+            ).fetchone()
+            conn.close()
+            if row and row['name']:
+                return row['name']
+        except Exception:
+            pass
+    elif mapping_id in names_by_id:
+        return names_by_id[mapping_id]
+    return type_formulaire
+
+
 @app.route('/api/stats/types', methods=['GET'])
 def api_stats_types():
     """Liste les types de formulaires présents dans l'historique (pour le filtre)."""
@@ -6511,8 +6552,19 @@ def api_stats_types():
             "SELECT DISTINCT type_formulaire FROM invoice_history "
             "WHERE type_formulaire <> '' ORDER BY type_formulaire"
         ).fetchall()
+        names = {
+            r['id']: r['name']
+            for r in conn.execute("SELECT id, name FROM mappings").fetchall()
+        }
         conn.close()
-        return jsonify({'types': [r['type_formulaire'] for r in rows]})
+        types = [
+            {'id': r['type_formulaire'],
+             'label': _resolve_type_label(r['type_formulaire'], names)}
+            for r in rows
+        ]
+        # Map id->label complet pour le front (alias inclus)
+        labels = {t['id']: t['label'] for t in types}
+        return jsonify({'types': types, 'labels': labels})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
