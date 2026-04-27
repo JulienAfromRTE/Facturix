@@ -167,6 +167,7 @@ def _get_mapping_id(type_formulaire):
         'simple':         'default_simple',
         'groupee':        'default_groupee',
         'flux':           'default_flux',
+        'ventesdiverses': 'default_ventesdiverses',
         'CARTsimple':     'default_simple',
     }
     if type_formulaire in defaults:
@@ -497,9 +498,10 @@ def _log_invoice_to_history(type_formulaire, type_controle, mode,
         erreur = int(stats.get('erreur', 0) or 0)
         ign = int(stats.get('ignore', 0) or 0)
         amb = int(stats.get('ambigu', 0) or 0)
-        # Taux de conformité = OK / (OK + ERREUR + AMBIGU). Les IGNORE ne comptent pas.
-        denom = ok + erreur + amb
-        pct = round(100.0 * ok / denom, 2) if denom > 0 else 0.0
+        # Taux de conformité = OK / total. Aligné sur l'affichage des onglets
+        # Contrôle (var pct=Math.round(data.stats.ok/data.stats.total*100))
+        # et Batch (var pct=Math.round(nbOkInv/nbTotInv*100)).
+        pct = round(100.0 * ok / total, 2) if total > 0 else 0.0
 
         conn = get_db()
         cur = conn.cursor()
@@ -3328,6 +3330,9 @@ function updateAllMappingDropdowns() {
 
             const controleSelect = document.getElementById('typeFormulaire');
             if (controleSelect) updateSingleDropdown(controleSelect, allMappings);
+
+            const batchSelect = document.getElementById('batchTypeFormulaire');
+            if (batchSelect) updateSingleDropdown(batchSelect, allMappings);
 
             const paramSelect = document.getElementById('typeFormulaireParam');
             if (paramSelect) {
