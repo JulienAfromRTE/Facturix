@@ -865,8 +865,8 @@ def normalize_category(categorie_bg, categorie_titre):
         'TOTAUX': ('BG-TOTAUX', '💰 TOTAUX DE LA FACTURE'),
         'TVA': ('BG-TVA', '🧾 DÉTAIL DE LA TVA'),
         'LIGNE': ('BG-LIGNES', '📋 LIGNES DE FACTURE'),
-        'VENDEUR': ('BG-VENDEUR', '🏢 INFORMATIONS VENDEUR'),
-        'ACHETEUR': ('BG-ACHETEUR', '🛒 INFORMATIONS ACHETEUR'),
+        'VENDEUR': ('BG-VENDEUR', '🏢 INFORMATIONS VENDEUR (RTE)'),
+        'ACHETEUR': ('BG-ACHETEUR', '🛒 INFORMATIONS ACHETEUR (CLIENT)'),
     }
     
     # Chercher une correspondance dans le titre
@@ -2080,8 +2080,8 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 <option value="BG-TOTAUX|TOTAUX DE LA FACTURE">Totaux de la facture</option>
 <option value="BG-TVA|DÉTAIL DE LA TVA">Détail de la TVA</option>
 <option value="BG-LIGNES|LIGNES DE FACTURE">Lignes de facture</option>
-<option value="BG-VENDEUR|INFORMATIONS VENDEUR">Informations vendeur</option>
-<option value="BG-ACHETEUR|INFORMATIONS ACHETEUR">Informations acheteur</option>
+<option value="BG-VENDEUR|INFORMATIONS VENDEUR">Informations vendeur (RTE)</option>
+<option value="BG-ACHETEUR|INFORMATIONS ACHETEUR">Informations client</option>
 </select>
 </div>
 </div>
