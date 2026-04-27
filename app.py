@@ -248,6 +248,38 @@ def init_db():
             new_type_enregistrement TEXT,
             snapshot                TEXT
         );
+        CREATE TABLE IF NOT EXISTS invoice_history (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp       TEXT NOT NULL,
+            type_formulaire TEXT NOT NULL,
+            type_controle   TEXT,
+            mode            TEXT NOT NULL,
+            invoice_number  TEXT,
+            filename        TEXT,
+            total           INTEGER DEFAULT 0,
+            ok              INTEGER DEFAULT 0,
+            erreur          INTEGER DEFAULT 0,
+            ignore_count    INTEGER DEFAULT 0,
+            ambigu          INTEGER DEFAULT 0,
+            conformity_pct  REAL DEFAULT 0,
+            error           TEXT
+        );
+        CREATE TABLE IF NOT EXISTS invoice_field_ko (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_history_id INTEGER NOT NULL REFERENCES invoice_history(id) ON DELETE CASCADE,
+            type_formulaire    TEXT NOT NULL,
+            timestamp          TEXT NOT NULL,
+            balise             TEXT NOT NULL,
+            libelle            TEXT,
+            obligatoire        TEXT,
+            status             TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_invoice_history_ts   ON invoice_history(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_invoice_history_type ON invoice_history(type_formulaire);
+        CREATE INDEX IF NOT EXISTS idx_invoice_history_mode ON invoice_history(mode);
+        CREATE INDEX IF NOT EXISTS idx_invoice_field_ko_balise ON invoice_field_ko(balise);
+        CREATE INDEX IF NOT EXISTS idx_invoice_field_ko_type   ON invoice_field_ko(type_formulaire);
+        CREATE INDEX IF NOT EXISTS idx_invoice_field_ko_ts     ON invoice_field_ko(timestamp);
     ''')
     # Migrations pour bases existantes
     try:
@@ -448,6 +480,61 @@ def _seed_default_data(conn):
                 c.execute(_CHAMP_INSERT_SQL, _champ_to_row(mid, pos, champ))
             print(f"[DB] Mapping initialisé : {name} ({filename})")
         conn.commit()
+
+# ── Statistiques : log d'une facture contrôlée ──────────────────────────────
+
+def _log_invoice_to_history(type_formulaire, type_controle, mode,
+                            invoice_number=None, filename=None,
+                            stats=None, results=None, error=None):
+    """Insère une ligne dans invoice_history (+ ses champs KO dans invoice_field_ko).
+    Best-effort : toute exception est silencieuse pour ne jamais bloquer le contrôle."""
+    try:
+        from datetime import datetime
+        ts = datetime.now().isoformat(timespec='seconds')
+        stats = stats or {}
+        total = int(stats.get('total', 0) or 0)
+        ok = int(stats.get('ok', 0) or 0)
+        erreur = int(stats.get('erreur', 0) or 0)
+        ign = int(stats.get('ignore', 0) or 0)
+        amb = int(stats.get('ambigu', 0) or 0)
+        # Taux de conformité = OK / (OK + ERREUR + AMBIGU). Les IGNORE ne comptent pas.
+        denom = ok + erreur + amb
+        pct = round(100.0 * ok / denom, 2) if denom > 0 else 0.0
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO invoice_history "
+            "(timestamp, type_formulaire, type_controle, mode, invoice_number, "
+            " filename, total, ok, erreur, ignore_count, ambigu, conformity_pct, error) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (ts, type_formulaire or '', type_controle or '', mode or 'unitaire',
+             invoice_number or None, filename or None,
+             total, ok, erreur, ign, amb, pct, error)
+        )
+        invoice_id = cur.lastrowid
+        if results:
+            rows = []
+            for r in results:
+                if r.get('status') in ('ERREUR', 'AMBIGU'):
+                    rows.append((
+                        invoice_id, type_formulaire or '', ts,
+                        r.get('balise', '') or '',
+                        (r.get('libelle', '') or '')[:200],
+                        r.get('obligatoire', '') or '',
+                        r.get('status', '')
+                    ))
+            if rows:
+                cur.executemany(
+                    "INSERT INTO invoice_field_ko "
+                    "(invoice_history_id, type_formulaire, timestamp, balise, "
+                    " libelle, obligatoire, status) VALUES (?,?,?,?,?,?,?)",
+                    rows
+                )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[STATS] Erreur log historique : {e}")
 
 # ── Business rules ──────────────────────────────────────────────────────────
 
@@ -1634,6 +1721,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <div class="tabs">
 <button class="tab active" id="tabControle">Contrôle</button>
 <button class="tab" id="tabBatch">📦 Batch</button>
+<button class="tab" id="tabStats">📊 Statistiques</button>
 <button class="tab" id="tabParam">Paramétrage</button>
 <button class="tab" id="tabRules">Règles Métiers</button>
 <button class="tab" id="tabAide">Aide</button>
@@ -1937,6 +2025,90 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 <button class="btn-secondary" id="btnBatchCsvAll" style="padding:8px 16px">⬇ Exporter tout en CSV</button>
 <button class="btn-secondary" onclick="batchReset()" style="padding:8px 16px">🔁 Nouveau lot</button>
 </div>
+</div>
+</div>
+
+<!-- ONGLET STATISTIQUES -->
+<div id="contentStats" class="tab-content">
+<div class="section">
+<h2>📊 Statistiques de contrôle</h2>
+<p style="color:#64748b;font-size:0.92em;margin-top:6px">Vue d'ensemble des factures contrôlées (unitaire et batch). Toutes les analyses lancées depuis l'onglet Contrôle ou Batch sont enregistrées automatiquement.</p>
+</div>
+
+<div class="section">
+<h3>Filtres</h3>
+<div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+<div class="form-group">
+<label>Type de factures</label>
+<select id="statsFilterType">
+<option value="all">Tous les types</option>
+</select>
+</div>
+<div class="form-group">
+<label>Mode</label>
+<select id="statsFilterMode">
+<option value="">Unitaire + Batch</option>
+<option value="unitaire">Unitaire</option>
+<option value="batch">Batch</option>
+</select>
+</div>
+<div class="form-group">
+<label>Du</label>
+<input type="date" id="statsFilterStart">
+</div>
+<div class="form-group">
+<label>Au</label>
+<input type="date" id="statsFilterEnd">
+</div>
+</div>
+<div class="btn-group" style="margin:0">
+<button class="btn-secondary" id="btnStatsApply">🔍 Appliquer</button>
+<button class="btn-secondary" id="btnStatsReset">↻ Réinitialiser</button>
+<span id="statsRangeHint" style="margin-left:auto;color:#94a3b8;font-size:0.82em;align-self:center"></span>
+</div>
+</div>
+
+<!-- Cartes synthétiques -->
+<div class="section">
+<h3>Vue d'ensemble</h3>
+<div class="stats" id="statsCards">
+<div class="stat-card"><div>Factures contrôlées</div><div class="stat-value" id="kpiTotal">—</div></div>
+<div class="stat-card ok"><div>Taux moyen</div><div class="stat-value" id="kpiAvgPct">—</div></div>
+<div class="stat-card erreur"><div>Échecs / erreurs techniques</div><div class="stat-value" id="kpiErrors">—</div></div>
+<div class="stat-card" style="background:#1a3a5a;color:#fff"><div>Unitaire</div><div class="stat-value" id="kpiUnitaire" style="color:#fff">—</div></div>
+<div class="stat-card" style="background:#365e3b;color:#fff"><div>Batch</div><div class="stat-value" id="kpiBatch" style="color:#fff">—</div></div>
+<div class="stat-card" style="background:#5a3a1a;color:#fff"><div>Types analysés</div><div class="stat-value" id="kpiTypes" style="color:#fff">—</div></div>
+</div>
+</div>
+
+<!-- Ventilation par type -->
+<div class="section">
+<h3>Ventilation par type de factures</h3>
+<div id="statsByType" style="overflow-x:auto"></div>
+</div>
+
+<!-- Trend -->
+<div class="section">
+<h3>Évolution du taux de conformité</h3>
+<p style="color:#64748b;font-size:0.85em;margin:-6px 0 10px 0">Une courbe par type de factures. Survolez les points pour voir le détail.</p>
+<div id="statsChartWrap" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px"></div>
+<div id="statsChartLegend" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:0.84em;color:#475569"></div>
+</div>
+
+<!-- Top KO -->
+<div class="section">
+<h3>Champs les plus souvent KO</h3>
+<p style="color:#64748b;font-size:0.85em;margin:-6px 0 10px 0">Classement par occurrences (ERREUR + AMBIGU). Filtré selon les filtres ci-dessus.</p>
+<div id="statsTopKo" style="overflow-x:auto"></div>
+</div>
+
+<!-- Historique -->
+<div class="section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<h3 style="margin:0">Dernières factures contrôlées</h3>
+<button class="btn-secondary" id="btnStatsExportCsv" style="padding:6px 12px">⬇ Export CSV</button>
+</div>
+<div id="statsHistory" style="overflow-x:auto"></div>
 </div>
 </div>
 
@@ -2264,6 +2436,299 @@ document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active
 document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
 this.classList.add('active');
 document.getElementById('contentBatch').classList.add('active');
+});
+document.getElementById('tabStats').addEventListener('click',function(){
+document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
+this.classList.add('active');
+document.getElementById('contentStats').classList.add('active');
+statsLoadAll();
+});
+
+/* ============================================================
+   STATISTIQUES
+   ============================================================ */
+var STATS_TYPE_LABELS = {
+  'simple':'CART Simple',
+  'groupee':'CART Groupée',
+  'ventesdiverses':'Ventes Diverses',
+  'flux':'Flux Générique',
+  'CARTsimple':'CART Simple'
+};
+var STATS_PALETTE = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316'];
+var statsState = { lastSummary:null, lastTrend:null, lastTopKo:null, lastHistory:null };
+
+function statsLabel(t){ return STATS_TYPE_LABELS[t] || (t || 'inconnu'); }
+function statsPctClass(p){
+  if(p>=75) return 'pct-75';
+  if(p>=50) return 'pct-50';
+  if(p>=25) return 'pct-25';
+  return 'pct-0';
+}
+function statsBuildQuery(){
+  var p = new URLSearchParams();
+  var t = document.getElementById('statsFilterType').value;
+  var m = document.getElementById('statsFilterMode').value;
+  var s = document.getElementById('statsFilterStart').value;
+  var e = document.getElementById('statsFilterEnd').value;
+  if(t && t!=='all') p.set('type',t);
+  if(m) p.set('mode',m);
+  if(s) p.set('start',s);
+  if(e) p.set('end',e);
+  return p.toString() ? ('?'+p.toString()) : '';
+}
+
+async function statsLoadAll(){
+  await statsLoadTypeOptions();
+  await Promise.all([
+    statsLoadSummary(),
+    statsLoadTrend(),
+    statsLoadTopKo(),
+    statsLoadHistory()
+  ]);
+}
+
+async function statsLoadTypeOptions(){
+  try{
+    var r = await fetch(BASE+'/api/stats/types');
+    var d = await r.json();
+    var sel = document.getElementById('statsFilterType');
+    var current = sel.value || 'all';
+    sel.innerHTML = '<option value="all">Tous les types</option>';
+    (d.types||[]).forEach(function(t){
+      var o = document.createElement('option');
+      o.value = t; o.textContent = statsLabel(t);
+      sel.appendChild(o);
+    });
+    sel.value = current;
+  }catch(e){}
+}
+
+async function statsLoadSummary(){
+  var qs = statsBuildQuery();
+  var r = await fetch(BASE+'/api/stats/summary'+qs);
+  var d = await r.json();
+  statsState.lastSummary = d;
+  document.getElementById('kpiTotal').textContent = d.total_invoices||0;
+  document.getElementById('kpiAvgPct').textContent = ((d.avg_conformity_pct||0).toFixed(1))+'%';
+  document.getElementById('kpiErrors').textContent = d.nb_errors||0;
+  var unit = (d.by_mode||[]).find(function(x){return x.mode==='unitaire';});
+  var batch= (d.by_mode||[]).find(function(x){return x.mode==='batch';});
+  document.getElementById('kpiUnitaire').textContent = unit?unit.count:0;
+  document.getElementById('kpiBatch').textContent = batch?batch.count:0;
+  document.getElementById('kpiTypes').textContent = (d.by_type||[]).length;
+
+  // Range hint (bornes globales)
+  var hint = document.getElementById('statsRangeHint');
+  if(d.date_min && d.date_max){
+    hint.textContent = 'Données du '+d.date_min+' au '+d.date_max;
+  } else {
+    hint.textContent = 'Aucune donnée enregistrée pour le moment';
+  }
+
+  // Tableau par type
+  var rows = (d.by_type||[]).map(function(x){
+    var byMode = (d.by_type_mode||[]).filter(function(y){return y.type===x.type;});
+    var u = (byMode.find(function(y){return y.mode==='unitaire';})||{}).count||0;
+    var b = (byMode.find(function(y){return y.mode==='batch';})||{}).count||0;
+    var pct = (x.avg_pct||0).toFixed(1);
+    return '<tr>'
+      +'<td style="font-weight:600">'+statsLabel(x.type)+'</td>'
+      +'<td>'+x.count+'</td>'
+      +'<td>'+u+'</td>'
+      +'<td>'+b+'</td>'
+      +'<td>'
+        +'<div style="display:flex;align-items:center;gap:8px;min-width:160px">'
+          +'<div class="progress-track" style="flex:1;height:10px"><div class="progress-fill '+statsPctClass(x.avg_pct||0)+'" style="width:'+(x.avg_pct||0)+'%"></div></div>'
+          +'<span style="font-weight:700;color:#1e293b;width:48px;text-align:right">'+pct+'%</span>'
+        +'</div>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
+  if(!rows){
+    document.getElementById('statsByType').innerHTML = '<p style="color:#94a3b8;font-style:italic">Aucune donnée pour les filtres sélectionnés.</p>';
+  } else {
+    document.getElementById('statsByType').innerHTML =
+      '<table class="main-table" style="margin-top:6px">'
+      +'<thead><tr><th>Type</th><th>Total</th><th>Unitaire</th><th>Batch</th><th>Taux moyen</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table>';
+  }
+}
+
+async function statsLoadTrend(){
+  var qs = statsBuildQuery();
+  var r = await fetch(BASE+'/api/stats/conformity-trend'+qs);
+  var d = await r.json();
+  statsState.lastTrend = d;
+  statsRenderTrend(d);
+}
+
+function statsRenderTrend(d){
+  var wrap = document.getElementById('statsChartWrap');
+  var legend = document.getElementById('statsChartLegend');
+  var dates = d.dates || [];
+  var series = d.series || [];
+  if(!dates.length){
+    wrap.innerHTML = '<p style="color:#94a3b8;font-style:italic;padding:30px;text-align:center">Aucune donnée à afficher pour ces filtres.</p>';
+    legend.innerHTML = '';
+    return;
+  }
+  // Dimensions
+  var W = wrap.clientWidth || 800;
+  var H = 280;
+  var padL = 44, padR = 16, padT = 18, padB = 36;
+  var innerW = W - padL - padR;
+  var innerH = H - padT - padB;
+  var n = dates.length;
+  var xFor = function(i){ return n<=1 ? padL+innerW/2 : padL + i*(innerW/(n-1)); };
+  var yFor = function(p){ return padT + innerH - (Math.max(0,Math.min(100,p))/100)*innerH; };
+
+  // Grille horizontale
+  var grid = '';
+  [0,25,50,75,100].forEach(function(g){
+    var y = yFor(g);
+    grid += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#e2e8f0" stroke-width="1"/>';
+    grid += '<text x="'+(padL-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#94a3b8">'+g+'%</text>';
+  });
+
+  // Axe X (étiquettes : début / milieu / fin pour limiter le bruit)
+  var labelIdx = [0];
+  if(n>=3){ labelIdx.push(Math.floor(n/2)); labelIdx.push(n-1); }
+  else if(n===2){ labelIdx.push(1); }
+  var xLabels = labelIdx.map(function(i){
+    return '<text x="'+xFor(i)+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10" fill="#64748b">'+dates[i]+'</text>';
+  }).join('');
+
+  // Tracer chaque série
+  var paths = '';
+  var dots = '';
+  var legendItems = '';
+  series.forEach(function(s, idx){
+    var color = STATS_PALETTE[idx % STATS_PALETTE.length];
+    var pts = [];
+    s.points.forEach(function(p, i){
+      if(p.pct === null || p.pct === undefined) return;
+      pts.push({x: xFor(i), y: yFor(p.pct), pct: p.pct, count: p.count, date: dates[i]});
+    });
+    if(pts.length){
+      var dPath = pts.map(function(pt,i){ return (i===0?'M':'L')+pt.x+' '+pt.y; }).join(' ');
+      paths += '<path d="'+dPath+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+      pts.forEach(function(pt){
+        var title = statsLabel(s.type)+' — '+pt.date+' : '+pt.pct.toFixed(1)+'% ('+pt.count+' factures)';
+        dots += '<circle cx="'+pt.x+'" cy="'+pt.y+'" r="3.5" fill="#fff" stroke="'+color+'" stroke-width="2"><title>'+title+'</title></circle>';
+      });
+    }
+    legendItems += '<span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:'+color+'"></span>'+statsLabel(s.type)+'</span>';
+  });
+
+  wrap.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:'+H+'px;display:block">'
+    + grid + xLabels + paths + dots + '</svg>';
+  legend.innerHTML = legendItems;
+}
+
+async function statsLoadTopKo(){
+  var qs = statsBuildQuery();
+  var r = await fetch(BASE+'/api/stats/top-ko'+qs+(qs?'&':'?')+'limit=15');
+  var d = await r.json();
+  statsState.lastTopKo = d;
+  var items = d.items || [];
+  if(!items.length){
+    document.getElementById('statsTopKo').innerHTML = '<p style="color:#94a3b8;font-style:italic">Aucun champ KO sur ce périmètre — soit aucune facture, soit toutes conformes 🎉</p>';
+    return;
+  }
+  var maxTotal = items.reduce(function(m,x){return Math.max(m,x.total||0);},1);
+  var rows = items.map(function(x){
+    var pct = Math.round(100*(x.total||0)/maxTotal);
+    var oblig = (x.obligatoire==='Oui') ? '<span style="color:#ef4444;font-weight:700;font-size:0.78em">obligatoire</span>' : '<span style="color:#94a3b8;font-size:0.78em">optionnel</span>';
+    return '<tr>'
+      +'<td style="font-weight:700;color:#1e293b">'+x.balise+'</td>'
+      +'<td style="color:#475569">'+(x.libelle||'')+'</td>'
+      +'<td>'+statsLabel(x.type_formulaire)+'</td>'
+      +'<td>'+oblig+'</td>'
+      +'<td style="text-align:right;font-weight:600">'+(x.nb_erreur||0)+'</td>'
+      +'<td style="text-align:right;color:#d97706;font-weight:600">'+(x.nb_ambigu||0)+'</td>'
+      +'<td>'
+        +'<div style="display:flex;align-items:center;gap:8px;min-width:140px">'
+          +'<div class="progress-track" style="flex:1;height:8px"><div class="progress-fill pct-0" style="width:'+pct+'%;background:linear-gradient(90deg,#ef4444,#f87171)"></div></div>'
+          +'<span style="font-weight:700;color:#ef4444;width:32px;text-align:right">'+x.total+'</span>'
+        +'</div>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
+  document.getElementById('statsTopKo').innerHTML =
+    '<table class="main-table">'
+    +'<thead><tr><th>BT</th><th>Libellé</th><th>Type</th><th></th><th style="text-align:right">Erreurs</th><th style="text-align:right">Ambigus</th><th>Occurrences</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>';
+}
+
+async function statsLoadHistory(){
+  var qs = statsBuildQuery();
+  var r = await fetch(BASE+'/api/stats/history'+qs+(qs?'&':'?')+'limit=50');
+  var d = await r.json();
+  statsState.lastHistory = d;
+  var items = d.items || [];
+  if(!items.length){
+    document.getElementById('statsHistory').innerHTML = '<p style="color:#94a3b8;font-style:italic">Aucun contrôle enregistré pour ces filtres.</p>';
+    return;
+  }
+  var rows = items.map(function(x){
+    var pct = (x.conformity_pct||0).toFixed(1);
+    var ts = (x.timestamp||'').replace('T',' ').slice(0,16);
+    var status = x.error
+      ? '<span style="color:#ef4444;font-weight:600">⚠ '+(x.error||'').slice(0,40)+'</span>'
+      : (x.erreur>0 ? '<span style="color:#ef4444">'+x.erreur+' KO</span>' : '<span style="color:#10b981">OK</span>');
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-family:monospace;font-size:0.85em">'+ts+'</td>'
+      +'<td>'+statsLabel(x.type_formulaire)+'</td>'
+      +'<td>'+(x.mode||'')+'</td>'
+      +'<td style="font-family:monospace">'+(x.invoice_number||'—')+'</td>'
+      +'<td style="color:#64748b;font-size:0.85em">'+(x.filename||'')+'</td>'
+      +'<td style="text-align:right">'+(x.total||0)+'</td>'
+      +'<td>'+status+'</td>'
+      +'<td><div style="display:flex;align-items:center;gap:6px;min-width:120px">'
+        +'<div class="progress-track" style="flex:1;height:8px"><div class="progress-fill '+statsPctClass(x.conformity_pct||0)+'" style="width:'+(x.conformity_pct||0)+'%"></div></div>'
+        +'<span style="font-weight:700;width:42px;text-align:right">'+pct+'%</span>'
+      +'</div></td>'
+    +'</tr>';
+  }).join('');
+  document.getElementById('statsHistory').innerHTML =
+    '<table class="main-table">'
+    +'<thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>N° facture</th><th>Fichier</th><th style="text-align:right">Total</th><th>Statut</th><th>Conformité</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>';
+}
+
+function statsExportCsv(){
+  var items = (statsState.lastHistory && statsState.lastHistory.items) || [];
+  if(!items.length){ alert('Aucune ligne à exporter.'); return; }
+  var hdr = ['date','type','mode','invoice_number','filename','total','ok','erreur','ignore','ambigu','conformity_pct','error'];
+  var esc = function(v){
+    if(v===null||v===undefined) return '';
+    var s = String(v).replace(/"/g,'""');
+    return /[",;\n]/.test(s) ? '"'+s+'"' : s;
+  };
+  var lines = [hdr.join(';')].concat(items.map(function(x){
+    return [x.timestamp,x.type_formulaire,x.mode,x.invoice_number,x.filename,x.total,x.ok,x.erreur,x.ignore_count,x.ambigu,x.conformity_pct,x.error].map(esc).join(';');
+  }));
+  var blob = new Blob(["﻿"+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'facturix-historique.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+document.getElementById('btnStatsApply').addEventListener('click', statsLoadAll);
+document.getElementById('btnStatsReset').addEventListener('click', function(){
+  document.getElementById('statsFilterType').value = 'all';
+  document.getElementById('statsFilterMode').value = '';
+  document.getElementById('statsFilterStart').value = '';
+  document.getElementById('statsFilterEnd').value = '';
+  statsLoadAll();
+});
+document.getElementById('btnStatsExportCsv').addEventListener('click', statsExportCsv);
+window.addEventListener('resize', function(){
+  if(document.getElementById('contentStats').classList.contains('active') && statsState.lastTrend){
+    statsRenderTrend(statsState.lastTrend);
+  }
 });
 
 /* ============================================================
@@ -5122,10 +5587,27 @@ def controle_batch():
                                        'stats': None, 'results': None,
                                        'categories_results': None,
                                        'type_controle': type_controle})
+                _log_invoice_to_history(
+                    type_formulaire, type_controle, 'batch',
+                    invoice_number=invoice_number_hint or None, filename=name,
+                    stats=None, results=None, error=error
+                )
             else:
                 result['name'] = name
                 result['invoice_number'] = invoice_number_hint or None
                 batch_results.append(result)
+                # Détecte le N° de facture dans les résultats si non fourni
+                inv_num = invoice_number_hint or None
+                if not inv_num:
+                    for r in result.get('results', []):
+                        if r.get('balise') == 'BT-1':
+                            inv_num = (r.get('rdi') or r.get('xml') or '').strip() or None
+                            break
+                _log_invoice_to_history(
+                    type_formulaire, type_controle, 'batch',
+                    invoice_number=inv_num, filename=name,
+                    stats=result.get('stats'), results=result.get('results')
+                )
 
         for p in saved_paths:
             try:
@@ -5514,6 +5996,25 @@ def controle():
         if cii_path and os.path.exists(cii_path):
             os.remove(cii_path)
 
+        # Log dans l'historique (statistiques)
+        inv_num = None
+        for r in results:
+            if r.get('balise') == 'BT-1':
+                inv_num = (r.get('rdi') or r.get('xml') or '').strip() or None
+                break
+        src_filename = None
+        if pdf_file is not None:
+            src_filename = pdf_file.filename
+        elif rdi_file is not None:
+            src_filename = rdi_file.filename
+        elif cii_file is not None:
+            src_filename = cii_file.filename
+        _log_invoice_to_history(
+            type_formulaire, type_controle, 'unitaire',
+            invoice_number=inv_num, filename=src_filename,
+            stats=stats, results=results
+        )
+
         return jsonify({
             'results': results,
             'stats': stats,
@@ -5760,6 +6261,263 @@ def api_remove_signature():
             os.remove(pdf_path)
 
 # ===== FIN NOUVELLES ROUTES API =====
+
+# ===== ROUTES API STATISTIQUES =====
+
+def _stats_build_filters(args):
+    """Construit la clause WHERE et la liste de paramètres à partir des query string."""
+    clauses = []
+    params = []
+    type_f = (args.get('type') or '').strip()
+    if type_f and type_f != 'all':
+        clauses.append("type_formulaire = ?")
+        params.append(type_f)
+    mode = (args.get('mode') or '').strip()
+    if mode and mode in ('unitaire', 'batch'):
+        clauses.append("mode = ?")
+        params.append(mode)
+    start = (args.get('start') or '').strip()
+    if start:
+        clauses.append("substr(timestamp,1,10) >= ?")
+        params.append(start)
+    end = (args.get('end') or '').strip()
+    if end:
+        clauses.append("substr(timestamp,1,10) <= ?")
+        params.append(end)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where, params
+
+
+@app.route('/api/stats/summary', methods=['GET'])
+def api_stats_summary():
+    """Compteurs globaux : nb factures, taux moyen, ventilations par type / mode."""
+    try:
+        where, params = _stats_build_filters(request.args)
+        conn = get_db()
+        # Total + moyenne
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n, "
+            f"       AVG(conformity_pct) AS pct, "
+            f"       SUM(CASE WHEN error IS NOT NULL AND error <> '' THEN 1 ELSE 0 END) AS nb_errors "
+            f"FROM invoice_history{where}",
+            params
+        ).fetchone()
+        total_invoices = row['n'] or 0
+        avg_pct = round(row['pct'] or 0, 2)
+        nb_errors = row['nb_errors'] or 0
+
+        # Ventilation par type
+        by_type_rows = conn.execute(
+            f"SELECT type_formulaire AS k, COUNT(*) AS n, "
+            f"       AVG(conformity_pct) AS pct "
+            f"FROM invoice_history{where} GROUP BY type_formulaire ORDER BY n DESC",
+            params
+        ).fetchall()
+        by_type = [
+            {'type': r['k'] or '', 'count': r['n'], 'avg_pct': round(r['pct'] or 0, 2)}
+            for r in by_type_rows
+        ]
+
+        # Ventilation par mode
+        by_mode_rows = conn.execute(
+            f"SELECT mode AS k, COUNT(*) AS n, AVG(conformity_pct) AS pct "
+            f"FROM invoice_history{where} GROUP BY mode",
+            params
+        ).fetchall()
+        by_mode = [
+            {'mode': r['k'] or '', 'count': r['n'], 'avg_pct': round(r['pct'] or 0, 2)}
+            for r in by_mode_rows
+        ]
+
+        # Ventilation type x mode
+        by_type_mode_rows = conn.execute(
+            f"SELECT type_formulaire AS t, mode AS m, COUNT(*) AS n "
+            f"FROM invoice_history{where} GROUP BY type_formulaire, mode",
+            params
+        ).fetchall()
+        by_type_mode = [
+            {'type': r['t'] or '', 'mode': r['m'] or '', 'count': r['n']}
+            for r in by_type_mode_rows
+        ]
+
+        # Bornes des dates pour le filtre par défaut
+        bounds = conn.execute(
+            "SELECT MIN(substr(timestamp,1,10)) AS dmin, "
+            "       MAX(substr(timestamp,1,10)) AS dmax FROM invoice_history"
+        ).fetchone()
+
+        conn.close()
+        return jsonify({
+            'total_invoices': total_invoices,
+            'avg_conformity_pct': avg_pct,
+            'nb_errors': nb_errors,
+            'by_type': by_type,
+            'by_mode': by_mode,
+            'by_type_mode': by_type_mode,
+            'date_min': bounds['dmin'],
+            'date_max': bounds['dmax'],
+        })
+    except Exception as e:
+        print(f"[STATS] summary erreur : {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stats/conformity-trend', methods=['GET'])
+def api_stats_conformity_trend():
+    """Série temporelle du taux de conformité moyen, par jour, ventilée par type."""
+    try:
+        where, params = _stats_build_filters(request.args)
+        conn = get_db()
+        rows = conn.execute(
+            f"SELECT substr(timestamp,1,10) AS d, type_formulaire AS t, "
+            f"       AVG(conformity_pct) AS pct, COUNT(*) AS n "
+            f"FROM invoice_history{where} "
+            f"GROUP BY d, t ORDER BY d ASC",
+            params
+        ).fetchall()
+        conn.close()
+        # Regrouper par type
+        series = {}
+        all_dates = set()
+        for r in rows:
+            t = r['t'] or 'inconnu'
+            d = r['d'] or ''
+            series.setdefault(t, {})[d] = {
+                'pct': round(r['pct'] or 0, 2),
+                'count': r['n']
+            }
+            all_dates.add(d)
+        ordered_dates = sorted(all_dates)
+        result = {
+            'dates': ordered_dates,
+            'series': [
+                {
+                    'type': t,
+                    'points': [
+                        {
+                            'date': d,
+                            'pct': series[t].get(d, {}).get('pct'),
+                            'count': series[t].get(d, {}).get('count', 0)
+                        } for d in ordered_dates
+                    ]
+                } for t in sorted(series.keys())
+            ]
+        }
+        return jsonify(result)
+    except Exception as e:
+        print(f"[STATS] trend erreur : {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stats/top-ko', methods=['GET'])
+def api_stats_top_ko():
+    """Top des champs qui tombent le plus souvent en KO, ventilé par type."""
+    try:
+        # Filtres : type_formulaire / start / end / mode (le mode requiert un join)
+        clauses = []
+        params = []
+        type_f = (request.args.get('type') or '').strip()
+        if type_f and type_f != 'all':
+            clauses.append("k.type_formulaire = ?")
+            params.append(type_f)
+        start = (request.args.get('start') or '').strip()
+        if start:
+            clauses.append("substr(k.timestamp,1,10) >= ?")
+            params.append(start)
+        end = (request.args.get('end') or '').strip()
+        if end:
+            clauses.append("substr(k.timestamp,1,10) <= ?")
+            params.append(end)
+        mode = (request.args.get('mode') or '').strip()
+        join = ""
+        if mode in ('unitaire', 'batch'):
+            join = " JOIN invoice_history h ON h.id = k.invoice_history_id "
+            clauses.append("h.mode = ?")
+            params.append(mode)
+        try:
+            limit = int(request.args.get('limit', 10))
+        except ValueError:
+            limit = 10
+        limit = max(1, min(limit, 100))
+
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        conn = get_db()
+        rows = conn.execute(
+            f"SELECT k.balise AS balise, "
+            f"       MAX(k.libelle) AS libelle, "
+            f"       MAX(k.obligatoire) AS obligatoire, "
+            f"       k.type_formulaire AS type_formulaire, "
+            f"       SUM(CASE WHEN k.status='ERREUR' THEN 1 ELSE 0 END) AS nb_erreur, "
+            f"       SUM(CASE WHEN k.status='AMBIGU' THEN 1 ELSE 0 END) AS nb_ambigu, "
+            f"       COUNT(*) AS total "
+            f"FROM invoice_field_ko k{join}{where} "
+            f"GROUP BY k.balise, k.type_formulaire "
+            f"ORDER BY total DESC, k.balise ASC "
+            f"LIMIT ?",
+            params + [limit]
+        ).fetchall()
+        conn.close()
+        return jsonify({
+            'items': [
+                {
+                    'balise': r['balise'],
+                    'libelle': r['libelle'] or '',
+                    'obligatoire': r['obligatoire'] or '',
+                    'type_formulaire': r['type_formulaire'] or '',
+                    'nb_erreur': r['nb_erreur'] or 0,
+                    'nb_ambigu': r['nb_ambigu'] or 0,
+                    'total': r['total'] or 0,
+                } for r in rows
+            ]
+        })
+    except Exception as e:
+        print(f"[STATS] top-ko erreur : {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stats/history', methods=['GET'])
+def api_stats_history():
+    """Liste paginée des dernières factures contrôlées."""
+    try:
+        where, params = _stats_build_filters(request.args)
+        try:
+            limit = int(request.args.get('limit', 50))
+        except ValueError:
+            limit = 50
+        limit = max(1, min(limit, 500))
+        conn = get_db()
+        rows = conn.execute(
+            f"SELECT id, timestamp, type_formulaire, type_controle, mode, "
+            f"       invoice_number, filename, total, ok, erreur, "
+            f"       ignore_count, ambigu, conformity_pct, error "
+            f"FROM invoice_history{where} ORDER BY id DESC LIMIT ?",
+            params + [limit]
+        ).fetchall()
+        conn.close()
+        return jsonify({
+            'items': [dict(r) for r in rows]
+        })
+    except Exception as e:
+        print(f"[STATS] history erreur : {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stats/types', methods=['GET'])
+def api_stats_types():
+    """Liste les types de formulaires présents dans l'historique (pour le filtre)."""
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT DISTINCT type_formulaire FROM invoice_history "
+            "WHERE type_formulaire <> '' ORDER BY type_formulaire"
+        ).fetchall()
+        conn.close()
+        return jsonify({'types': [r['type_formulaire'] for r in rows]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ===== FIN ROUTES API STATISTIQUES =====
 
 init_db()
 
