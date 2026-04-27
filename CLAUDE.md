@@ -15,7 +15,7 @@ Stack : Python 3 / Flask, front-end en HTML inline dans `app.py`, deploiement vi
   - `extract_xml_from_pdf()` : extrait le XML Factur-X embarque dans le PDF
   - `perform_controls()` : compare RDI vs XML pour un champ donne
   - `normalize_value()` : normalise les valeurs (dates, nombres) pour comparaison
-  - `apply_business_rules()` : applique les regles metier configurables + regles en dur (BT-21-SUR/ISU, B2G Chorus, etc.)
+  - `apply_business_rules()` : applique les regles metier configurables (toutes editables via l'UI)
   - `controle()` : route principale POST `/controle` qui orchestre l'analyse
 - **`mapping_v5_*.json`** : fichiers de mapping definissant les champs BT a controler, par type de formulaire :
   - `mapping_v5_simple.json` : CART Simple (principal)
@@ -48,14 +48,19 @@ Les champs BT-21 (code de note) et BT-22 (mention de note) apparaissent en **pai
 Le parser RDI cree des cles suffixees : `GS_FECT_EINV-BG1-BT21-BAR`, `GS_FECT_EINV-BG1-BT22-BAR`, etc.
 Les XPaths utilisent des predicats : `ram:IncludedNote[ram:SubjectCode='BAR']/ram:Content`.
 
-### Regles metier en dur
+### Regles metier par defaut (editables via l'UI)
 
-- **BT-21-SUR / BT-22-SUR obligatoires** : toutes les factures doivent avoir la paire SUR/ISU
-- **BT-22-BAR = B2G (Chorus)** : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
-- **BT-8 = 5** : toujours
-- **BT-3 = 381 (avoir)** : rend obligatoires BT-25, BT-26
-- **BT-48 ne commence pas par FR** : rend obligatoire BT-58
-- **BT-131 negatif** : BT-129 doit etre negatif
+Toutes seedees via `_DEFAULT_RULES` au premier lancement, et migrees automatiquement par id sur les installations existantes :
+
+- **rule_1** BT-22 = B2G (Chorus) : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
+- **rule_2** BT-3 = 381 (avoir) : rend obligatoires BT-25, BT-26
+- **rule_3** BT-8 doit valoir "5"
+- **rule_4** BT-48 ne commence pas par FR : rend obligatoire BT-58
+- **rule_5** BT-131 negatif : BT-129 doit etre negatif
+- **rule_6** BT-22-BAR = B2BINT : BT-47/BT-48 deviennent optionnels
+- **rule_7** BT-21-SUR : presence obligatoire
+- **rule_8** BT-22-SUR doit valoir "ISU" (comparaison insensible a la casse)
+- **rule_9** BT-22-BAR = B2G : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
 
 ## Structure d'un champ dans le mapping JSON
 

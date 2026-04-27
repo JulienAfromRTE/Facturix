@@ -122,6 +122,32 @@ _DEFAULT_RULES = {
                 {"type": "make_optional", "field": "BT-47"},
                 {"type": "make_optional", "field": "BT-48"}
             ]
+        },
+        {
+            "id": "rule_7",
+            "name": "BT-21-SUR présence obligatoire",
+            "enabled": True,
+            "conditions": [],
+            "actions": [{"type": "make_mandatory", "field": "BT-21-SUR"}]
+        },
+        {
+            "id": "rule_8",
+            "name": "BT-22-SUR doit valoir ISU",
+            "enabled": True,
+            "conditions": [],
+            "actions": [{"type": "must_equal", "field": "BT-22-SUR", "value": "ISU"}]
+        },
+        {
+            "id": "rule_9",
+            "name": "Facture B2G Chorus (BT-22-BAR)",
+            "enabled": True,
+            "conditions": [{"field": "BT-22-BAR", "operator": "equals", "value": "B2G"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-10"},
+                {"type": "make_mandatory", "field": "BT-13"},
+                {"type": "make_mandatory", "field": "BT-29"},
+                {"type": "make_mandatory", "field": "BT-29-1"}
+            ]
         }
     ]
 }
@@ -426,7 +452,9 @@ def _seed_default_data(conn):
 # ── Business rules ──────────────────────────────────────────────────────────
 
 def load_business_rules():
-    """Charge les règles métiers depuis la base de données."""
+    """Charge les règles métiers depuis la base de données.
+    Injecte automatiquement les règles par défaut manquantes (par id)
+    pour migrer les anciennes installations vers les nouvelles règles."""
     try:
         conn = get_db()
         row = conn.execute(
@@ -434,7 +462,13 @@ def load_business_rules():
         ).fetchone()
         conn.close()
         if row:
-            return json.loads(row['content'])
+            data = json.loads(row['content'])
+            existing_ids = {r.get('id') for r in data.get('rules', [])}
+            missing = [r for r in _DEFAULT_RULES['rules'] if r.get('id') not in existing_ids]
+            if missing:
+                data.setdefault('rules', []).extend(missing)
+                save_business_rules(data)
+            return data
     except Exception:
         pass
     return _DEFAULT_RULES
@@ -946,16 +980,25 @@ def apply_business_rules(results, type_formulaire='simple'):
         return False
     
     def _parse_amount(s):
-        """Parse un montant en float, gère le format français (1.234,56) et anglais (1234.56)."""
+        """Parse un montant en float, gère le format français (1.234,56), anglais (1234.56),
+        et le format SAP avec signe négatif en fin (37.348,140000-)."""
         s = s.strip().replace('\xa0', '').replace(' ', '')
         if not s:
             return 0.0
+        negative = False
+        if s.endswith('-'):
+            negative = True
+            s = s[:-1].rstrip()
+        elif s.startswith('-'):
+            negative = True
+            s = s[1:].lstrip()
         if ',' in s and '.' in s:
             # Format français : point = séparateur de milliers, virgule = décimale
             s = s.replace('.', '').replace(',', '.')
         elif ',' in s:
             s = s.replace(',', '.')
-        return float(s)
+        value = float(s)
+        return -value if negative else value
 
     def apply_action(action, by_balise):
         """Applique une action"""
@@ -993,8 +1036,8 @@ def apply_business_rules(results, type_formulaire='simple'):
             regle_label = f'Valeur imposée = "{expected}"'
             if regle_label not in target['regles_testees']:
                 target['regles_testees'].append(regle_label)
-            
-            if actual != expected:
+
+            if actual.upper() != expected.upper():
                 target['status'] = 'ERREUR'
                 if 'RAS' in target['details_erreurs']:
                     target['details_erreurs'].remove('RAS')
@@ -1147,158 +1190,6 @@ def apply_business_rules(results, type_formulaire='simple'):
             for action in rule.get('actions', []):
                 action['reason'] = rule_name
                 apply_action(action, by_balise)
-
-    # -------------------------------------------------------
-    # Règle BT-21-SUR / BT-22-SUR obligatoire avec valeur ISU
-    # Toutes les factures doivent avoir un BT-21-SUR avec BT-22 = ISU
-    # -------------------------------------------------------
-    bt21_sur = by_balise.get('BT-21-SUR')
-    if bt21_sur:
-        regle_label = 'Présence obligatoire de BT-21-SUR'
-        if regle_label not in bt21_sur['regles_testees']:
-            bt21_sur['regles_testees'].insert(0, regle_label)
-        if not bt21_sur.get('rdi', '').strip() and not bt21_sur.get('xml', '').strip():
-            bt21_sur['status'] = 'ERREUR'
-            if 'RAS' in bt21_sur['details_erreurs']:
-                bt21_sur['details_erreurs'].remove('RAS')
-            bt21_sur['details_erreurs'].insert(0, 'BT-21-SUR obligatoire : valeur SUR attendue')
-
-    bt22_sur = by_balise.get('BT-22-SUR')
-    if bt22_sur:
-        regle_label = 'BT-22-SUR doit valoir ISU'
-        if regle_label not in bt22_sur['regles_testees']:
-            bt22_sur['regles_testees'].insert(0, regle_label)
-        val = bt22_sur.get('rdi', '').strip() or bt22_sur.get('xml', '').strip()
-        if val.upper() != 'ISU':
-            bt22_sur['status'] = 'ERREUR'
-            if 'RAS' in bt22_sur['details_erreurs']:
-                bt22_sur['details_erreurs'].remove('RAS')
-            msg = f'BT-22-SUR doit valoir "ISU", trouvé : "{val}"'
-            if msg not in bt22_sur['details_erreurs']:
-                bt22_sur['details_erreurs'].insert(0, msg)
-
-    # -------------------------------------------------------
-    # Règle BT-22-BAR B2G (Chorus) -> champs obligatoires
-    # Si BT-22-BAR = "B2G", BT-10, BT-13, BT-29, BT-29-1 obligatoires
-    # -------------------------------------------------------
-    bt22_bar = by_balise.get('BT-22-BAR')
-    if bt22_bar and bt22_bar.get('rdi', '').strip().upper() == 'B2G':
-        def force_obligatoire_bg1(balise, raison):
-            r = by_balise.get(balise)
-            if r is None:
-                return
-            if r.get('status') in ('AMBIGU', 'IGNORE'):
-                return
-            r['obligatoire'] = 'Oui'
-            regle_label = f'Regle specifique : {raison}'
-            if regle_label not in r['regles_testees']:
-                r['regles_testees'].insert(0, regle_label)
-            if not r.get('rdi', '').strip() and not r.get('xml', '').strip():
-                r['status'] = 'ERREUR'
-                if 'RAS' in r['details_erreurs']:
-                    r['details_erreurs'].remove('RAS')
-                r['details_erreurs'].insert(0, f'Champ obligatoire selon regle : {raison}')
-        for balise in ['BT-10', 'BT-13', 'BT-29', 'BT-29-1']:
-            force_obligatoire_bg1(balise, 'Facture B2G (Chorus)')
-
-    return results
-    """
-    Contrôles conditionnels en dur :
-    1. BT-22 = "B2G" (Chorus) -> BT-10, BT-13, BT-29, BT-29-1 obligatoires
-    2. Avoir (BT-3 = "381")   -> BT-25, BT-26 obligatoires
-    3. BT-8 doit toujours valoir "5"
-    4. Client etranger (BT-48 ne commence pas par "FR") -> BT-58 obligatoire
-    5. BT-131 negatif -> BT-129 doit etre negatif
-    """
-    # Index balise -> result pour acces rapide
-    by_balise = {r['balise']: r for r in results}
-
-    def force_obligatoire(balise, raison):
-        """Rend un champ obligatoire et leve une erreur s'il est vide."""
-        r = by_balise.get(balise)
-        if r is None:
-            return  # champ absent du mapping, on ignore
-        # Marquer comme obligatoire visuellement
-        r['obligatoire'] = 'Oui'
-        # Ajouter la regle dans la liste si pas deja presente
-        regle_label = f'Regle specifique : {raison}'
-        if regle_label not in r['regles_testees']:
-            r['regles_testees'].insert(0, regle_label)
-        # Lever une erreur si la valeur est absente (RDI et XML vides)
-        if not r.get('rdi', '').strip() and not r.get('xml', '').strip():
-            r['status'] = 'ERREUR'
-            if 'RAS' in r['details_erreurs']:
-                r['details_erreurs'].remove('RAS')
-            r['details_erreurs'].insert(0, f'Champ obligatoire selon regle : {raison}')
-
-    # -------------------------------------------------------
-    # Regle 1 : BT-22 = "B2G" (Chorus)
-    # -------------------------------------------------------
-    bt22 = by_balise.get('BT-22')
-    if bt22 and bt22.get('rdi', '').strip().upper() == 'B2G':
-        for balise in ['BT-10', 'BT-13', 'BT-29', 'BT-29-1']:
-            force_obligatoire(balise, 'Facture B2G (Chorus)')
-
-    # -------------------------------------------------------
-    # Regle 2 : Avoir → BT-25 et BT-26 obligatoires
-    # BT-3 = code type de facture ; 381 = note de credit / avoir
-    # -------------------------------------------------------
-    bt3 = by_balise.get('BT-3')
-    if bt3 and bt3.get('rdi', '').strip() in ('381', 'avoir', 'Avoir', 'AVOIR'):
-        for balise in ['BT-25', 'BT-26']:
-            force_obligatoire(balise, 'Facture avoir (BT-3 = 381)')
-
-    # -------------------------------------------------------
-    # Regle 3 : BT-8 doit toujours valoir "5"
-    # -------------------------------------------------------
-    bt8 = by_balise.get('BT-8')
-    if bt8:
-        val = bt8.get('rdi', '').strip()
-        regle_label = 'Valeur imposee = "5"'
-        if regle_label not in bt8['regles_testees']:
-            bt8['regles_testees'].append(regle_label)
-        if val != '5':
-            bt8['status'] = 'ERREUR'
-            if 'RAS' in bt8['details_erreurs']:
-                bt8['details_erreurs'].remove('RAS')
-            msg = f'Valeur attendue "5", valeur trouvee : "{val}"'
-            if msg not in bt8['details_erreurs']:
-                bt8['details_erreurs'].append(msg)
-
-    # -------------------------------------------------------
-    # Regle 4 : Client etranger → BT-58 obligatoire
-    # BT-48 = numero TVA intracommunautaire de l'acheteur
-    # -------------------------------------------------------
-    bt48 = by_balise.get('BT-48')
-    if bt48:
-        tva = bt48.get('rdi', '').strip().upper()
-        if tva and not tva.startswith('FR'):
-            force_obligatoire('BT-58', 'Client etranger : TVA = ' + tva)
-
-    # -------------------------------------------------------
-    # Regle 5 : BT-131 negatif → BT-129 doit etre negatif
-    # BT-131 = montant net de la ligne (facture negative si negatif)
-    # BT-129 = quantite facturee (doit etre negative, pas le prix unitaire)
-    # -------------------------------------------------------
-    bt131 = by_balise.get('BT-131')
-    bt129 = by_balise.get('BT-129')
-    if bt131 and bt129:
-        try:
-            montant_net = float(bt131.get('rdi', '0').replace(',', '.').replace(' ', ''))
-            quantite = float(bt129.get('rdi', '0').replace(',', '.').replace(' ', ''))
-            if montant_net < 0:
-                regle_label = 'Facture negative : quantite doit etre negative'
-                if regle_label not in bt129['regles_testees']:
-                    bt129['regles_testees'].append(regle_label)
-                if quantite >= 0:
-                    bt129['status'] = 'ERREUR'
-                    if 'RAS' in bt129['details_erreurs']:
-                        bt129['details_erreurs'].remove('RAS')
-                    msg = f'BT-131 est negatif ({montant_net}), BT-129 doit etre negatif (trouve: {quantite})'
-                    if msg not in bt129['details_erreurs']:
-                        bt129['details_erreurs'].append(msg)
-        except (ValueError, AttributeError):
-            pass  # Si conversion impossible, on ignore
 
     return results
 
@@ -1967,8 +1858,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
   <div style="background:#fff7ed;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:14px">
     <div style="font-weight:700;font-size:1em;color:#92400e;margin-bottom:8px">📐 Règles métiers</div>
     <ul style="margin:0;padding-left:18px;color:#374151;font-size:0.9em;line-height:1.8">
-      <li>Règles configurables via l'interface (conditions + actions sur les champs)</li>
-      <li>Règles en dur : BT-21-SUR/ISU obligatoires, B2G Chorus, avoirs (BT-3=381), etc.</li>
+      <li>Toutes les règles sont configurables via l'écran Règles métiers (conditions + actions)</li>
+      <li>9 règles par défaut : B2G Chorus, avoirs, BT-8=5, client étranger, factures négatives, BT-21-SUR/ISU, etc.</li>
     </ul>
   </div>
 
