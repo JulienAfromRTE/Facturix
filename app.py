@@ -2078,9 +2078,6 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 <label>Filtrer par type de factures :</label>
 <select id="filterFormType">
 <option value="all">Toutes les factures</option>
-<option value="simple">CART Simple uniquement</option>
-<option value="groupee">CART Groupée uniquement</option>
-<option value="ventesdiverses">Ventes Diverses uniquement</option>
 </select>
 </div>
 </div>
@@ -2449,20 +2446,7 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 </div>
 <div class="form-group">
 <label>Applicable aux types de factures :</label>
-<div style="display:flex;flex-direction:column;gap:8px;padding:10px;background:#f9f9f9;border-radius:6px">
-<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
-<input type="checkbox" id="ruleFormSimple" checked style="width:18px;height:18px">
-<span>CART Simple</span>
-</label>
-<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
-<input type="checkbox" id="ruleFormGroupee" checked style="width:18px;height:18px">
-<span>CART Groupée</span>
-</label>
-<label style="display:flex;align-items:center;gap:8px;font-weight:normal">
-<input type="checkbox" id="ruleFormVentes" checked style="width:18px;height:18px">
-<span>Ventes Diverses</span>
-</label>
-</div>
+<div id="ruleFormsContainer" style="display:flex;flex-direction:column;gap:8px;padding:10px;background:#f9f9f9;border-radius:6px"></div>
 <small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
 Si aucune case n'est cochée, la règle s'appliquera à tous les types de factures.
 </small>
@@ -4867,6 +4851,8 @@ return {value:rdi,label:rdi+' ('+allRDIs[rdi]+')'};
 }
 
 var ruleCategories=['Calculs','Exonérations TVA','B2G / Chorus','Notes & mentions','Paiement','Cohérence','Autre'];
+var activeRuleCategory='ALL';
+var availableForms=[]; // [{value, label, mappingId}]
 
 function refreshCategorySelect(){
 var sel=document.getElementById('ruleCategory');
@@ -4874,8 +4860,55 @@ if(!sel)return;
 sel.innerHTML=ruleCategories.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
 }
 
+function mappingIdToFormValue(id){
+if(id==='default_simple')return 'simple';
+if(id==='default_groupee')return 'groupee';
+if(id==='default_flux')return 'flux';
+if(id==='default_ventesdiverses')return 'ventesdiverses';
+return 'custom_'+id;
+}
+
+function getFormLabel(value){
+for(var i=0;i<availableForms.length;i++){
+if(availableForms[i].value===value)return availableForms[i].label;
+}
+return value;
+}
+
+async function loadAvailableForms(){
+try{
+var resp=await fetch(BASE+'/api/mappings/index');
+var data=await resp.json();
+availableForms=(data.mappings||[]).map(function(m){
+return {value:mappingIdToFormValue(m.id),label:m.name,mappingId:m.id};
+});
+}catch(e){availableForms=[];}
+// Mettre à jour le select de filtre
+var filterSel=document.getElementById('filterFormType');
+if(filterSel){
+var current=filterSel.value||'all';
+filterSel.innerHTML='<option value="all">Toutes les factures</option>'+
+availableForms.map(function(f){return '<option value="'+f.value+'">'+f.label+' uniquement</option>';}).join('');
+filterSel.value=Array.from(filterSel.options).some(function(o){return o.value===current;})?current:'all';
+}
+}
+
+function renderFormCheckboxes(selectedForms){
+var container=document.getElementById('ruleFormsContainer');
+if(!container)return;
+var allChecked=!selectedForms||selectedForms.length===0;
+container.innerHTML=availableForms.map(function(f){
+var checked=allChecked||selectedForms.indexOf(f.value)!==-1;
+return '<label style="display:flex;align-items:center;gap:8px;font-weight:normal">'+
+'<input type="checkbox" class="rule-form-cb" data-value="'+f.value+'"'+(checked?' checked':'')+' style="width:18px;height:18px">'+
+'<span>'+f.label+'</span>'+
+'</label>';
+}).join('');
+}
+
 async function loadRules(){
 await loadAvailableBTs();
+await loadAvailableForms();
 var resp=await fetch(BASE+'/api/rules');
 currentRules=await resp.json();
 if(currentRules.categories&&currentRules.categories.length){ruleCategories=currentRules.categories;}
@@ -4910,8 +4943,35 @@ byCategory[cat].push(rule);
 // Ordre d'affichage : catégories connues d'abord, puis les inconnues triées
 var orderedCats=ruleCategories.filter(function(c){return byCategory[c];});
 Object.keys(byCategory).forEach(function(c){if(orderedCats.indexOf(c)===-1)orderedCats.push(c);});
+// Si la catégorie active n'existe plus (changement de filtre type-facture), retomber sur ALL
+if(activeRuleCategory!=='ALL'&&!byCategory[activeRuleCategory]){activeRuleCategory='ALL';}
+// Barre de filtres pills (style Paramétrage)
+var filterBar=document.createElement('div');
+filterBar.className='cat-filter-bar';
+var allPill=document.createElement('span');
+allPill.className='cat-pill'+(activeRuleCategory==='ALL'?' active':'');
+allPill.dataset.cat='ALL';
+allPill.textContent='Tout ('+filteredRules.length+')';
+filterBar.appendChild(allPill);
 orderedCats.forEach(function(cat){
+var pill=document.createElement('span');
+pill.className='cat-pill'+(activeRuleCategory===cat?' active':'');
+pill.dataset.cat=cat;
+pill.textContent=cat+' ('+byCategory[cat].length+')';
+filterBar.appendChild(pill);
+});
+container.appendChild(filterBar);
+filterBar.querySelectorAll('.cat-pill').forEach(function(pill){
+pill.addEventListener('click',function(){
+activeRuleCategory=pill.dataset.cat;
+displayRules();
+});
+});
+// Filtrer selon la pill active
+var visibleCats=(activeRuleCategory==='ALL')?orderedCats:[activeRuleCategory];
+visibleCats.forEach(function(cat){
 var rules=byCategory[cat];
+if(!rules)return;
 var header=document.createElement('div');
 header.className='rule-category-header';
 header.innerHTML='<h3 style="margin:18px 0 8px;padding:6px 12px;background:#eef2f7;border-left:4px solid #3b82f6;border-radius:4px;font-size:0.95em;color:#1e293b">'+cat+' <span style="color:#64748b;font-weight:normal;font-size:0.85em">('+rules.length+')</span></h3>';
@@ -4928,8 +4988,7 @@ var forms=rule.applicable_forms||[];
 if(forms.length===0){
 formsText='<span style="color:#999;font-size:0.85em">Tous les types</span>';
 }else{
-var formLabels={'simple':'CART Simple','groupee':'CART Groupée','ventesdiverses':'Ventes Diverses'};
-formsText='<span style="color:#666;font-size:0.85em">'+forms.map(function(f){return formLabels[f]||f}).join(', ')+'</span>';
+formsText='<span style="color:#666;font-size:0.85em">'+forms.map(function(f){return getFormLabel(f);}).join(', ')+'</span>';
 }
 // Construire le texte de la règle
 var conditionsText='';
@@ -5040,9 +5099,7 @@ document.getElementById('ruleDescription').value='';
 refreshCategorySelect();
 document.getElementById('ruleCategory').value='Autre';
 document.getElementById('ruleEnabled').checked=true;
-document.getElementById('ruleFormSimple').checked=true;
-document.getElementById('ruleFormGroupee').checked=true;
-document.getElementById('ruleFormVentes').checked=true;
+renderFormCheckboxes(null); // tout coché par défaut
 editingConditions=[];
 editingActions=[];
 renderConditions();
@@ -5069,10 +5126,7 @@ var opt=document.createElement('option');opt.value=cat;opt.textContent=cat;catSe
 }
 catSel.value=cat;
 document.getElementById('ruleEnabled').checked=rule.enabled!==false;
-var forms=rule.applicable_forms||[];
-document.getElementById('ruleFormSimple').checked=forms.length===0||forms.includes('simple');
-document.getElementById('ruleFormGroupee').checked=forms.length===0||forms.includes('groupee');
-document.getElementById('ruleFormVentes').checked=forms.length===0||forms.includes('ventesdiverses');
+renderFormCheckboxes(rule.applicable_forms||[]);
 editingConditions=JSON.parse(JSON.stringify(rule.conditions||[]));
 editingActions=JSON.parse(JSON.stringify(rule.actions||[]));
 renderConditions();
@@ -5279,9 +5333,11 @@ document.getElementById('editRuleModal').style.display='none';
 
 document.getElementById('btnSaveRule').addEventListener('click',function(){
 var applicableForms=[];
-if(document.getElementById('ruleFormSimple').checked)applicableForms.push('simple');
-if(document.getElementById('ruleFormGroupee').checked)applicableForms.push('groupee');
-if(document.getElementById('ruleFormVentes').checked)applicableForms.push('ventesdiverses');
+document.querySelectorAll('#ruleFormsContainer .rule-form-cb').forEach(function(cb){
+if(cb.checked)applicableForms.push(cb.dataset.value);
+});
+// Si toutes cochées, on stocke un tableau vide (= tous types)
+if(applicableForms.length===availableForms.length)applicableForms=[];
 var rule={
 id:currentRuleIndex!==null?currentRules.rules[currentRuleIndex].id:'rule_'+Date.now(),
 name:document.getElementById('ruleName').value,
