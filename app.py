@@ -1164,20 +1164,44 @@ def apply_business_rules(results, type_formulaire='simple'):
     Remplace l'ancienne fonction apply_contextual_controls hardcodée.
     """
     rules_data = load_business_rules()
-    by_balise = {r['balise']: r for r in results}
     by_rdi_field = {r['rdi_field']: r for r in results if r.get('rdi_field')}
 
-    def evaluate_condition(cond, by_balise):
-        """Évalue une condition"""
+    # Index per-balise (toutes les occurrences) pour la résolution per-ligne
+    rows_by_balise = {}
+    for r in results:
+        rows_by_balise.setdefault(r.get('balise'), []).append(r)
+
+    def _resolve_obj(field, ftype='bt', line_id=None):
+        """Résout l'objet résultat pour un champ, optionnellement sur une ligne précise.
+        - RDI : doc-level uniquement (par rdi_field)
+        - BT  : si line_id fourni et que le champ est multi-ligne, retourne la ligne ;
+                sinon, fallback doc-level (1 seule ligne) ou la dernière (compat)."""
+        if not field:
+            return None
+        if ftype == 'rdi':
+            return by_rdi_field.get(field)
+        rows = rows_by_balise.get(field, [])
+        if not rows:
+            return None
+        if line_id is None:
+            return rows[-1]
+        for r in rows:
+            if (r.get('article_line_id') or '') == line_id:
+                return r
+        # Fallback : champ doc-level (1 seule occurrence sans line_id)
+        if len(rows) == 1 and not (rows[0].get('article_line_id') or ''):
+            return rows[0]
+        return None
+
+    def evaluate_condition(cond, line_id=None):
+        """Évalue une condition. Si line_id est fourni, les champs multi-lignes
+        sont résolus sur cette ligne (les champs doc-level restent doc-level)."""
         field = cond.get('field')
         operator = cond.get('operator')
         value = cond.get('value', '')
         field_type = cond.get('field_type', 'bt')
 
-        if field_type == 'rdi':
-            result_obj = by_rdi_field.get(field)
-        else:
-            result_obj = by_balise.get(field)
+        result_obj = _resolve_obj(field, field_type, line_id)
         if not result_obj:
             return False
 
@@ -1233,16 +1257,14 @@ def apply_business_rules(results, type_formulaire='simple'):
         value = float(s)
         return -value if negative else value
 
-    def apply_action(action, by_balise):
-        """Applique une action"""
+    def apply_action(action, line_id=None):
+        """Applique une action. Si line_id est fourni, la cible et les opérandes
+        per-ligne sont résolus sur cette ligne."""
         action_type = action.get('type')
         target_field = action.get('field')
         field_type = action.get('field_type', 'bt')
 
-        if field_type == 'rdi':
-            target = by_rdi_field.get(target_field)
-        else:
-            target = by_balise.get(target_field)
+        target = _resolve_obj(target_field, field_type, line_id)
         if not target:
             return
         if target.get('status') in ('AMBIGU', 'IGNORE'):
@@ -1310,10 +1332,11 @@ def apply_business_rules(results, type_formulaire='simple'):
                 pass
 
         elif action_type == 'must_equal_sum':
+            # Doc-level : opérandes résolus globalement (pas per-ligne)
             field1 = action.get('field1', '')
             field2 = action.get('field2', '')
-            src1 = by_balise.get(field1)
-            src2 = by_balise.get(field2)
+            src1 = _resolve_obj(field1, 'bt', None)
+            src2 = _resolve_obj(field2, 'bt', None)
             try:
                 def _to_float(obj):
                     if not obj:
@@ -1353,8 +1376,8 @@ def apply_business_rules(results, type_formulaire='simple'):
                 detail_lines = []
                 for item in all_items:
                     s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
-                    line_id = item.get('article_line_id', '')
-                    label = f'Ligne {line_id}' if line_id else sum_field
+                    item_line_id = item.get('article_line_id', '')
+                    label = f'Ligne {item_line_id}' if item_line_id else sum_field
                     try:
                         v = _parse_amount(s)
                         total += v
@@ -1391,14 +1414,15 @@ def apply_business_rules(results, type_formulaire='simple'):
                 pass
 
         elif action_type == 'must_equal_product':
+            # Per-ligne : opérandes résolus sur la même ligne que la cible
             field1 = action.get('field1', '')
             field2 = action.get('field2', '')
             try:
                 tolerance = float(str(action.get('tolerance', '0.01')).replace(',', '.') or '0.01')
             except:
                 tolerance = 0.01
-            src1 = by_balise.get(field1)
-            src2 = by_balise.get(field2)
+            src1 = _resolve_obj(field1, 'bt', line_id)
+            src2 = _resolve_obj(field2, 'bt', line_id)
             try:
                 def _to_float(obj):
                     if not obj:
@@ -1438,39 +1462,67 @@ def apply_business_rules(results, type_formulaire='simple'):
             except:
                 pass
 
+    # Actions dont la cible peut être per-ligne (champ d'article)
+    PER_LINE_ELIGIBLE_TYPES = {
+        'make_mandatory', 'make_optional', 'must_equal',
+        'must_be_negative', 'must_equal_product'
+    }
+
+    def _per_line_target_lines(action):
+        """Si la cible de l'action est multi-occurrences (champ d'article), retourne
+        la liste triée des line_ids ; sinon []."""
+        if action.get('type') not in PER_LINE_ELIGIBLE_TYPES:
+            return []
+        if action.get('field_type', 'bt') != 'bt':
+            return []
+        field = action.get('field')
+        if not field:
+            return []
+        rows = rows_by_balise.get(field, [])
+        if len(rows) <= 1:
+            return []
+        line_ids = sorted({(r.get('article_line_id') or '') for r in rows if r.get('article_line_id')})
+        return line_ids
+
     # Parcourir toutes les règles actives
     for rule in rules_data.get('rules', []):
         if not rule.get('enabled', True):
             continue
-        
+
         # Vérifier si la règle s'applique à ce type de formulaire
         applicable_forms = rule.get('applicable_forms', [])
         if applicable_forms and type_formulaire not in applicable_forms:
             continue  # Règle non applicable à ce formulaire
-        
-        # Évaluer toutes les conditions (AND logique)
-        conditions_met = True
-        for cond in rule.get('conditions', []):
-            if not evaluate_condition(cond, by_balise):
-                conditions_met = False
-                break
-        
-        # Si conditions remplies, appliquer les actions
-        if conditions_met or len(rule.get('conditions', [])) == 0:
-            rule_name = rule.get('name', 'Règle métier')
+
+        rule_name = rule.get('name', 'Règle métier')
+        actions = rule.get('actions', [])
+        conditions = rule.get('conditions', [])
+
+        # Collecter tous les line_ids touchés par les actions per-ligne de la règle.
+        # Si vide → règle doc-level (une seule passe avec line_id=None).
+        all_line_ids = set()
+        for action in actions:
+            for lid in _per_line_target_lines(action):
+                all_line_ids.add(lid)
+        contexts = sorted(all_line_ids) if all_line_ids else [None]
+
+        for ctx_line_id in contexts:
+            # Évaluer les conditions dans le contexte de cette ligne (AND logique)
+            if not all(evaluate_condition(c, ctx_line_id) for c in conditions):
+                continue
+
             # Annoter les champs déclencheurs (conditions) avec le nom de la règle
-            for cond in rule.get('conditions', []):
-                if cond.get('field_type') == 'rdi':
-                    trigger = by_rdi_field.get(cond.get('field'))
-                else:
-                    trigger = by_balise.get(cond.get('field'))
+            for cond in conditions:
+                trigger = _resolve_obj(cond.get('field'), cond.get('field_type', 'bt'), ctx_line_id)
                 if trigger is not None:
                     regle_label = f'Règle déclenchée : {rule_name}'
                     if regle_label not in trigger['regles_testees']:
                         trigger['regles_testees'].append(regle_label)
-            for action in rule.get('actions', []):
+
+            # Appliquer les actions
+            for action in actions:
                 action['reason'] = rule_name
-                apply_action(action, by_balise)
+                apply_action(action, ctx_line_id)
 
     return results
 
