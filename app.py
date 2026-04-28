@@ -68,11 +68,44 @@ print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
 
 # ── Données par défaut ──────────────────────────────────────────────────────
 
+# Catégories de règles (ordre d'affichage dans l'UI)
+_RULE_CATEGORIES_ORDER = [
+    "Calculs",
+    "Exonérations TVA",
+    "B2G / Chorus",
+    "Notes & mentions",
+    "Paiement",
+    "Cohérence",
+    "Autre",
+]
+
+# Lookup id → catégorie pour backfill des règles existantes (créées avant l'ajout du champ)
+_RULE_CATEGORY_BY_ID = {
+    "rule_1": "B2G / Chorus",
+    "rule_2": "Cohérence",
+    "rule_3": "Autre",
+    "rule_4": "Cohérence",
+    "rule_5": "Cohérence",
+    "rule_6": "Cohérence",
+    "rule_7": "Notes & mentions",
+    "rule_8": "Notes & mentions",
+    "rule_9": "B2G / Chorus",
+    "rule_1776265772124": "Cohérence",
+    "rule_1776289738966": "Paiement",
+    "rule_1776289820718": "Paiement",
+    "rule_1776291450090": "Exonérations TVA",
+    "rule_1776298233818": "Calculs",
+    "rule_1776441134212": "Cohérence",
+    "rule_1777292841400": "Exonérations TVA",
+    "rule_1777299260571": "Notes & mentions",
+}
+
 _DEFAULT_RULES = {
     "rules": [
         {
             "id": "rule_1",
             "name": "Facture B2G Chorus",
+            "category": "B2G / Chorus",
             "enabled": True,
             "conditions": [{"field": "BT-22", "operator": "equals", "value": "B2G"}],
             "actions": [
@@ -85,6 +118,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_2",
             "name": "Facture avoir",
+            "category": "Cohérence",
             "enabled": True,
             "conditions": [{"field": "BT-3", "operator": "equals", "value": "381"}],
             "actions": [
@@ -95,6 +129,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_3",
             "name": "BT-8 doit valoir 5",
+            "category": "Autre",
             "enabled": True,
             "conditions": [],
             "actions": [{"type": "must_equal", "field": "BT-8", "value": "5"}]
@@ -102,6 +137,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_4",
             "name": "Client étranger",
+            "category": "Cohérence",
             "enabled": True,
             "conditions": [{"field": "BT-48", "operator": "not_starts_with", "value": "FR"}],
             "actions": [{"type": "make_mandatory", "field": "BT-58"}]
@@ -109,6 +145,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_5",
             "name": "Facture négative - quantité",
+            "category": "Cohérence",
             "enabled": True,
             "conditions": [{"field": "BT-131", "operator": "less_than", "value": "0"}],
             "actions": [{"type": "must_be_negative", "field": "BT-129"}]
@@ -116,6 +153,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_6",
             "name": "B2BINT - BT-47 et BT-48 non obligatoires",
+            "category": "Cohérence",
             "enabled": True,
             "conditions": [{"field": "BT-22-BAR", "operator": "equals", "value": "B2BINT"}],
             "actions": [
@@ -126,6 +164,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_7",
             "name": "BT-21-SUR présence obligatoire",
+            "category": "Notes & mentions",
             "enabled": True,
             "conditions": [],
             "actions": [{"type": "make_mandatory", "field": "BT-21-SUR"}]
@@ -133,6 +172,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_8",
             "name": "BT-22-SUR doit valoir ISU",
+            "category": "Notes & mentions",
             "enabled": True,
             "conditions": [],
             "actions": [{"type": "must_equal", "field": "BT-22-SUR", "value": "ISU"}]
@@ -140,6 +180,7 @@ _DEFAULT_RULES = {
         {
             "id": "rule_9",
             "name": "Facture B2G Chorus (BT-22-BAR)",
+            "category": "B2G / Chorus",
             "enabled": True,
             "conditions": [{"field": "BT-22-BAR", "operator": "equals", "value": "B2G"}],
             "actions": [
@@ -147,6 +188,97 @@ _DEFAULT_RULES = {
                 {"type": "make_mandatory", "field": "BT-13"},
                 {"type": "make_mandatory", "field": "BT-29"},
                 {"type": "make_mandatory", "field": "BT-29-1"}
+            ]
+        },
+        # ─── Règles auto-générées (schématron EN 16931 / réforme FR) ───────────
+        # Ajoutées au démarrage si absentes. Préfixe "[auto]" pour les distinguer.
+        {
+            "id": "auto_br_29",
+            "name": "[auto] BR-29 — BT-131 = BT-146 × BT-129",
+            "category": "Calculs",
+            "description": "Montant net de la ligne = prix unitaire net × quantité facturée. Désactivée par défaut (vérifier la tolérance des arrondis avant activation).",
+            "enabled": False,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_product", "field_type": "bt", "field": "BT-131", "field1": "BT-146", "field2": "BT-129", "tolerance": 0.01}]
+        },
+        {
+            "id": "auto_br_co_11",
+            "name": "[auto] BR-CO-11 — BT-107 = Σ BT-92",
+            "category": "Calculs",
+            "description": "Somme des remises niveau document = Σ des montants de remise BT-92.",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_sum_of_all", "field_type": "bt", "field": "BT-107", "sum_field": "BT-92", "tolerance": 0.01}]
+        },
+        {
+            "id": "auto_br_co_12",
+            "name": "[auto] BR-CO-12 — BT-108 = Σ BT-99",
+            "category": "Calculs",
+            "description": "Somme des charges niveau document = Σ des montants de charge BT-99.",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_sum_of_all", "field_type": "bt", "field": "BT-108", "sum_field": "BT-99", "tolerance": 0.01}]
+        },
+        {
+            "id": "auto_br_co_14",
+            "name": "[auto] BR-CO-14 — BT-110 = Σ BT-117",
+            "category": "Calculs",
+            "description": "Total TVA facture = Σ des montants TVA par catégorie BT-117.",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_sum_of_all", "field_type": "bt", "field": "BT-110", "sum_field": "BT-117", "tolerance": 0.01}]
+        },
+        {
+            "id": "auto_br_co_15",
+            "name": "[auto] BR-CO-15 — BT-112 = BT-109 + BT-110",
+            "category": "Calculs",
+            "description": "Montant total TTC = Total HT + Total TVA.",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_sum", "field_type": "bt", "field": "BT-112", "field1": "BT-109", "field2": "BT-110"}]
+        },
+        {
+            "id": "auto_br_ae_1",
+            "name": "[auto] BR-AE-1 — Autoliquidation : motif d'exonération",
+            "category": "Exonérations TVA",
+            "description": "Si BT-118 = AE (autoliquidation), un motif d'exonération doit être présent (BT-120 code ou BT-121 texte).",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [{"field": "BT-118", "operator": "equals", "value": "AE"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-120"},
+                {"type": "make_mandatory", "field": "BT-121"}
+            ]
+        },
+        {
+            "id": "auto_br_k_1",
+            "name": "[auto] BR-K-1 — Livraison intracommunautaire : motif d'exonération",
+            "category": "Exonérations TVA",
+            "description": "Si BT-118 = K (livraison intra-UE), un motif d'exonération doit être présent (BT-120 ou BT-121).",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [{"field": "BT-118", "operator": "equals", "value": "K"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-120"},
+                {"type": "make_mandatory", "field": "BT-121"}
+            ]
+        },
+        {
+            "id": "auto_br_o_1",
+            "name": "[auto] BR-O-1 — Hors champ TVA : motif d'exonération",
+            "category": "Exonérations TVA",
+            "description": "Si BT-118 = O (hors champ TVA), un motif d'exonération doit être présent (BT-120 ou BT-121).",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [{"field": "BT-118", "operator": "equals", "value": "O"}],
+            "actions": [
+                {"type": "make_mandatory", "field": "BT-120"},
+                {"type": "make_mandatory", "field": "BT-121"}
             ]
         }
     ]
@@ -556,6 +688,18 @@ def load_business_rules():
             missing = [r for r in _DEFAULT_RULES['rules'] if r.get('id') not in existing_ids]
             if missing:
                 data.setdefault('rules', []).extend(missing)
+            # Backfill catégorie sur les règles existantes (sans écraser une catégorie déjà saisie)
+            category_changed = False
+            defaults_by_id = {r.get('id'): r for r in _DEFAULT_RULES['rules']}
+            for r in data.get('rules', []):
+                if not r.get('category'):
+                    rid = r.get('id')
+                    cat = (defaults_by_id.get(rid, {}).get('category')
+                           or _RULE_CATEGORY_BY_ID.get(rid)
+                           or 'Autre')
+                    r['category'] = cat
+                    category_changed = True
+            if missing or category_changed:
                 save_business_rules(data)
             return data
     except Exception:
@@ -1245,7 +1389,55 @@ def apply_business_rules(results, type_formulaire='simple'):
                         target['details_erreurs'].append(msg)
             except:
                 pass
-    
+
+        elif action_type == 'must_equal_product':
+            field1 = action.get('field1', '')
+            field2 = action.get('field2', '')
+            try:
+                tolerance = float(str(action.get('tolerance', '0.01')).replace(',', '.') or '0.01')
+            except:
+                tolerance = 0.01
+            src1 = by_balise.get(field1)
+            src2 = by_balise.get(field2)
+            try:
+                def _to_float(obj):
+                    if not obj:
+                        return 0.0
+                    s = obj.get('rdi', '').strip() or obj.get('xml', '').strip() or '0'
+                    return _parse_amount(s)
+                val1 = _to_float(src1)
+                val2 = _to_float(src2)
+                expected = round(val1 * val2, 10)
+                val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
+                val_target = _parse_amount(val_target_str)
+                ecart = abs(val_target - expected)
+                regle_label = f'Doit égaler {field1} × {field2}'
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                detail_lines = [
+                    f'{field1} = {val1}',
+                    f'{field2} = {val2}',
+                    f'─────────────────',
+                    f'{field1} × {field2} = {expected}',
+                    f'{target_field} = {val_target}',
+                    f'Écart = {ecart:.4f} (tolérance {tolerance})',
+                ]
+                if 'rule_details' not in target:
+                    target['rule_details'] = {}
+                target['rule_details'][rule_name] = detail_lines
+                if ecart > tolerance:
+                    target['status'] = 'ERREUR'
+                    if 'RAS' in target['details_erreurs']:
+                        target['details_erreurs'].remove('RAS')
+                    msg = (f'Règle métier "{rule_name}" non respectée : '
+                           f'attendu {expected} ({field1}={val1} × {field2}={val2}), '
+                           f'trouvé {val_target} '
+                           f'(écart {ecart:.4f}, tolérance {tolerance})')
+                    if msg not in target['details_erreurs']:
+                        target['details_erreurs'].append(msg)
+            except:
+                pass
+
     # Parcourir toutes les règles actives
     for rule in rules_data.get('rules', []):
         if not rule.get('enabled', True):
@@ -2244,6 +2436,10 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 <div class="form-group">
 <label>Description :</label>
 <textarea id="ruleDescription" placeholder="Expliquez en quelques mots à quoi sert cette règle"></textarea>
+</div>
+<div class="form-group">
+<label>Catégorie :</label>
+<select id="ruleCategory"></select>
 </div>
 <div class="form-group">
 <label style="display:flex;align-items:center;gap:8px">
@@ -4670,10 +4866,20 @@ return {value:rdi,label:rdi+' ('+allRDIs[rdi]+')'};
 });
 }
 
+var ruleCategories=['Calculs','Exonérations TVA','B2G / Chorus','Notes & mentions','Paiement','Cohérence','Autre'];
+
+function refreshCategorySelect(){
+var sel=document.getElementById('ruleCategory');
+if(!sel)return;
+sel.innerHTML=ruleCategories.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+}
+
 async function loadRules(){
 await loadAvailableBTs();
 var resp=await fetch(BASE+'/api/rules');
 currentRules=await resp.json();
+if(currentRules.categories&&currentRules.categories.length){ruleCategories=currentRules.categories;}
+refreshCategorySelect();
 displayRules();
 }
 
@@ -4694,7 +4900,23 @@ if(filteredRules.length===0){
 container.innerHTML='<p>Aucune règle applicable à ce type de factures</p>';
 return;
 }
+// Regrouper par catégorie
+var byCategory={};
 filteredRules.forEach(function(rule){
+var cat=rule.category||'Autre';
+if(!byCategory[cat])byCategory[cat]=[];
+byCategory[cat].push(rule);
+});
+// Ordre d'affichage : catégories connues d'abord, puis les inconnues triées
+var orderedCats=ruleCategories.filter(function(c){return byCategory[c];});
+Object.keys(byCategory).forEach(function(c){if(orderedCats.indexOf(c)===-1)orderedCats.push(c);});
+orderedCats.forEach(function(cat){
+var rules=byCategory[cat];
+var header=document.createElement('div');
+header.className='rule-category-header';
+header.innerHTML='<h3 style="margin:18px 0 8px;padding:6px 12px;background:#eef2f7;border-left:4px solid #3b82f6;border-radius:4px;font-size:0.95em;color:#1e293b">'+cat+' <span style="color:#64748b;font-weight:normal;font-size:0.85em">('+rules.length+')</span></h3>';
+container.appendChild(header);
+rules.forEach(function(rule){
 var index=currentRules.rules.indexOf(rule);
 var div=document.createElement('div');
 div.className='rule-card';
@@ -4733,6 +4955,8 @@ actionsText+=a.field+' doit égaler "'+a.value+'"';
 actionsText+=a.field+' doit être négatif';
 }else if(a.type==='must_equal_sum'){
 actionsText+=a.field+' doit égaler '+(a.field1||'?')+' + '+(a.field2||'?');
+}else if(a.type==='must_equal_product'){
+actionsText+=a.field+' doit égaler '+(a.field1||'?')+' × '+(a.field2||'?')+' (tolérance '+(a.tolerance||'0.01')+')';
 }else if(a.type==='must_equal_sum_of_all'){
 actionsText+=a.field+' doit égaler Σ '+(a.sum_field||'?')+' (tolérance '+(a.tolerance||'0.01')+')';
 }
@@ -4757,6 +4981,7 @@ div.innerHTML='<div class="rule-header '+enabledClass+'">'+
 '</div>'+
 '</div>';
 container.appendChild(div);
+});
 });
 document.querySelectorAll('.btn-toggle').forEach(function(btn){
 btn.addEventListener('click',function(){
@@ -4812,6 +5037,8 @@ currentRuleIndex=null;
 document.getElementById('ruleModalTitle').textContent='Créer une règle';
 document.getElementById('ruleName').value='';
 document.getElementById('ruleDescription').value='';
+refreshCategorySelect();
+document.getElementById('ruleCategory').value='Autre';
 document.getElementById('ruleEnabled').checked=true;
 document.getElementById('ruleFormSimple').checked=true;
 document.getElementById('ruleFormGroupee').checked=true;
@@ -4833,6 +5060,14 @@ var rule=currentRules.rules[index];
 document.getElementById('ruleModalTitle').textContent='Éditer la règle';
 document.getElementById('ruleName').value=rule.name;
 document.getElementById('ruleDescription').value=rule.description||'';
+refreshCategorySelect();
+var cat=rule.category||'Autre';
+var catSel=document.getElementById('ruleCategory');
+if(ruleCategories.indexOf(cat)===-1){
+// Catégorie inconnue saisie manuellement : on l'ajoute à la liste
+var opt=document.createElement('option');opt.value=cat;opt.textContent=cat;catSel.appendChild(opt);
+}
+catSel.value=cat;
 document.getElementById('ruleEnabled').checked=rule.enabled!==false;
 var forms=rule.applicable_forms||[];
 document.getElementById('ruleFormSimple').checked=forms.length===0||forms.includes('simple');
@@ -4941,6 +5176,7 @@ btFieldOptions+='<option value="'+bt.value+'">'+bt.label+'</option>';
 });
 var needsValue=(action.type==='must_equal');
 var needsSum=(action.type==='must_equal_sum');
+var needsProduct=(action.type==='must_equal_product');
 var needsSumAll=(action.type==='must_equal_sum_of_all');
 // ORDRE: Type (BT/RDI), Champ, Type d'action, Valeur (si nécessaire), Supprimer
 div.innerHTML=
@@ -4955,16 +5191,18 @@ div.innerHTML=
 '<option value="must_equal">Doit égaler</option>'+
 '<option value="must_be_negative">Doit être négatif</option>'+
 '<option value="must_equal_sum">Doit égaler la somme de</option>'+
+'<option value="must_equal_product">Doit égaler le produit de</option>'+
 '<option value="must_equal_sum_of_all">Doit égaler Σ de toutes les lignes</option>'+
 '</select>'+
 (needsValue?'<input type="text" class="action-value" data-index="'+i+'" placeholder="Valeur" value="'+(action.value||'')+'">':'')+
 (needsSum?'<select class="action-field1" data-index="'+i+'">'+btFieldOptions+'</select><span style="padding:0 4px;font-weight:bold">+</span><select class="action-field2" data-index="'+i+'">'+btFieldOptions+'</select>':'')+
+(needsProduct?'<select class="action-field1" data-index="'+i+'">'+btFieldOptions+'</select><span style="padding:0 4px;font-weight:bold">×</span><select class="action-field2" data-index="'+i+'">'+btFieldOptions+'</select><input type="number" class="action-tolerance" data-index="'+i+'" placeholder="Tolérance (€)" step="0.01" min="0" style="width:110px" value="'+(action.tolerance!=null?action.tolerance:'0.01')+'"><span style="padding:0 4px;font-size:0.85em;color:#888">€ écart max</span>':'')+
 (needsSumAll?'<span style="padding:0 4px">Σ</span><select class="action-sum-field" data-index="'+i+'">'+btFieldOptions+'</select><input type="number" class="action-tolerance" data-index="'+i+'" placeholder="Tolérance (€)" step="0.01" min="0" style="width:110px" value="'+(action.tolerance!=null?action.tolerance:'0.01')+'"><span style="padding:0 4px;font-size:0.85em;color:#888">€ écart max</span>':'')+
 '<button class="btn-remove" data-index="'+i+'">Supprimer</button>';
 container.appendChild(div);
 div.querySelector('.action-field').value=action.field;
 div.querySelector('.action-type').value=action.type;
-if(needsSum){
+if(needsSum||needsProduct){
 if(div.querySelector('.action-field1'))div.querySelector('.action-field1').value=action.field1||'';
 if(div.querySelector('.action-field2'))div.querySelector('.action-field2').value=action.field2||'';
 }
@@ -5048,6 +5286,7 @@ var rule={
 id:currentRuleIndex!==null?currentRules.rules[currentRuleIndex].id:'rule_'+Date.now(),
 name:document.getElementById('ruleName').value,
 description:document.getElementById('ruleDescription').value,
+category:document.getElementById('ruleCategory').value||'Autre',
 enabled:document.getElementById('ruleEnabled').checked,
 applicable_forms:applicableForms,
 conditions:editingConditions.filter(function(c){return c.field}),
@@ -5290,7 +5529,9 @@ def revert_audit_route(type_formulaire, audit_id):
 @app.route('/api/rules', methods=['GET'])
 def get_rules():
     rules = load_business_rules()
-    return jsonify(rules)
+    payload = dict(rules)
+    payload['categories'] = list(_RULE_CATEGORIES_ORDER)
+    return jsonify(payload)
 
 @app.route('/api/rules', methods=['POST'])
 def save_rules():
