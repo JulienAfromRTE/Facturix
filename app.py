@@ -231,6 +231,16 @@ _DEFAULT_RULES = {
             "actions": [{"type": "must_equal_sum_of_all", "field_type": "bt", "field": "BT-108", "sum_field": "BT-99", "tolerance": 0.01}]
         },
         {
+            "id": "auto_br_co_13",
+            "name": "[auto] BR-CO-13 — BT-109 = Σ BT-131 − BT-107 + BT-108",
+            "category": "Calculs",
+            "description": "Total HT facture (BT-109) = Σ montants nets lignes (BT-131) − total remises document (BT-107) + total charges document (BT-108).",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "must_equal_sum_of_all_minus_plus", "field_type": "bt", "field": "BT-109", "sum_field": "BT-131", "minus_field": "BT-107", "plus_field": "BT-108", "tolerance": 0.01}]
+        },
+        {
             "id": "auto_br_co_14",
             "name": "[auto] BR-CO-14 — BT-110 = Σ BT-117",
             "category": "Calculs",
@@ -1670,6 +1680,85 @@ def apply_business_rules(results, type_formulaire='simple'):
             except:
                 pass
 
+        elif action_type == 'must_equal_sum_of_all_minus_plus':
+            # target = Σ sum_field − minus_field + plus_field (ex: BT-109 = Σ BT-131 − BT-107 + BT-108)
+            sum_field = action.get('sum_field', '')
+            minus_field = action.get('minus_field', '')
+            plus_field = action.get('plus_field', '')
+            try:
+                tolerance = float(str(action.get('tolerance', '0.01')).replace(',', '.') or '0.01')
+            except:
+                tolerance = 0.01
+            try:
+                def _val_of(field_name):
+                    obj = _resolve_obj(field_name, 'bt', None)
+                    if not obj:
+                        return 0.0
+                    s = obj.get('rdi', '').strip() or obj.get('xml', '').strip() or '0'
+                    try:
+                        return _parse_amount(s)
+                    except:
+                        return 0.0
+
+                sum_items = [r for r in results if r.get('balise') == sum_field]
+                sum_total = 0.0
+                detail_lines = []
+                n = 0
+                for item in sum_items:
+                    item_line_id = item.get('article_line_id', '')
+                    xml_all = item.get('xml_all') or []
+                    if not item_line_id and len(xml_all) > 1:
+                        for i, v in enumerate(xml_all):
+                            label = f'{sum_field} #{i + 1}'
+                            try:
+                                sum_total += _parse_amount(v)
+                                detail_lines.append(f'{label} : {v}')
+                                n += 1
+                            except:
+                                detail_lines.append(f'{label} : {v} (non numérique, ignoré)')
+                        continue
+                    s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
+                    label = f'Ligne {item_line_id}' if item_line_id else sum_field
+                    try:
+                        sum_total += _parse_amount(s)
+                        detail_lines.append(f'{label} : {s}')
+                        n += 1
+                    except:
+                        detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
+                sum_total = round(sum_total, 10)
+
+                val_minus = _val_of(minus_field)
+                val_plus = _val_of(plus_field)
+                expected = round(sum_total - val_minus + val_plus, 10)
+                val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
+                val_target = _parse_amount(val_target_str)
+                ecart = abs(val_target - expected)
+
+                regle_label = f'Doit égaler Σ {n} {sum_field} − {minus_field} + {plus_field}'
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                detail_lines.append(f'─────────────────')
+                detail_lines.append(f'Σ {sum_field} = {sum_total}')
+                detail_lines.append(f'− {minus_field} = {val_minus}')
+                detail_lines.append(f'+ {plus_field} = {val_plus}')
+                detail_lines.append(f'Σ {sum_field} − {minus_field} + {plus_field} = {expected}')
+                detail_lines.append(f'{target_field} = {val_target}')
+                detail_lines.append(f'Écart = {ecart:.4f} (tolérance {tolerance})')
+                if 'rule_details' not in target:
+                    target['rule_details'] = {}
+                target['rule_details'][rule_name] = detail_lines
+                if ecart > tolerance:
+                    target['status'] = 'ERREUR'
+                    if 'RAS' in target['details_erreurs']:
+                        target['details_erreurs'].remove('RAS')
+                    msg = (f'Règle métier "{rule_name}" non respectée : '
+                           f'attendu {expected} (Σ {n} {sum_field} = {sum_total} − {minus_field} = {val_minus} + {plus_field} = {val_plus}), '
+                           f'trouvé {val_target} (écart {ecart:.4f}, tolérance {tolerance})')
+                    if msg not in target['details_erreurs']:
+                        target['details_erreurs'].append(msg)
+            except:
+                pass
+
         elif action_type == 'must_equal_product':
             # Per-ligne : opérandes résolus sur la même ligne que la cible
             field1 = action.get('field1', '')
@@ -2191,7 +2280,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .batch-status-chip.pending{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
 /* Résultats — colonne facture */
 .batch-inv-num{font-weight:800;font-size:1em;color:#1e293b;letter-spacing:0.01em}
-.batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;position:relative}
+.batch-inv-filename[data-fullname]:hover::after{content:attr(data-fullname);position:absolute;left:0;top:100%;margin-top:4px;background:#1e293b;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:1em;white-space:nowrap;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.18);pointer-events:none}
 /* Schematron EN16931 panel */
 .schematron-panel{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
 .schematron-header{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#fff;cursor:pointer;font-size:0.92em}
@@ -3562,7 +3652,7 @@ function batchRenderResults(data){
     var mainDiv=document.createElement('div');
     mainDiv.className='batch-inv-main '+(nbErrInv>0?'has-err':'all-ok');
     mainDiv.innerHTML=
-      '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename" title="'+escHtml(inv.name)+'">'+escHtml(inv.name)+'</div></div>'+
+      '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename" data-fullname="'+escHtml(inv.name)+'">'+escHtml(inv.name)+'</div></div>'+
       '<div class="batch-sc ok">'+nbOkInv+'</div>'+
       '<div class="batch-sc err">'+nbErrInv+'</div>'+
       '<div class="batch-sc amb">'+nbAmbInv+'</div>'+
