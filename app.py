@@ -1771,10 +1771,8 @@ def apply_business_rules(results, type_formulaire='simple'):
 
         elif action_type == 'vat_breakdown_detail':
             # BR-S-08 : explicite le calcul de la cohérence TVA par ventilation.
-            # Pour chaque ApplicableTradeTax (aligné par index sur xml_all de
-            # BT-118 / BT-119 / BT-116 / BT-117), affiche la catégorie, le
-            # taux, la base et la TVA. Pour les entrées 'S', somme aussi les
-            # BT-131 des lignes Standard rated.
+            # Affiche, par taux : la base déclarée (BT-116) vs la somme des
+            # BT-131 des lignes 'Standard rated' au même taux.
             try:
                 def _xml_all_of(balise):
                     obj = next((r for r in results if r.get('balise') == balise), None)
@@ -1786,77 +1784,146 @@ def apply_business_rules(results, type_formulaire='simple'):
                     v = (obj.get('xml') or obj.get('rdi') or '').strip()
                     return [v] if v else []
 
-                bt118 = _xml_all_of('BT-118')
-                bt119 = _xml_all_of('BT-119')
-                bt116 = _xml_all_of('BT-116')
-                bt117 = _xml_all_of('BT-117')
+                bt118_all = _xml_all_of('BT-118')
+                bt119_all = _xml_all_of('BT-119')
+                bt116_all = _xml_all_of('BT-116')
+                bt117_all = _xml_all_of('BT-117')
+
+                # Regroupe les champs par article_index : line_id, name,
+                # BT-131 (montant), BT-151 (catégorie TVA), BT-152 (taux).
+                articles_data = {}
+                for r in results:
+                    ai = r.get('article_index')
+                    if ai is None:
+                        continue
+                    entry = articles_data.setdefault(ai, {
+                        'line_id': r.get('article_line_id') or '',
+                        'name': r.get('article_name') or '',
+                        'bt131': '', 'bt151': '', 'bt152': '',
+                    })
+                    val = (r.get('rdi') or r.get('xml') or '').strip()
+                    bal = r.get('balise')
+                    if bal == 'BT-131':
+                        entry['bt131'] = val
+                    elif bal == 'BT-151':
+                        entry['bt151'] = val
+                    elif bal == 'BT-152':
+                        entry['bt152'] = val
+
+                def _norm_rate(s):
+                    """Normalise un taux pour comparaison (ex: '20', '20.00', ' 20 ' → '20.0')."""
+                    s = (s or '').strip().replace(',', '.')
+                    try:
+                        return f'{float(s):g}'
+                    except:
+                        return s
 
                 detail_lines = []
-                detail_lines.append('Ventilation TVA (par ApplicableTradeTax) :')
-                n_breakdowns = max(len(bt118), len(bt119), len(bt116), len(bt117))
-                base_s_total = 0.0
-                vat_s_total = 0.0
+                detail_lines.append('🔎 BR-S-08 — Cohérence ventilation TVA "Standard rated"')
+                detail_lines.append('Pour chaque taux TVA, BT-116 (base imposable) doit égaler')
+                detail_lines.append('Σ BT-131 (lignes "S" au même taux) + Σ BT-99 − Σ BT-92.')
+                detail_lines.append('═══════════════════════════════════════')
+
+                # 1. Ventilations TVA déclarées en en-tête
+                detail_lines.append('📋 Ventilations TVA déclarées (en-tête) :')
+                n_breakdowns = max(len(bt118_all), len(bt119_all), len(bt116_all), len(bt117_all))
+                breakdowns_s = []  # liste de (rate_norm, base_float, vat_float)
+                if n_breakdowns == 0:
+                    detail_lines.append('  (aucune)')
                 for i in range(n_breakdowns):
-                    cat = bt118[i] if i < len(bt118) else '?'
-                    rate = bt119[i] if i < len(bt119) else '?'
-                    base = bt116[i] if i < len(bt116) else '?'
-                    vat = bt117[i] if i < len(bt117) else '?'
+                    cat = (bt118_all[i] if i < len(bt118_all) else '').strip()
+                    rate = (bt119_all[i] if i < len(bt119_all) else '').strip()
+                    base = (bt116_all[i] if i < len(bt116_all) else '').strip()
+                    vat = (bt117_all[i] if i < len(bt117_all) else '').strip()
+                    is_s = cat.upper() == 'S'
+                    marker = ' ◀ Standard rated' if is_s else ''
                     detail_lines.append(
-                        f'  #{i + 1} : Cat={cat} | Taux={rate}% | Base BT-116={base} | TVA BT-117={vat}'
+                        f'  #{i + 1} : Cat={cat or "?"} | Taux={rate or "?"}% | '
+                        f'Base BT-116={base or "?"} | TVA BT-117={vat or "?"}{marker}'
                     )
-                    if str(cat).strip().upper() == 'S':
+                    if is_s:
                         try:
-                            base_s_total += _parse_amount(base)
+                            base_f = _parse_amount(base)
+                        except:
+                            base_f = 0.0
+                        try:
+                            vat_f = _parse_amount(vat)
+                        except:
+                            vat_f = 0.0
+                        breakdowns_s.append((_norm_rate(rate), base_f, vat_f))
+
+                # 2. Lignes "Standard rated"
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('📦 Lignes de facture "Standard rated" (BT-151 = "S") :')
+                s_lines = []
+                for ai in sorted(articles_data.keys()):
+                    a = articles_data[ai]
+                    if a['bt151'].upper() == 'S' and a['bt131']:
+                        s_lines.append((a['line_id'], a['name'], a['bt131'], a['bt152']))
+                if not s_lines:
+                    detail_lines.append('  (aucune)')
+                bt131_total = 0.0
+                has_bt152 = False
+                for lid, name, amt, rate in s_lines:
+                    label = f'Ligne {lid}' if lid else 'Ligne ?'
+                    if name:
+                        label += f' ({name})'
+                    rate_part = f' | Taux BT-152={rate}%' if rate else ''
+                    if rate:
+                        has_bt152 = True
+                    detail_lines.append(f'  {label}{rate_part} : BT-131 = {amt}')
+                    try:
+                        bt131_total += _parse_amount(amt)
+                    except:
+                        pass
+                detail_lines.append('  ───────────────')
+                detail_lines.append(f'  Σ BT-131 (lignes "S") = {round(bt131_total, 2)}')
+
+                # 3. Comparaison
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('🧮 Vérification :')
+                detail_lines.append('  (BT-99 charges et BT-92 remises au niveau document')
+                detail_lines.append('   ne sont pas dans le mapping — supposés = 0)')
+                if has_bt152:
+                    sum_by_rate = {}
+                    lines_by_rate = {}
+                    for _, _, amt, rate in s_lines:
+                        key = _norm_rate(rate)
+                        try:
+                            sum_by_rate[key] = sum_by_rate.get(key, 0.0) + _parse_amount(amt)
                         except:
                             pass
-                        try:
-                            vat_s_total += _parse_amount(vat)
-                        except:
-                            pass
+                        lines_by_rate.setdefault(key, []).append(amt)
+                    for rate_key, base_val, vat_val in breakdowns_s:
+                        lines_total = round(sum_by_rate.get(rate_key, 0.0), 2)
+                        ecart = abs(lines_total - base_val)
+                        status = '✓' if ecart <= 0.01 else '✗'
+                        detail_lines.append(
+                            f'  Taux {rate_key}% : '
+                            f'Σ BT-131(S) = {lines_total} '
+                            f'vs BT-116 = {round(base_val, 2)} '
+                            f'→ écart {ecart:.2f} {status}'
+                        )
+                    rates_in_lines = set(sum_by_rate.keys())
+                    rates_in_header = {r for r, _, _ in breakdowns_s}
+                    orphan = rates_in_lines - rates_in_header
+                    for r in sorted(orphan):
+                        detail_lines.append(
+                            f'  ⚠️ Taux {r}% présent en ligne mais absent de la ventilation : '
+                            f'Σ BT-131 = {round(sum_by_rate[r], 2)}'
+                        )
+                else:
+                    base_s_total = round(sum(b for _, b, _ in breakdowns_s), 2)
+                    ecart = abs(bt131_total - base_s_total)
+                    status = '✓' if ecart <= 0.01 else '✗'
+                    detail_lines.append('  (BT-152 absent du mapping — vérification globale)')
+                    detail_lines.append(
+                        f'  Σ BT-131 (S) = {round(bt131_total, 2)} '
+                        f'vs Σ BT-116 (Cat=S) = {base_s_total} '
+                        f'→ écart {ecart:.2f} {status}'
+                    )
 
-                # Σ BT-131 sur les lignes 'Standard rated' (BT-151 = 'S')
-                line_id_to_cat = {}
-                for r in results:
-                    if r.get('balise') == 'BT-151':
-                        lid = r.get('article_line_id') or ''
-                        line_id_to_cat[lid] = (r.get('xml') or r.get('rdi') or '').strip()
-                line_id_to_amt = {}
-                for r in results:
-                    if r.get('balise') == 'BT-131':
-                        lid = r.get('article_line_id') or ''
-                        line_id_to_amt[lid] = (r.get('xml') or r.get('rdi') or '0').strip()
-
-                bt131_s_total = 0.0
-                bt131_lines_used = []
-                for lid, cat in line_id_to_cat.items():
-                    if cat.upper() == 'S' and lid in line_id_to_amt:
-                        s = line_id_to_amt[lid] or '0'
-                        try:
-                            v = _parse_amount(s)
-                            bt131_s_total += v
-                            bt131_lines_used.append(f'    Ligne {lid} : BT-131={s}')
-                        except:
-                            pass
-
-                detail_lines.append('─────────────────')
-                detail_lines.append("Σ BT-131 (lignes 'Standard rated') :")
-                detail_lines.extend(bt131_lines_used or ['    (aucune ligne S)'])
-                detail_lines.append(f'  Total Σ BT-131 (S) = {round(bt131_s_total, 2)}')
-                detail_lines.append('─────────────────')
-                detail_lines.append(f'Σ BT-116 (ventilations Cat=S) = {round(base_s_total, 2)}')
-                detail_lines.append(f'Σ BT-117 (ventilations Cat=S) = {round(vat_s_total, 2)}')
-                detail_lines.append('─────────────────')
-                detail_lines.append(
-                    "Règle BR-S-08 : pour chaque taux distinct, "
-                    "Σ BT-131 + Σ BT-99 − Σ BT-92 = BT-116 de la ventilation."
-                )
-                detail_lines.append(
-                    f'Comparaison globale : Σ BT-131 (S) = {round(bt131_s_total, 2)} '
-                    f'vs Σ BT-116 (S) = {round(base_s_total, 2)} '
-                    f'(écart = {abs(bt131_s_total - base_s_total):.2f})'
-                )
-
-                regle_label = "Détail ventilation TVA (BR-S-08)"
+                regle_label = 'Détail ventilation TVA (BR-S-08)'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
                 if 'rule_details' not in target:
