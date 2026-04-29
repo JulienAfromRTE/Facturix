@@ -10,19 +10,27 @@ Stack : Python 3 / Flask, front-end en HTML inline dans `app.py`, deploiement vi
 
 ## Architecture
 
-- **`app.py`** (~3000 lignes) : fichier unique contenant tout le backend Flask + le HTML/JS/CSS inline.
+- **`app.py`** (~7000 lignes) : fichier unique contenant tout le backend Flask + le HTML/JS/CSS inline.
   - `parse_rdi()` : parse le fichier RDI (format colonnes fixes, positions 41-172 pour le tag, 172-175 pour la longueur, 175+ pour la valeur)
   - `extract_xml_from_pdf()` : extrait le XML Factur-X embarque dans le PDF
   - `perform_controls()` : compare RDI vs XML pour un champ donne
   - `normalize_value()` : normalise les valeurs (dates, nombres) pour comparaison
   - `apply_business_rules()` : applique les regles metier configurables (toutes editables via l'UI)
+  - `load_mapping()` / `save_mapping()` : lecture/ecriture du mapping actif depuis la BDD (`mapping_champs`)
   - `controle()` : route principale POST `/controle` qui orchestre l'analyse
-- **`mapping_v5_*.json`** : fichiers de mapping definissant les champs BT a controler, par type de formulaire :
-  - `mapping_v5_simple.json` : CART Simple (principal)
-  - `mapping_v5_groupee.json` : CART Groupee (contient les sous-entrees BT-21/BT-22 detaillees)
-  - `mapping_v5_ventesdiverses.json` : Ventes Diverses
-  - `mapping_v5_custom_simple_*.json` : mappings personnalises crees par l'utilisateur
-- **`business_rules.json`** : regles metier configurables via l'UI (genere automatiquement au premier lancement)
+- **`facturix.db`** (SQLite) : **source de verite** pour les mappings et les regles metier. Les fichiers `.json` dans `mapping_archive/` sont historiques uniquement, ne plus les editer ; tout passe par la BDD.
+  - Table `mappings` : metadonnees (id, name, type, filename, is_default, color)
+  - Table `mapping_champs` : un champ BT par ligne (mapping_id, position, balise, libelle, rdi, xpath, type, obligatoire, ignore_field, rdg, categorie_bg, categorie_titre, attribute, is_article, valide, controles_cegedim, type_enregistrement)
+  - Table `mapping_content` : contenu JSON brut de secours (PRIMARY KEY = mapping_id)
+  - Table `mapping_versions` : historique horodate (snapshot JSON par version)
+  - Table `business_rules` : regle unique singleton, contenu JSON, seedee depuis `_DEFAULT_RULES` au premier lancement
+  - Table `invoice_history` / `invoice_field_ko` : historique des controles
+  - Table `mapping_audit` : journal des modifications de mapping
+- **Mappings par defaut (id en BDD)** :
+  - `default_simple` : CART Simple (principal)
+  - `default_groupee` : CART Groupee (contient les sous-entrees BT-21/BT-22 detaillees)
+  - `default_ventesdiverses` : Ventes Diverses
+  - mappings personnalises : id arbitraire (ex. `45962558`), `is_default=0`
 
 ## Format RDI
 
@@ -62,24 +70,38 @@ Toutes seedees via `_DEFAULT_RULES` au premier lancement, et migrees automatique
 - **rule_8** BT-22-SUR doit valoir "ISU" (comparaison insensible a la casse)
 - **rule_9** BT-22-BAR = B2G : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
 
-## Structure d'un champ dans le mapping JSON
+## Structure d'un champ (table `mapping_champs`)
 
-```json
-{
-  "balise": "BT-21-BAR",
-  "categorie_bg": "BG-INFOS-GENERALES",
-  "categorie_titre": "INFORMATIONS GENERALES DE LA FACTURE",
-  "controles_cegedim": [],
-  "ignore": "Non",
-  "libelle": "Description du champ",
-  "obligatoire": "Oui",
-  "rdg": "Regle de gestion metier",
-  "rdi": "GS_FECT_EINV-BG1-BT21-BAR",
-  "type": "String",
-  "valide": true,
-  "xpath": "/rsm:CrossIndustryInvoice/rsm:ExchangedDocument/ram:IncludedNote[ram:SubjectCode='BAR']/ram:SubjectCode"
-}
-```
+Une ligne par champ BT. Colonnes principales :
+
+| Colonne | Description |
+|---------|-------------|
+| `mapping_id` | FK vers `mappings.id` |
+| `position` | ordre d'affichage |
+| `balise` | code BT (ex. `BT-21-BAR`) |
+| `libelle` | description |
+| `rdi` | nom du tag dans le RDI (ex. `GS_FECT_EINV-BG1-BT21-BAR`) |
+| `xpath` | XPath dans le XML Factur-X |
+| `type` | `String`, `Date`, `Number`, ... |
+| `obligatoire` | `Oui` / `Non` / `Dependant` |
+| `ignore_field` | `Oui` ignore le champ |
+| `rdg` | regle de gestion metier (texte libre) |
+| `categorie_bg`, `categorie_titre` | regroupement UI |
+| `attribute` | si non vide, on lit cet attribut XML au lieu du texte |
+| `is_article` | 1 si champ d'article (boucle sur les lignes) |
+| `controles_cegedim` | JSON des controles Cegedim |
+| `type_enregistrement` | filtre RDI (`DHEADER` / `DMAIN` / vide) |
+
+Pour interroger directement : `sqlite3 facturix.db "SELECT balise, xpath FROM mapping_champs WHERE mapping_id='default_simple' AND balise='BT-21-BAR';"`
+
+## Namespaces XML utilises pour evaluer les XPath
+
+Construits dynamiquement par `build_xml_namespaces(xml_doc)` :
+
+1. Part d'un fallback statique `FACTURX_FALLBACK_NS` (rsm, ram, udt, qdt, xs, xsi)
+2. Superpose toutes les declarations `xmlns:prefix=...` trouvees dans le XML (root + descendants), en ignorant le namespace par defaut (cle `None`, non utilisable en XPath 1.0)
+
+Tout prefixe declare dans le XML est donc reconnu automatiquement, meme si un mapping introduit un prefixe inattendu. Les deux orchestrateurs (`/controle` et `/batch_controle`) utilisent ce helper.
 
 ## Commandes
 

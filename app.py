@@ -1067,6 +1067,36 @@ def remove_pdf_signature(pdf_path):
         return output
 
 
+FACTURX_FALLBACK_NS = {
+    'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
+    'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
+    'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100',
+    'qdt': 'urn:un:unece:uncefact:data:standard:QualifiedDataType:100',
+    'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'xs':  'http://www.w3.org/2001/XMLSchema',
+}
+
+def build_xml_namespaces(xml_doc):
+    """
+    Construit le dict de namespaces pour evaluer les XPath du mapping.
+    On part du fallback Factur-X puis on superpose les declarations du XML
+    (root + descendants), en ignorant le namespace par defaut (cle None,
+    non utilisable dans XPath 1.0). Tout prefixe present dans le XML sera
+    donc reconnu, meme si un mapping ajoute un namespace inattendu.
+    """
+    ns = dict(FACTURX_FALLBACK_NS)
+    if xml_doc is None:
+        return ns
+    try:
+        for el in xml_doc.iter():
+            for prefix, uri in (el.nsmap or {}).items():
+                if prefix and uri:
+                    ns[prefix] = uri
+    except Exception:
+        pass
+    return ns
+
+
 def get_xml_tag_name(xpath):
     """Extrait le nom complet du dernier tag dans le XPath (ex: 'ram:TypeCode' depuis '//ram:TypeCode')"""
     if not xpath:
@@ -1576,21 +1606,34 @@ def apply_business_rules(results, type_formulaire='simple'):
                 all_items = [r for r in results if r.get('balise') == sum_field]
                 total = 0.0
                 detail_lines = []
+                n = 0
                 for item in all_items:
-                    s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
                     item_line_id = item.get('article_line_id', '')
+                    xml_all = item.get('xml_all') or []
+                    # Champ d'en-tête multi-valué (ex: BT-117 par catégorie de TVA)
+                    if not item_line_id and len(xml_all) > 1:
+                        for i, v in enumerate(xml_all):
+                            label = f'{sum_field} #{i + 1}'
+                            try:
+                                total += _parse_amount(v)
+                                detail_lines.append(f'{label} : {v}')
+                                n += 1
+                            except:
+                                detail_lines.append(f'{label} : {v} (non numérique, ignoré)')
+                        continue
+                    s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
                     label = f'Ligne {item_line_id}' if item_line_id else sum_field
                     try:
                         v = _parse_amount(s)
                         total += v
                         detail_lines.append(f'{label} : {s}')
+                        n += 1
                     except:
                         detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
                 total = round(total, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
                 ecart = abs(val_target - total)
-                n = len(all_items)
                 regle_label = f'Doit égaler la somme des {n} {sum_field}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
@@ -6071,11 +6114,7 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
             return None, 'Mapping introuvable'
 
         mapping = mapping_data.get('champs', [])
-        namespaces = {
-            'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
-            'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
-            'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100'
-        }
+        namespaces = build_xml_namespaces(xml_doc)
 
         xpath_cache = {}
         if xml_doc is not None:
@@ -6148,6 +6187,7 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
                                 break
 
             xml_value = ''
+            xml_all = []
             if xml_doc is not None:
                 try:
                     _xpath_raw = field.get('xpath', '') or ''
@@ -6157,10 +6197,15 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
                             elements = compiled(xml_doc)
                             if elements:
                                 attribute = field.get('attribute')
-                                if attribute and hasattr(elements[0], 'get'):
-                                    xml_value = elements[0].get(attribute, '').strip()
-                                elif hasattr(elements[0], 'text') and elements[0].text:
-                                    xml_value = elements[0].text.strip()
+                                for el in elements:
+                                    if attribute and hasattr(el, 'get'):
+                                        xml_all.append(el.get(attribute, '').strip())
+                                    elif hasattr(el, 'text') and el.text:
+                                        xml_all.append(el.text.strip())
+                                    else:
+                                        xml_all.append('')
+                                if xml_all:
+                                    xml_value = xml_all[0]
                 except Exception:
                     pass
 
@@ -6186,7 +6231,8 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
 
             results.append({
                 'balise': field.get('balise', ''), 'libelle': field.get('libelle', ''),
-                'rdi': rdi_value, 'xml': xml_value, 'rdi_field': rdi_field_name,
+                'rdi': rdi_value, 'xml': xml_value, 'xml_all': xml_all,
+                'rdi_field': rdi_field_name,
                 'xml_short_name': get_xml_short_name(field.get('xpath', '')),
                 'xml_tag_name': get_xml_tag_name(field.get('xpath', '')),
                 'status': status, 'regles_testees': regles_testees,
@@ -6463,11 +6509,7 @@ def controle():
             return jsonify({'error': 'Mapping introuvable'}), 500
 
         mapping = mapping_data.get('champs', [])
-        namespaces = {
-            'rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
-            'ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
-            'udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100'
-        }
+        namespaces = build_xml_namespaces(xml_doc)
 
         # Pré-compiler les XPath pour accélérer le traitement
         xpath_cache = {}
@@ -6558,6 +6600,7 @@ def controle():
                                 break
 
             xml_value = ''
+            xml_all = []
             if xml_doc is not None:
                 try:
                     _xpath_raw = field.get('xpath', '') or ''
@@ -6567,10 +6610,15 @@ def controle():
                             elements = compiled(xml_doc)
                             if elements:
                                 attribute = field.get('attribute')
-                                if attribute and hasattr(elements[0], 'get'):
-                                    xml_value = elements[0].get(attribute, '').strip()
-                                elif hasattr(elements[0], 'text') and elements[0].text:
-                                    xml_value = elements[0].text.strip()
+                                for el in elements:
+                                    if attribute and hasattr(el, 'get'):
+                                        xml_all.append(el.get(attribute, '').strip())
+                                    elif hasattr(el, 'text') and el.text:
+                                        xml_all.append(el.text.strip())
+                                    else:
+                                        xml_all.append('')
+                                if xml_all:
+                                    xml_value = xml_all[0]
                 except:
                     pass
 
@@ -6602,6 +6650,7 @@ def controle():
                 'libelle': field.get('libelle', ''),
                 'rdi': rdi_value,
                 'xml': xml_value,
+                'xml_all': xml_all,
                 'rdi_field': rdi_field_name,
                 'xml_short_name': xml_short_name,
                 'xml_tag_name': xml_tag_name,
@@ -7092,7 +7141,7 @@ def api_stats_summary():
         row = conn.execute(
             f"SELECT COUNT(*) AS n, "
             f"       AVG(conformity_pct) AS pct, "
-            f"       SUM(CASE WHEN error IS NOT NULL AND error <> '' THEN 1 ELSE 0 END) AS nb_errors "
+            f"       SUM(CASE WHEN (error IS NOT NULL AND error <> '') OR erreur > 0 THEN 1 ELSE 0 END) AS nb_errors "
             f"FROM invoice_history{where}",
             params
         ).fetchone()
