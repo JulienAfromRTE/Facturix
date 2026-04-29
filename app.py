@@ -1580,10 +1580,22 @@ def apply_business_rules(results, type_formulaire='simple'):
                 expected = round(val1 + val2, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
+                ecart = abs(val_target - expected)
                 regle_label = f'Doit égaler {field1} + {field2}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                if abs(val_target - expected) > 0.005:
+                detail_lines = [
+                    f'{field1} = {val1}',
+                    f'{field2} = {val2}',
+                    f'─────────────────',
+                    f'{field1} + {field2} = {expected}',
+                    f'{target_field} = {val_target}',
+                    f'Écart = {ecart:.4f} (tolérance 0.005)',
+                ]
+                if 'rule_details' not in target:
+                    target['rule_details'] = {}
+                target['rule_details'][rule_name] = detail_lines
+                if ecart > 0.005:
                     target['status'] = 'ERREUR'
                     if 'RAS' in target['details_erreurs']:
                         target['details_erreurs'].remove('RAS')
@@ -3550,7 +3562,7 @@ function batchRenderResults(data){
     var mainDiv=document.createElement('div');
     mainDiv.className='batch-inv-main '+(nbErrInv>0?'has-err':'all-ok');
     mainDiv.innerHTML=
-      '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename">'+escHtml(inv.name)+'</div></div>'+
+      '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename" title="'+escHtml(inv.name)+'">'+escHtml(inv.name)+'</div></div>'+
       '<div class="batch-sc ok">'+nbOkInv+'</div>'+
       '<div class="batch-sc err">'+nbErrInv+'</div>'+
       '<div class="batch-sc amb">'+nbAmbInv+'</div>'+
@@ -3642,6 +3654,7 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx){
         if(typeControle==='xml'||isXmlOnly){var xv=r.xml||'(vide)';if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+escHtml(r.xml_tag_name)+' = '+escHtml(xv);valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+escHtml(xv)+'</div>';}
         if(r.regles_testees&&r.regles_testees.length>0){tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles :</strong><ul style="margin:2px 0 0;padding-left:16px">';r.regles_testees.forEach(function(rg){tooltipContent+='<li>'+escHtml(rg)+'</li>';});tooltipContent+='</ul>';}
         if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0;padding-left:16px;color:#fcc">';r.details_erreurs.forEach(function(e){tooltipContent+='<li>'+escHtml(e)+'</li>';});tooltipContent+='</ul>';}
+        if(r.rule_details){Object.keys(r.rule_details).forEach(function(rn){var rd=r.rule_details[rn];if(!rd||!rd.length)return;tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+escHtml(rn)+' :</strong><ul style="margin:2px 0 0;padding-left:16px;font-family:monospace;font-size:0.85em">';rd.forEach(function(l){tooltipContent+='<li>'+escHtml(l)+'</li>';});tooltipContent+='</ul>';});}
         var sIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
         var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
         var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
@@ -3679,6 +3692,9 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx){
           var valHtml='';var tooltipContent='';
           if(!isXmlOnly){var rv=r.rdi||'(vide)';tooltipContent='<strong>RDI:</strong> '+escHtml(r.rdi_field)+' = '+escHtml(rv);valHtml+='<div class="val-line"><span class="val-label">RDI:</span> '+escHtml(rv)+'</div>';}
           if(typeControle==='xml'||isXmlOnly){var xv=r.xml||'(vide)';if(tooltipContent)tooltipContent+='<br>';tooltipContent+='<strong>XML:</strong> '+escHtml(r.xml_tag_name)+' = '+escHtml(xv);valHtml+='<div class="val-line"><span class="val-label">XML:</span> '+escHtml(xv)+'</div>';}
+          if(r.regles_testees&&r.regles_testees.length>0){tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles :</strong><ul style="margin:2px 0 0;padding-left:16px">';r.regles_testees.forEach(function(rg){tooltipContent+='<li>'+escHtml(rg)+'</li>';});tooltipContent+='</ul>';}
+          if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0;padding-left:16px;color:#fcc">';r.details_erreurs.forEach(function(e){tooltipContent+='<li>'+escHtml(e)+'</li>';});tooltipContent+='</ul>';}
+          if(r.rule_details){Object.keys(r.rule_details).forEach(function(rn){var rd=r.rule_details[rn];if(!rd||!rd.length)return;tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+escHtml(rn)+' :</strong><ul style="margin:2px 0 0;padding-left:16px;font-family:monospace;font-size:0.85em">';rd.forEach(function(l){tooltipContent+='<li>'+escHtml(l)+'</li>';});tooltipContent+='</ul>';});}
           var sIcon=r.status==='IGNORE'?'⏸️':(r.status==='OK'?'✅':(r.status==='AMBIGU'?'⚠️':'❌'));
           var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
           var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
