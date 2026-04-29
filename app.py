@@ -1600,22 +1600,28 @@ def apply_business_rules(results, type_formulaire='simple'):
                 expected = round(val1 + val2, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
+                tolerance = 0.005
                 ecart = abs(val_target - expected)
+                status = '✓' if ecart <= tolerance else '✗'
                 regle_label = f'Doit égaler {field1} + {field2}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                detail_lines = [
-                    f'{field1} = {val1}',
-                    f'{field2} = {val2}',
-                    f'─────────────────',
-                    f'{field1} + {field2} = {expected}',
-                    f'{target_field} = {val_target}',
-                    f'Écart = {ecart:.4f} (tolérance 0.005)',
-                ]
+                detail_lines = []
+                detail_lines.append(f'🔎 {rule_name}')
+                detail_lines.append(f'{target_field} doit égaler {field1} + {field2}.')
+                detail_lines.append('═══════════════════════════════════════')
+                detail_lines.append('📋 Opérandes :')
+                detail_lines.append(f'  {field1} = {val1}')
+                detail_lines.append(f'  {field2} = {val2}')
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('🧮 Vérification :')
+                detail_lines.append(f'  {field1} + {field2} = {expected}')
+                detail_lines.append(f'  {target_field} = {val_target}')
+                detail_lines.append(f'  Écart = {ecart:.4f} (tolérance {tolerance}) {status}')
                 if 'rule_details' not in target:
                     target['rule_details'] = {}
                 target['rule_details'][rule_name] = detail_lines
-                if ecart > 0.005:
+                if ecart > tolerance:
                     target['status'] = 'ERREUR'
                     if 'RAS' in target['details_erreurs']:
                         target['details_erreurs'].remove('RAS')
@@ -1637,10 +1643,11 @@ def apply_business_rules(results, type_formulaire='simple'):
             try:
                 all_items = [r for r in results if r.get('balise') == sum_field]
                 total = 0.0
-                detail_lines = []
+                operands_lines = []
                 n = 0
                 for item in all_items:
                     item_line_id = item.get('article_line_id', '')
+                    item_name = item.get('article_name', '')
                     xml_all = item.get('xml_all') or []
                     # Champ d'en-tête multi-valué (ex: BT-117 par catégorie de TVA)
                     if not item_line_id and len(xml_all) > 1:
@@ -1648,32 +1655,45 @@ def apply_business_rules(results, type_formulaire='simple'):
                             label = f'{sum_field} #{i + 1}'
                             try:
                                 total += _parse_amount(v)
-                                detail_lines.append(f'{label} : {v}')
+                                operands_lines.append(f'  {label} : {v}')
                                 n += 1
                             except:
-                                detail_lines.append(f'{label} : {v} (non numérique, ignoré)')
+                                operands_lines.append(f'  {label} : {v} (non numérique, ignoré)')
                         continue
                     s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
-                    label = f'Ligne {item_line_id}' if item_line_id else sum_field
+                    if item_line_id:
+                        label = f'Ligne {item_line_id}'
+                        if item_name:
+                            label += f' ({item_name})'
+                    else:
+                        label = sum_field
                     try:
                         v = _parse_amount(s)
                         total += v
-                        detail_lines.append(f'{label} : {s}')
+                        operands_lines.append(f'  {label} : {sum_field} = {s}')
                         n += 1
                     except:
-                        detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
+                        operands_lines.append(f'  {label} : {sum_field} = {s} (non numérique, ignoré)')
                 total = round(total, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
                 ecart = abs(val_target - total)
+                status = '✓' if ecart <= tolerance else '✗'
                 regle_label = f'Doit égaler la somme des {n} {sum_field}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                # Stocker le détail du calcul pour le tooltip
-                detail_lines.append(f'─────────────────')
-                detail_lines.append(f'Σ {sum_field} = {total}')
-                detail_lines.append(f'{target_field} = {val_target}')
-                detail_lines.append(f'Écart = {ecart:.4f} (tolérance {tolerance})')
+
+                detail_lines = []
+                detail_lines.append(f'🔎 {rule_name}')
+                detail_lines.append(f'{target_field} doit égaler la somme des {sum_field}.')
+                detail_lines.append('═══════════════════════════════════════')
+                detail_lines.append(f'📋 Opérandes ({n} {sum_field}) :')
+                detail_lines.extend(operands_lines or ['  (aucun)'])
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('🧮 Vérification :')
+                detail_lines.append(f'  Σ {sum_field} = {total}')
+                detail_lines.append(f'  {target_field} = {val_target}')
+                detail_lines.append(f'  Écart = {ecart:.4f} (tolérance {tolerance}) {status}')
                 if 'rule_details' not in target:
                     target['rule_details'] = {}
                 target['rule_details'][rule_name] = detail_lines
@@ -1712,29 +1732,35 @@ def apply_business_rules(results, type_formulaire='simple'):
 
                 sum_items = [r for r in results if r.get('balise') == sum_field]
                 sum_total = 0.0
-                detail_lines = []
+                operands_lines = []
                 n = 0
                 for item in sum_items:
                     item_line_id = item.get('article_line_id', '')
+                    item_name = item.get('article_name', '')
                     xml_all = item.get('xml_all') or []
                     if not item_line_id and len(xml_all) > 1:
                         for i, v in enumerate(xml_all):
                             label = f'{sum_field} #{i + 1}'
                             try:
                                 sum_total += _parse_amount(v)
-                                detail_lines.append(f'{label} : {v}')
+                                operands_lines.append(f'  {label} : {v}')
                                 n += 1
                             except:
-                                detail_lines.append(f'{label} : {v} (non numérique, ignoré)')
+                                operands_lines.append(f'  {label} : {v} (non numérique, ignoré)')
                         continue
                     s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
-                    label = f'Ligne {item_line_id}' if item_line_id else sum_field
+                    if item_line_id:
+                        label = f'Ligne {item_line_id}'
+                        if item_name:
+                            label += f' ({item_name})'
+                    else:
+                        label = sum_field
                     try:
                         sum_total += _parse_amount(s)
-                        detail_lines.append(f'{label} : {s}')
+                        operands_lines.append(f'  {label} : {sum_field} = {s}')
                         n += 1
                     except:
-                        detail_lines.append(f'{label} : {s} (non numérique, ignoré)')
+                        operands_lines.append(f'  {label} : {sum_field} = {s} (non numérique, ignoré)')
                 sum_total = round(sum_total, 10)
 
                 val_minus = _val_of(minus_field)
@@ -1743,17 +1769,29 @@ def apply_business_rules(results, type_formulaire='simple'):
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
                 ecart = abs(val_target - expected)
+                status = '✓' if ecart <= tolerance else '✗'
 
                 regle_label = f'Doit égaler Σ {n} {sum_field} − {minus_field} + {plus_field}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                detail_lines.append(f'─────────────────')
-                detail_lines.append(f'Σ {sum_field} = {sum_total}')
-                detail_lines.append(f'− {minus_field} = {val_minus}')
-                detail_lines.append(f'+ {plus_field} = {val_plus}')
-                detail_lines.append(f'Σ {sum_field} − {minus_field} + {plus_field} = {expected}')
-                detail_lines.append(f'{target_field} = {val_target}')
-                detail_lines.append(f'Écart = {ecart:.4f} (tolérance {tolerance})')
+
+                detail_lines = []
+                detail_lines.append(f'🔎 {rule_name}')
+                detail_lines.append(f'{target_field} doit égaler Σ {sum_field} − {minus_field} + {plus_field}.')
+                detail_lines.append('═══════════════════════════════════════')
+                detail_lines.append(f'📋 Σ {sum_field} ({n} occurrence(s)) :')
+                detail_lines.extend(operands_lines or ['  (aucune)'])
+                detail_lines.append(f'  ───────────────')
+                detail_lines.append(f'  Σ {sum_field} = {sum_total}')
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('📋 Ajustements document :')
+                detail_lines.append(f'  − {minus_field} (remises) = {val_minus}')
+                detail_lines.append(f'  + {plus_field} (charges) = {val_plus}')
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('🧮 Vérification :')
+                detail_lines.append(f'  Σ {sum_field} − {minus_field} + {plus_field} = {expected}')
+                detail_lines.append(f'  {target_field} = {val_target}')
+                detail_lines.append(f'  Écart = {ecart:.4f} (tolérance {tolerance}) {status}')
                 if 'rule_details' not in target:
                     target['rule_details'] = {}
                 target['rule_details'][rule_name] = detail_lines
@@ -1954,17 +1992,23 @@ def apply_business_rules(results, type_formulaire='simple'):
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
                 ecart = abs(val_target - expected)
+                status = '✓' if ecart <= tolerance else '✗'
+                line_suffix = f' (Ligne {line_id})' if line_id else ''
                 regle_label = f'Doit égaler {field1} × {field2}'
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
-                detail_lines = [
-                    f'{field1} = {val1}',
-                    f'{field2} = {val2}',
-                    f'─────────────────',
-                    f'{field1} × {field2} = {expected}',
-                    f'{target_field} = {val_target}',
-                    f'Écart = {ecart:.4f} (tolérance {tolerance})',
-                ]
+                detail_lines = []
+                detail_lines.append(f'🔎 {rule_name}{line_suffix}')
+                detail_lines.append(f'{target_field} doit égaler {field1} × {field2}.')
+                detail_lines.append('═══════════════════════════════════════')
+                detail_lines.append('📋 Opérandes :')
+                detail_lines.append(f'  {field1} = {val1}')
+                detail_lines.append(f'  {field2} = {val2}')
+                detail_lines.append('───────────────────────────────────────')
+                detail_lines.append('🧮 Vérification :')
+                detail_lines.append(f'  {field1} × {field2} = {expected}')
+                detail_lines.append(f'  {target_field} = {val_target}')
+                detail_lines.append(f'  Écart = {ecart:.4f} (tolérance {tolerance}) {status}')
                 if 'rule_details' not in target:
                     target['rule_details'] = {}
                 target['rule_details'][rule_name] = detail_lines
@@ -2265,6 +2309,8 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .rule-actions-btn .btn-edit:hover{background:#d97706}
 .rule-actions-btn .btn-delete{background:#ef4444}
 .rule-actions-btn .btn-delete:hover{background:#dc2626}
+.rule-actions-btn .btn-clone{background:#10b981}
+.rule-actions-btn .btn-clone:hover{background:#059669}
 .rule-body{padding:12px 16px;border-top:1px solid #f1f5f9}
 .rule-description{color:#64748b;font-size:0.85em;margin-bottom:9px;font-style:italic}
 .rule-logic{background:#f8fafc;padding:10px 13px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:0.83em;color:#475569}
@@ -5790,6 +5836,7 @@ div.innerHTML='<div class="rule-header '+enabledClass+'">'+
 '<div class="rule-actions-btn">'+
 '<button class="btn-toggle" data-index="'+index+'">'+(rule.enabled?'Désactiver':'Activer')+'</button>'+
 '<button class="btn-edit" data-index="'+index+'">Éditer</button>'+
+'<button class="btn-clone" data-index="'+index+'" title="Dupliquer cette règle">⎘ Cloner</button>'+
 '<button class="btn-delete" data-index="'+index+'">Supprimer</button>'+
 '</div>'+
 '</div>'+
@@ -5814,6 +5861,17 @@ saveRules();
 document.querySelectorAll('.btn-edit').forEach(function(btn){
 btn.addEventListener('click',function(){
 editRule(parseInt(this.getAttribute('data-index')));
+});
+});
+document.querySelectorAll('.btn-clone').forEach(function(btn){
+btn.addEventListener('click',function(){
+var idx=parseInt(this.getAttribute('data-index'));
+var src=currentRules.rules[idx];
+var copy=JSON.parse(JSON.stringify(src));
+copy.id='rule_'+Date.now();
+copy.name=(src.name||'Règle')+' (copie)';
+currentRules.rules.splice(idx+1,0,copy);
+saveRules();
 });
 });
 document.querySelectorAll('.btn-delete').forEach(function(btn){
