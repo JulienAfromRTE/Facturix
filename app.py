@@ -261,6 +261,16 @@ _DEFAULT_RULES = {
             "actions": [{"type": "must_equal_sum", "field_type": "bt", "field": "BT-112", "field1": "BT-109", "field2": "BT-110"}]
         },
         {
+            "id": "auto_br_s_08",
+            "name": "[auto] BR-S-08 — Détail ventilation TVA Standard rated",
+            "category": "Calculs",
+            "description": "Détail du calcul de la cohérence TVA Standard rated : pour chaque ventilation (BT-119), Σ BT-131 (lignes 'S' au même taux) + Σ BT-99 (charges 'S') − Σ BT-92 (remises 'S') doit égaler BT-116 de cette ventilation.",
+            "enabled": True,
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": [{"type": "vat_breakdown_detail", "field_type": "bt", "field": "BT-118"}]
+        },
+        {
             "id": "auto_br_ae_1",
             "name": "[auto] BR-AE-1 — Autoliquidation : motif d'exonération",
             "category": "Exonérations TVA",
@@ -1757,6 +1767,102 @@ def apply_business_rules(results, type_formulaire='simple'):
                     if msg not in target['details_erreurs']:
                         target['details_erreurs'].append(msg)
             except:
+                pass
+
+        elif action_type == 'vat_breakdown_detail':
+            # BR-S-08 : explicite le calcul de la cohérence TVA par ventilation.
+            # Pour chaque ApplicableTradeTax (aligné par index sur xml_all de
+            # BT-118 / BT-119 / BT-116 / BT-117), affiche la catégorie, le
+            # taux, la base et la TVA. Pour les entrées 'S', somme aussi les
+            # BT-131 des lignes Standard rated.
+            try:
+                def _xml_all_of(balise):
+                    obj = next((r for r in results if r.get('balise') == balise), None)
+                    if not obj:
+                        return []
+                    xa = obj.get('xml_all') or []
+                    if xa:
+                        return xa
+                    v = (obj.get('xml') or obj.get('rdi') or '').strip()
+                    return [v] if v else []
+
+                bt118 = _xml_all_of('BT-118')
+                bt119 = _xml_all_of('BT-119')
+                bt116 = _xml_all_of('BT-116')
+                bt117 = _xml_all_of('BT-117')
+
+                detail_lines = []
+                detail_lines.append('Ventilation TVA (par ApplicableTradeTax) :')
+                n_breakdowns = max(len(bt118), len(bt119), len(bt116), len(bt117))
+                base_s_total = 0.0
+                vat_s_total = 0.0
+                for i in range(n_breakdowns):
+                    cat = bt118[i] if i < len(bt118) else '?'
+                    rate = bt119[i] if i < len(bt119) else '?'
+                    base = bt116[i] if i < len(bt116) else '?'
+                    vat = bt117[i] if i < len(bt117) else '?'
+                    detail_lines.append(
+                        f'  #{i + 1} : Cat={cat} | Taux={rate}% | Base BT-116={base} | TVA BT-117={vat}'
+                    )
+                    if str(cat).strip().upper() == 'S':
+                        try:
+                            base_s_total += _parse_amount(base)
+                        except:
+                            pass
+                        try:
+                            vat_s_total += _parse_amount(vat)
+                        except:
+                            pass
+
+                # Σ BT-131 sur les lignes 'Standard rated' (BT-151 = 'S')
+                line_id_to_cat = {}
+                for r in results:
+                    if r.get('balise') == 'BT-151':
+                        lid = r.get('article_line_id') or ''
+                        line_id_to_cat[lid] = (r.get('xml') or r.get('rdi') or '').strip()
+                line_id_to_amt = {}
+                for r in results:
+                    if r.get('balise') == 'BT-131':
+                        lid = r.get('article_line_id') or ''
+                        line_id_to_amt[lid] = (r.get('xml') or r.get('rdi') or '0').strip()
+
+                bt131_s_total = 0.0
+                bt131_lines_used = []
+                for lid, cat in line_id_to_cat.items():
+                    if cat.upper() == 'S' and lid in line_id_to_amt:
+                        s = line_id_to_amt[lid] or '0'
+                        try:
+                            v = _parse_amount(s)
+                            bt131_s_total += v
+                            bt131_lines_used.append(f'    Ligne {lid} : BT-131={s}')
+                        except:
+                            pass
+
+                detail_lines.append('─────────────────')
+                detail_lines.append("Σ BT-131 (lignes 'Standard rated') :")
+                detail_lines.extend(bt131_lines_used or ['    (aucune ligne S)'])
+                detail_lines.append(f'  Total Σ BT-131 (S) = {round(bt131_s_total, 2)}')
+                detail_lines.append('─────────────────')
+                detail_lines.append(f'Σ BT-116 (ventilations Cat=S) = {round(base_s_total, 2)}')
+                detail_lines.append(f'Σ BT-117 (ventilations Cat=S) = {round(vat_s_total, 2)}')
+                detail_lines.append('─────────────────')
+                detail_lines.append(
+                    "Règle BR-S-08 : pour chaque taux distinct, "
+                    "Σ BT-131 + Σ BT-99 − Σ BT-92 = BT-116 de la ventilation."
+                )
+                detail_lines.append(
+                    f'Comparaison globale : Σ BT-131 (S) = {round(bt131_s_total, 2)} '
+                    f'vs Σ BT-116 (S) = {round(base_s_total, 2)} '
+                    f'(écart = {abs(bt131_s_total - base_s_total):.2f})'
+                )
+
+                regle_label = "Détail ventilation TVA (BR-S-08)"
+                if regle_label not in target['regles_testees']:
+                    target['regles_testees'].append(regle_label)
+                if 'rule_details' not in target:
+                    target['rule_details'] = {}
+                target['rule_details'][rule_name] = detail_lines
+            except Exception:
                 pass
 
         elif action_type == 'must_equal_product':
