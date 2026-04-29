@@ -2156,6 +2156,112 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .spinner{border:3px solid #e2e8f0;border-top:3px solid #667eea;border-radius:50%;width:42px;height:42px;animation:spin 0.75s linear infinite;margin:0 auto 10px}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .results{display:none}
+/* === INVOICE SUMMARY === */
+.invoice-summary{position:relative;background:#fff;border-radius:12px;padding:13px 22px 14px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden}
+.invoice-summary::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#667eea,#764ba2)}
+.invoice-summary-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+.invoice-summary-title{font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#475569}
+.invoice-summary-type{font-size:0.72em;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 11px;border-radius:999px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;border:1px solid #c7d2fe;box-shadow:0 1px 2px rgba(67,56,202,0.08)}
+.invoice-summary-type.avoir{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;border-color:#fca5a5;box-shadow:0 1px 2px rgba(153,27,27,0.08)}
+.invoice-summary-type.autofact{background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#166534;border-color:#86efac;box-shadow:0 1px 2px rgba(22,101,52,0.08)}
+.invoice-summary-type.acompte{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-color:#fcd34d;box-shadow:0 1px 2px rgba(146,64,14,0.08)}
+.invoice-summary-dest{font-size:0.72em;font-weight:600;letter-spacing:0.02em;padding:3px 10px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;display:inline-flex;align-items:center;gap:4px}
+.invoice-summary-dest.b2b{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-color:#93c5fd}
+.invoice-summary-dest.b2g{background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#5b21b6;border-color:#c4b5fd}
+.invoice-summary-dest.b2bint{background:linear-gradient(135deg,#ffedd5,#fed7aa);color:#9a3412;border-color:#fdba74}
+.invoice-summary-num{font-size:0.78em;color:#64748b;margin-left:auto}
+.invoice-summary-num strong{color:#1e293b;font-weight:700;font-family:'SF Mono',Menlo,monospace;background:#f8fafc;padding:2px 9px;border-radius:6px;border:1px solid #e2e8f0;margin-left:4px}
+.invoice-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+.invoice-summary-block{display:flex;flex-direction:column;gap:4px;padding:0 18px;position:relative;min-width:0}
+.invoice-summary-block:first-child{padding-left:0}
+.invoice-summary-block:last-child{padding-right:0}
+.invoice-summary-block:not(:last-child)::after{content:'';position:absolute;top:4px;bottom:4px;right:0;width:1px;background:linear-gradient(180deg,transparent,#e2e8f0 18%,#e2e8f0 82%,transparent)}
+.invoice-summary-block-title{font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.invoice-summary-block-title .icn{font-size:1.1em;filter:saturate(0.85)}
+.invoice-summary-row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.82em;gap:10px;padding:1px 0}
+.invoice-summary-row .label{color:#64748b;font-weight:500}
+.invoice-summary-row .value{color:#1e293b;font-weight:600;text-align:right;word-break:break-word;font-variant-numeric:tabular-nums}
+.invoice-summary-row.amount-total{margin-top:3px;padding-top:5px;border-top:1px dashed #e2e8f0}
+.invoice-summary-row.amount-total .label{color:#1e293b;font-weight:700}
+.invoice-summary-row.amount-total .value{color:#4338ca;font-size:1.08em;font-weight:700}
+.invoice-summary-block .client-name{font-size:0.92em;font-weight:700;color:#1e293b;margin-bottom:2px;line-height:1.25}
+.invoice-summary-block .client-addr{font-size:0.78em;color:#475569;line-height:1.4;white-space:pre-wrap}
+.invoice-summary-block .client-id{font-size:0.74em;color:#64748b;margin-top:3px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.invoice-summary-block .client-id code{background:#f1f5f9;padding:1px 7px;border-radius:4px;color:#1e293b;font-family:'SF Mono',Menlo,monospace;font-size:0.95em;font-weight:600;border:1px solid #e2e8f0}
+@media(max-width:900px){.invoice-summary-grid{grid-template-columns:1fr;gap:10px}.invoice-summary-block{padding:0 0 10px 0;border-bottom:1px solid #f1f5f9}.invoice-summary-block:not(:last-child)::after{display:none}.invoice-summary-block:last-child{padding-bottom:0;border-bottom:none}}
+.invoice-summary-footer{display:flex;justify-content:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid #f1f5f9}
+.invoice-detail-btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:0.78em;font-weight:600;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;box-shadow:0 1px 3px rgba(102,126,234,0.25)}
+.invoice-detail-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(102,126,234,0.35)}
+/* === DETAIL MODAL === */
+.inv-detail-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9998;backdrop-filter:blur(2px);animation:invFadeIn 0.18s ease}
+.inv-detail-overlay.visible{display:flex;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto}
+@keyframes invFadeIn{from{opacity:0}to{opacity:1}}
+.inv-detail-modal{background:#fff;border-radius:14px;width:100%;max-width:920px;box-shadow:0 25px 60px rgba(0,0,0,0.3);position:relative;animation:invSlideIn 0.22s ease}
+@keyframes invSlideIn{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.inv-detail-close{position:absolute;top:14px;right:14px;background:#f1f5f9;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1.1em;color:#475569;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.15s;z-index:2}
+.inv-detail-close:hover{background:#e2e8f0;transform:rotate(90deg)}
+.inv-detail-banner{position:relative;padding:24px 30px 18px;border-radius:14px 14px 0 0;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;overflow:hidden}
+.inv-detail-banner::after{content:'';position:absolute;top:-30px;right:-30px;width:160px;height:160px;background:rgba(255,255,255,0.08);border-radius:50%}
+.inv-detail-banner h2{margin:0 0 6px;font-size:1.4em;font-weight:700;letter-spacing:0.02em}
+.inv-detail-banner .meta{font-size:0.84em;opacity:0.92;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.inv-detail-banner .meta .num{font-family:'SF Mono',Menlo,monospace;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:5px;font-weight:700}
+.inv-detail-banner .meta-badges{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.inv-detail-banner .meta-badges .b{background:rgba(255,255,255,0.18);padding:3px 10px;border-radius:999px;font-size:0.74em;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border:1px solid rgba(255,255,255,0.25)}
+.inv-detail-body{padding:20px 30px 26px}
+.inv-detail-section{margin-top:22px}
+.inv-detail-section:first-child{margin-top:0}
+.inv-detail-section-title{font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#475569;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;gap:8px}
+.inv-detail-section-title .icn{font-size:1.2em}
+.inv-detail-parties{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.inv-detail-party{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+.inv-detail-party.buyer{border-left:3px solid #667eea}
+.inv-detail-party.seller{border-left:3px solid #10b981}
+.inv-detail-party .party-label{font-size:0.66em;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:6px}
+.inv-detail-party .party-name{font-size:1.02em;font-weight:700;color:#1e293b;margin-bottom:6px;line-height:1.3}
+.inv-detail-party .party-trade{font-size:0.82em;color:#64748b;font-style:italic;margin-bottom:6px}
+.inv-detail-party .party-addr{font-size:0.84em;color:#334155;line-height:1.5;white-space:pre-wrap;margin-bottom:8px}
+.inv-detail-party .party-id{font-size:0.78em;color:#475569;line-height:1.65}
+.inv-detail-party .party-id b{color:#1e293b;display:inline-block;min-width:80px}
+.inv-detail-party .party-id code{background:#fff;padding:1px 7px;border-radius:4px;color:#1e293b;font-family:'SF Mono',Menlo,monospace;font-size:0.95em;border:1px solid #e2e8f0}
+.inv-detail-party .party-id .empty-chip{background:#fef3c7;color:#92400e;border:1px dashed #f59e0b;padding:1px 8px;border-radius:4px;font-size:0.8em;font-weight:600;font-style:italic;letter-spacing:0.02em}
+.inv-detail-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 22px}
+.inv-detail-kv .kv{font-size:0.84em;display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0;border-bottom:1px dashed #f1f5f9}
+.inv-detail-kv .kv .k{color:#64748b;font-weight:500}
+.inv-detail-kv .kv .v{color:#1e293b;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.inv-detail-kv .kv.empty{display:none}
+.inv-detail-orig{margin-top:14px;background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid #94a3b8;border-radius:8px;padding:10px 14px}
+.inv-detail-orig.avoir{background:linear-gradient(135deg,#fef2f2,#fef2f2 60%,#fee2e2);border-color:#fecaca;border-left-color:#dc2626}
+.inv-detail-orig .orig-label{font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#475569;margin-bottom:6px}
+.inv-detail-orig.avoir .orig-label{color:#991b1b}
+.inv-detail-orig .orig-rows{display:flex;flex-wrap:wrap;gap:18px;font-size:0.86em;color:#1e293b}
+.inv-detail-orig .orig-rows b{color:#64748b;font-weight:500;margin-right:4px}
+.inv-detail-orig .orig-rows code{background:#fff;padding:2px 8px;border-radius:5px;color:#1e293b;font-family:'SF Mono',Menlo,monospace;font-weight:700;border:1px solid #e2e8f0}
+.inv-detail-orig.avoir .orig-rows code{background:#fff;border-color:#fecaca}
+.inv-detail-table{width:100%;border-collapse:collapse;font-size:0.83em}
+.inv-detail-table th{background:#f8fafc;color:#475569;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #e2e8f0;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em}
+.inv-detail-table td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155;font-variant-numeric:tabular-nums}
+.inv-detail-table td.num{text-align:right}
+.inv-detail-table tr:hover td{background:#fafbfc}
+.inv-detail-table .line-num{font-weight:700;color:#667eea;width:42px}
+.inv-detail-table .designation{font-weight:600;color:#1e293b}
+.inv-detail-table .designation small{display:block;color:#94a3b8;font-weight:400;font-size:0.92em;margin-top:2px}
+.inv-detail-totals{background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:5px;margin-left:auto;max-width:420px}
+.inv-detail-totals .row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.86em;padding:3px 0}
+.inv-detail-totals .row.sub{color:#64748b}
+.inv-detail-totals .row .v{font-weight:600;color:#1e293b;font-variant-numeric:tabular-nums}
+.inv-detail-totals .row.divider{border-top:1px dashed #cbd5e1;margin-top:4px;padding-top:8px}
+.inv-detail-totals .row.net{font-size:1em;font-weight:700;color:#4338ca;border-top:2px solid #c7d2fe;margin-top:6px;padding-top:9px}
+.inv-detail-totals .row.net .v{color:#4338ca;font-size:1.15em}
+.inv-detail-vat-table{width:100%;border-collapse:collapse;font-size:0.84em;margin-top:6px}
+.inv-detail-vat-table th{background:#f1f5f9;color:#475569;font-weight:700;padding:7px 10px;text-align:right;font-size:0.76em;text-transform:uppercase;letter-spacing:0.05em}
+.inv-detail-vat-table th:first-child{text-align:left}
+.inv-detail-vat-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums}
+.inv-detail-vat-table td:first-child{text-align:left;font-weight:600;color:#1e293b}
+.inv-detail-notes{display:flex;flex-direction:column;gap:7px}
+.inv-detail-note{background:#fffbeb;border-left:3px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:0.84em;color:#451a03}
+.inv-detail-note .nl{display:block;font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#92400e;margin-bottom:3px}
+.inv-detail-empty{font-size:0.84em;color:#94a3b8;font-style:italic;padding:10px 0}
+@media(max-width:760px){.inv-detail-parties{grid-template-columns:1fr}.inv-detail-totals{max-width:100%}.inv-detail-banner{padding:20px}.inv-detail-body{padding:16px 20px 22px}}
 /* === PROGRESS BAR === */
 .progress-section{background:#fff;border-radius:12px;padding:13px 22px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
 .progress-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -2181,7 +2287,7 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .ambigu .stat-value{color:#d97706}
 .ignore .stat-value{color:#94a3b8}
 /* === SEARCH BOX === */
-.search-box{display:flex;flex-direction:column;gap:8px;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0}
+.search-box{display:flex;flex-direction:column;gap:8px}
 .search-box-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .search-box label{font-weight:600;font-size:0.84em;color:#475569;white-space:nowrap}
 .search-box input{flex:1;max-width:200px;padding:7px 11px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:0.88em;font-family:'Outfit',Arial,sans-serif;transition:border-color 0.2s,box-shadow 0.2s}
@@ -2609,6 +2715,7 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 </div>
 <div class="loading" id="loading"><div class="spinner"></div><p>Controle en cours...</p></div>
 <div class="results" id="results">
+<div class="invoice-summary" id="invoiceSummary" style="display:none"></div>
 <div class="progress-section">
 <div class="progress-label-row">
 <h3>Taux de conformité</h3>
@@ -3890,7 +3997,13 @@ function batchRenderResults(data){
         '<span style="font-size:0.78em;color:#94a3b8;margin-left:auto">'+(invoiceNum?escHtml(invoiceNum)+' — ':'')+escHtml(inv.name)+' · '+nbTotInv+' champs</span>'+
         '</div>';
       var catHtml=batchBuildCategoriesHTML(inv.categories_results,inv.type_controle,'b'+i+'_');
-      detailZone.innerHTML=actionsBar+catHtml;
+      detailZone.innerHTML=actionsBar;
+      // Panneau Schematron en première position (suffixe d'id pour éviter les collisions)
+      if(inv.schematron){appendSchematronPanel(detailZone, inv.schematron, '_b'+i);}
+      // Puis les catégories par BG
+      var catWrap=document.createElement('div');
+      catWrap.innerHTML=catHtml;
+      while(catWrap.firstChild){detailZone.appendChild(catWrap.firstChild);}
       // Attacher les événements après injection
       setTimeout(function(di,dz){return function(){batchAttachDetailEvents(dz,di);};}(i,detailZone),0);
     } else {
@@ -4071,6 +4184,257 @@ function batchReset(){
 function escHtml(s){
   if(s==null)return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---- APERÇU FACTURE (au-dessus du taux de conformité) ---- */
+function _summFindBT(results, balise){
+  if(!results) return '';
+  for(var i=0;i<results.length;i++){
+    if(results[i].balise===balise){
+      var v=(results[i].rdi||'').toString().trim();
+      if(!v) v=(results[i].xml||'').toString().trim();
+      return v;
+    }
+  }
+  return '';
+}
+/* Parse robuste : gère le format FR ("3.724.169,45"), le format XML ("3724169.45"),
+   les signes "-" en suffixe ("1.000-"), et les zéros de remplissage. */
+function _parseAmtFR(v){
+  if(v==null) return NaN;
+  var s=String(v).trim();
+  if(!s) return NaN;
+  // Gérer un signe "-" en suffixe (ex : "1.000,00-")
+  var neg=false;
+  if(s.charAt(s.length-1)==='-'){neg=true;s=s.slice(0,-1).trim();}
+  if(s.charAt(0)==='-'){neg=!neg;s=s.slice(1).trim();}
+  s=s.replace(/\s/g,'');
+  var hasDot=s.indexOf('.')>=0;
+  var hasComma=s.indexOf(',')>=0;
+  if(hasDot&&hasComma){
+    // FR : les "." sont des milliers, "," est la décimale
+    s=s.replace(/\./g,'').replace(',','.');
+  }else if(hasComma){
+    // Décimale FR seule
+    s=s.replace(',','.');
+  }else if(hasDot){
+    // Plusieurs "." → milliers (ex : "1.234.567"). Un seul "." → décimal XML.
+    var dots=s.split('.').length-1;
+    if(dots>1) s=s.replace(/\./g,'');
+  }
+  var n=parseFloat(s);
+  if(isNaN(n)) return NaN;
+  return neg?-n:n;
+}
+function _summFmtAmount(v, currency){
+  if(!v) return '';
+  var n=_parseAmtFR(v);
+  if(isNaN(n)) return String(v);
+  var fmt=n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return fmt+(currency?(' '+currency):' €');
+}
+function _summFmtDate(v){
+  if(!v) return '';
+  var s=String(v).trim();
+  // YYYYMMDD ou YYYY-MM-DD
+  var m=s.match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+  if(m) return m[3]+'/'+m[2]+'/'+m[1];
+  // DD/MM/YYYY déjà formaté
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s.slice(0,10);
+  return s;
+}
+function _summDestination(code){
+  if(!code) return null;
+  var c=String(code).trim().toUpperCase();
+  if(c==='B2B') return {label:'🇫🇷 Client français',cls:'b2b'};
+  if(c==='B2G') return {label:'🏛️ Chorus (B2G)',cls:'b2g'};
+  if(c==='B2BINT') return {label:'🌍 Étranger',cls:'b2bint'};
+  return {label:c,cls:''};
+}
+function _summDocType(code){
+  var map={
+    '380':{label:'Facture',cls:''},
+    '381':{label:'Avoir',cls:'avoir'},
+    '384':{label:'Facture rectificative',cls:''},
+    '386':{label:"Facture d'acompte",cls:'acompte'},
+    '389':{label:'Autofacture',cls:'autofact'},
+    '326':{label:'Facture partielle',cls:''},
+    '393':{label:'Régularisation',cls:''},
+    '751':{label:'Facture pour information',cls:''},
+    '875':{label:'Facture pro forma',cls:''}
+  };
+  if(!code) return null;
+  var c=String(code).trim();
+  return map[c]||{label:'Type '+c,cls:''};
+}
+function buildInvoiceSummary(results){
+  var box=document.getElementById('invoiceSummary');
+  if(!box) return;
+  window._lastInvoiceResults=results||[];
+  if(!results||!results.length){box.style.display='none';box.innerHTML='';return;}
+  var get=function(b){return _summFindBT(results,b);};
+  var bt1=get('BT-1');
+  var bt3=get('BT-3');
+  var bt5=get('BT-5')||'EUR';
+  var bt2=get('BT-2'),bt9=get('BT-9'),bt72=get('BT-72'),bt73=get('BT-73'),bt74=get('BT-74');
+  var bt109=get('BT-109'),bt110=get('BT-110'),bt112=get('BT-112');
+  var bt113=get('BT-113'),bt114=get('BT-114'),bt115=get('BT-115');
+  // Client
+  var bt44=get('BT-44'),bt48=get('BT-48'),bt46=get('BT-46'),bt49=get('BT-49');
+  var bt50=get('BT-50'),bt51=get('BT-51'),bt163=get('BT-163')||get('BT-162');
+  var bt52=get('BT-52'),bt53=get('BT-53'),bt54=get('BT-54'),bt55=get('BT-55');
+
+  var hasAny=bt1||bt3||bt2||bt9||bt109||bt112||bt115||bt44;
+  if(!hasAny){box.style.display='none';box.innerHTML='';return;}
+
+  var typeInfo=_summDocType(bt3);
+  var typeBadge=typeInfo?('<span class="invoice-summary-type '+typeInfo.cls+'">'+escHtml(typeInfo.label)+'</span>'):'';
+  var destInfo=_summDestination(get('BT-22-BAR'));
+  var destBadge=destInfo?('<span class="invoice-summary-dest '+destInfo.cls+'">'+destInfo.label+'</span>'):'';
+  var numHtml=bt1?('<span class="invoice-summary-num">N° <strong>'+escHtml(bt1)+'</strong></span>'):'';
+
+  // Bloc Montants
+  var amountRows=[];
+  if(bt109) amountRows.push('<div class="invoice-summary-row"><span class="label">Total HT</span><span class="value">'+escHtml(_summFmtAmount(bt109,bt5))+'</span></div>');
+  if(bt110) amountRows.push('<div class="invoice-summary-row"><span class="label">TVA</span><span class="value">'+escHtml(_summFmtAmount(bt110,bt5))+'</span></div>');
+  if(bt112) amountRows.push('<div class="invoice-summary-row"><span class="label">Total TTC</span><span class="value">'+escHtml(_summFmtAmount(bt112,bt5))+'</span></div>');
+  if(bt113) amountRows.push('<div class="invoice-summary-row"><span class="label">Acompte payé</span><span class="value">'+escHtml(_summFmtAmount(bt113,bt5))+'</span></div>');
+  if(bt114){var n=_parseAmtFR(bt114);if(!isNaN(n)&&Math.abs(n)>0.0001) amountRows.push('<div class="invoice-summary-row"><span class="label">Arrondi</span><span class="value">'+escHtml(_summFmtAmount(bt114,bt5))+'</span></div>');}
+  if(bt115) amountRows.push('<div class="invoice-summary-row amount-total"><span class="label">Net à payer</span><span class="value">'+escHtml(_summFmtAmount(bt115,bt5))+'</span></div>');
+  var amountsHtml=amountRows.length?('<div class="invoice-summary-block"><div class="invoice-summary-block-title"><span class="icn">💶</span>Montants</div>'+amountRows.join('')+'</div>'):'';
+
+  // Bloc Client
+  var addrParts=[];
+  var line1=[bt50,bt51].filter(Boolean).join(' ').trim();
+  if(line1) addrParts.push(line1);
+  if(bt163) addrParts.push(bt163);
+  var line3=[bt53,bt52].filter(Boolean).join(' ').trim();
+  if(line3) addrParts.push(line3);
+  var line4=[bt54,bt55].filter(Boolean).join(' — ').trim();
+  if(line4) addrParts.push(line4);
+  var clientLines=[];
+  if(bt44) clientLines.push('<div class="client-name">'+escHtml(bt44)+'</div>');
+  if(addrParts.length) clientLines.push('<div class="client-addr">'+escHtml(addrParts.join('\n'))+'</div>');
+  if(bt49) clientLines.push('<div class="client-id">Code service : <code>'+escHtml(bt49)+'</code></div>');
+  if(bt46) clientLines.push('<div class="client-id">Identifiant : <code>'+escHtml(bt46)+'</code></div>');
+  if(bt48) clientLines.push('<div class="client-id">N° TVA : <code>'+escHtml(bt48)+'</code></div>');
+  var clientHtml=clientLines.length?('<div class="invoice-summary-block"><div class="invoice-summary-block-title"><span class="icn">👤</span>Client</div>'+clientLines.join('')+'</div>'):'';
+
+  // Bloc Dates
+  var dateRows=[];
+  if(bt2) dateRows.push('<div class="invoice-summary-row"><span class="label">Date facture</span><span class="value">'+escHtml(_summFmtDate(bt2))+'</span></div>');
+  if(bt9) dateRows.push('<div class="invoice-summary-row"><span class="label">Échéance</span><span class="value">'+escHtml(_summFmtDate(bt9))+'</span></div>');
+  if(bt72) dateRows.push('<div class="invoice-summary-row"><span class="label">Livraison</span><span class="value">'+escHtml(_summFmtDate(bt72))+'</span></div>');
+  if(bt73||bt74){
+    var p=(_summFmtDate(bt73)||'…')+' → '+(_summFmtDate(bt74)||'…');
+    dateRows.push('<div class="invoice-summary-row"><span class="label">Période</span><span class="value">'+escHtml(p)+'</span></div>');
+  }
+  var datesHtml=dateRows.length?('<div class="invoice-summary-block"><div class="invoice-summary-block-title"><span class="icn">📅</span>Dates</div>'+dateRows.join('')+'</div>'):'';
+
+  var blocks=[amountsHtml,clientHtml,datesHtml].filter(Boolean).join('');
+  if(!blocks&&!typeBadge&&!numHtml){box.style.display='none';box.innerHTML='';return;}
+
+  box.innerHTML=
+    '<div class="invoice-summary-header">'+
+      '<div class="invoice-summary-title">Aperçu de la facture</div>'+
+      typeBadge+
+      destBadge+
+      numHtml+
+    '</div>'+
+    (blocks?'<div class="invoice-summary-grid">'+blocks+'</div>':'')+
+    '<div class="invoice-summary-footer"><button type="button" class="invoice-detail-btn" onclick="showInvoiceDetails()">📄 Afficher plus de détails</button></div>';
+  box.style.display='block';
+}
+
+/* Construit le panneau de synthèse "Schematron EN16931" (header + body + boutons "Copier")
+   et l'attache à containerEl. uidSuffix sert à isoler les ids quand plusieurs panneaux
+   coexistent dans la même page (mode batch). Renvoie l'élément panel. */
+function appendSchematronPanel(containerEl, sch, uidSuffix){
+  if(!sch)return null;
+  var sfx=uidSuffix||'';
+  var panel=document.createElement('div');
+  panel.className='schematron-panel';
+  var headerCls,headerTxt;
+  var synthSuffix=sch.synthetic?' — XML reconstruit depuis le RDI':'';
+  if(sch.skipped){headerCls='warn';headerTxt='ℹ️ Schematron EN16931 (CII) — non exécuté';}
+  else if(sch.error){headerCls='warn';headerTxt='⚠️ Schematron EN16931 — erreur de validation';}
+  else if(sch.fatal>0){headerCls='err';headerTxt='❌ Schematron EN16931 (CII) — '+sch.fatal+' erreur'+(sch.fatal>1?'s':'')+synthSuffix;}
+  else if(sch.total>0){headerCls='warn';headerTxt='⚠️ Schematron EN16931 (CII) — '+sch.total+' avertissement'+(sch.total>1?'s':'')+synthSuffix;}
+  else{headerCls='ok';headerTxt='✅ Schematron EN16931 (CII) — conforme'+synthSuffix;}
+  var badges='';
+  if(!sch.error&&!sch.skipped){
+    badges='<span class="badge">'+(sch.total||0)+' total</span>'+
+           '<span class="badge">'+(sch.fatal||0)+' fatales</span>'+
+           '<span class="badge">'+(sch.warning||0)+' warnings</span>'+
+           '<span class="badge">'+(sch.matched||0)+' attachées</span>'+
+           '<span class="badge">'+((sch.orphans||[]).length)+' orphelines</span>';
+    if(sch.skipped_out_of_scope&&sch.skipped_out_of_scope>0){
+      badges+='<span class="badge" title="Erreurs schematron dont aucun BT cité n\'est dans ce mapping — masquées">'+
+        sch.skipped_out_of_scope+' hors mapping</span>';
+    }
+  }
+  var hId='schematronHeader'+sfx, bId='schematronBody'+sfx;
+  var hHtml='<div class="schematron-header '+headerCls+'" id="'+hId+'">'+
+    '<div>'+headerTxt+'</div><div class="badges">'+badges+'</div></div>';
+  var bHtml='<div class="schematron-body" id="'+bId+'"><div class="intro">Validation contre le schematron officiel <code>EN16931-CII v1.3.16</code> de ConnectingEurope. Les erreurs liées à un BT du mapping sont aussi affichées dans le tableau ci-dessous, à côté du champ concerné.</div>';
+  if(sch.synthetic&&sch.note){bHtml+='<div class="intro" style="background:#fef3c7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:4px;color:#78350f;margin-bottom:8px"><strong>ℹ️ XML synthétique :</strong> '+escHtml(sch.note)+'</div>';}
+  if(sch.skipped){
+    bHtml+='<div class="empty" style="color:#b45309">'+escHtml(sch.reason||'Schematron non exécuté.')+'</div>';
+  }else if(sch.error){
+    bHtml+='<div class="empty" style="color:#b45309">Validation impossible : '+escHtml(sch.error)+'</div>';
+  }else if((sch.errors||[]).length===0){
+    bHtml+='<div class="empty">Aucun écart détecté ✨</div>';
+  }else{
+    bHtml+='<table><thead><tr><th>Règle</th><th>Sévérité</th><th>BT concernés</th><th>Message</th><th>XPath</th></tr></thead><tbody>';
+    (sch.errors||[]).forEach(function(e){
+      var bts=(e.bts||[]).map(function(b){return '<span>'+escHtml(b)+'</span>';}).join('');
+      var loc=e.location||'';
+      var locCell=loc
+        ? '<button type="button" class="copy-xpath" data-xpath="'+escHtml(loc)+'" title="'+escHtml(loc)+'">📋 Copier</button>'
+        : '<span style="color:#94a3b8">—</span>';
+      bHtml+='<tr>'+
+        '<td class="rule">'+escHtml(e.rule_id||'')+'</td>'+
+        '<td class="flag '+(e.flag||'')+'">'+escHtml(e.severity||e.flag||'')+'</td>'+
+        '<td class="bts">'+(bts||'<span style="color:#94a3b8">—</span>')+'</td>'+
+        '<td>'+escHtml(e.message||'')+'</td>'+
+        '<td class="location">'+locCell+'</td>'+
+      '</tr>';
+    });
+    bHtml+='</tbody></table>';
+    if((sch.orphans||[]).length>0){
+      bHtml+='<div class="intro" style="margin-top:12px;color:#b45309"><strong>'+sch.orphans.length+' erreur(s) orpheline(s)</strong> : règles dont le BT cible n\'est pas mappé dans ce formulaire — elles ne sont visibles que dans ce panneau.</div>';
+    }
+  }
+  bHtml+='</div>';
+  panel.innerHTML=hHtml+bHtml;
+  containerEl.appendChild(panel);
+  panel.querySelector('#'+hId).addEventListener('click',function(){
+    panel.querySelector('#'+bId).classList.toggle('open');
+  });
+  panel.querySelectorAll('button.copy-xpath').forEach(function(btn){
+    btn.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var xp=this.getAttribute('data-xpath')||'';
+      var done=this;
+      var ok=function(){
+        done.classList.add('copied');
+        var prev=done.textContent;
+        done.textContent='✓ Copié';
+        setTimeout(function(){done.classList.remove('copied');done.textContent=prev;},1500);
+      };
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(xp).then(ok).catch(function(){
+          var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
+          ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
+        });
+      }else{
+        var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
+        ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
+      }
+    });
+  });
+  if(!sch.error&&(sch.total||0)>0){panel.querySelector('#'+bId).classList.add('open');}
+  return panel;
 }
 
 /* Construit le bloc tooltip "Schematron officiel EN16931" pour une ligne du tableau.
@@ -4419,6 +4783,8 @@ if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
 if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
 document.getElementById('loading').style.display='block';
 document.getElementById('results').style.display='none';
+var _sumBox=document.getElementById('invoiceSummary');
+if(_sumBox){_sumBox.innerHTML='';_sumBox.style.display='none';}
 var fd=new FormData();
 if(pdf)fd.append('pdf',pdf);
 if(cii)fd.append('cii',cii);
@@ -4429,6 +4795,7 @@ try{
 var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
+try{buildInvoiceSummary(data.results||[]);}catch(e){console.error('[summary]',e);var _b=document.getElementById('invoiceSummary');if(_b){_b.style.display='none';_b.innerHTML='';}}
 document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;
@@ -4463,93 +4830,7 @@ track.onmouseleave=function(){overlay.classList.remove('visible');};
 var cont=document.getElementById('categoriesContainer');
 cont.innerHTML='';
 // Bandeau de synthèse Schematron officiel EN16931 (CII)
-if(data.schematron){
-var sch=data.schematron;
-var panel=document.createElement('div');
-panel.className='schematron-panel';
-var headerCls,headerTxt;
-var synthSuffix=sch.synthetic?' — XML reconstruit depuis le RDI':'';
-if(sch.skipped){headerCls='warn';headerTxt='ℹ️ Schematron EN16931 (CII) — non exécuté';}
-else if(sch.error){headerCls='warn';headerTxt='⚠️ Schematron EN16931 — erreur de validation';}
-else if(sch.fatal>0){headerCls='err';headerTxt='❌ Schematron EN16931 (CII) — '+sch.fatal+' erreur'+(sch.fatal>1?'s':'')+synthSuffix;}
-else if(sch.total>0){headerCls='warn';headerTxt='⚠️ Schematron EN16931 (CII) — '+sch.total+' avertissement'+(sch.total>1?'s':'')+synthSuffix;}
-else{headerCls='ok';headerTxt='✅ Schematron EN16931 (CII) — conforme'+synthSuffix;}
-var badges='';
-if(!sch.error&&!sch.skipped){
-  badges='<span class="badge">'+(sch.total||0)+' total</span>'+
-         '<span class="badge">'+(sch.fatal||0)+' fatales</span>'+
-         '<span class="badge">'+(sch.warning||0)+' warnings</span>'+
-         '<span class="badge">'+(sch.matched||0)+' attachées</span>'+
-         '<span class="badge">'+((sch.orphans||[]).length)+' orphelines</span>';
-  if(sch.skipped_out_of_scope&&sch.skipped_out_of_scope>0){
-    badges+='<span class="badge" title="Erreurs schematron dont aucun BT cité n\'est dans ce mapping — masquées">'+
-      sch.skipped_out_of_scope+' hors mapping</span>';
-  }
-}
-var hHtml='<div class="schematron-header '+headerCls+'" id="schematronHeader">'+
-  '<div>'+headerTxt+'</div><div class="badges">'+badges+'</div></div>';
-var bHtml='<div class="schematron-body" id="schematronBody"><div class="intro">Validation contre le schematron officiel <code>EN16931-CII v1.3.16</code> de ConnectingEurope. Les erreurs liées à un BT du mapping sont aussi affichées dans le tableau ci-dessous, à côté du champ concerné.</div>';
-if(sch.synthetic&&sch.note){bHtml+='<div class="intro" style="background:#fef3c7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:4px;color:#78350f;margin-bottom:8px"><strong>ℹ️ XML synthétique :</strong> '+escHtml(sch.note)+'</div>';}
-if(sch.skipped){
-  bHtml+='<div class="empty" style="color:#b45309">'+escHtml(sch.reason||'Schematron non exécuté.')+'</div>';
-}else if(sch.error){
-  bHtml+='<div class="empty" style="color:#b45309">Validation impossible : '+escHtml(sch.error)+'</div>';
-}else if((sch.errors||[]).length===0){
-  bHtml+='<div class="empty">Aucun écart détecté ✨</div>';
-}else{
-  bHtml+='<table><thead><tr><th>Règle</th><th>Sévérité</th><th>BT concernés</th><th>Message</th><th>XPath</th></tr></thead><tbody>';
-  (sch.errors||[]).forEach(function(e){
-    var bts=(e.bts||[]).map(function(b){return '<span>'+escHtml(b)+'</span>';}).join('');
-    var loc=e.location||'';
-    var locCell=loc
-      ? '<button type="button" class="copy-xpath" data-xpath="'+escHtml(loc)+'" title="'+escHtml(loc)+'">📋 Copier</button>'
-      : '<span style="color:#94a3b8">—</span>';
-    bHtml+='<tr>'+
-      '<td class="rule">'+escHtml(e.rule_id||'')+'</td>'+
-      '<td class="flag '+(e.flag||'')+'">'+escHtml(e.severity||e.flag||'')+'</td>'+
-      '<td class="bts">'+(bts||'<span style="color:#94a3b8">—</span>')+'</td>'+
-      '<td>'+escHtml(e.message||'')+'</td>'+
-      '<td class="location">'+locCell+'</td>'+
-    '</tr>';
-  });
-  bHtml+='</tbody></table>';
-  if((sch.orphans||[]).length>0){
-    bHtml+='<div class="intro" style="margin-top:12px;color:#b45309"><strong>'+sch.orphans.length+' erreur(s) orpheline(s)</strong> : règles dont le BT cible n\'est pas mappé dans ce formulaire — elles ne sont visibles que dans ce panneau.</div>';
-  }
-}
-bHtml+='</div>';
-panel.innerHTML=hHtml+bHtml;
-cont.appendChild(panel);
-panel.querySelector('#schematronHeader').addEventListener('click',function(){
-  panel.querySelector('#schematronBody').classList.toggle('open');
-});
-// Boutons "📋 Copier" pour chaque XPath
-panel.querySelectorAll('button.copy-xpath').forEach(function(btn){
-  btn.addEventListener('click',function(ev){
-    ev.stopPropagation();
-    var xp=this.getAttribute('data-xpath')||'';
-    var done=this;
-    var ok=function(){
-      done.classList.add('copied');
-      var prev=done.textContent;
-      done.textContent='✓ Copié';
-      setTimeout(function(){done.classList.remove('copied');done.textContent=prev;},1500);
-    };
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(xp).then(ok).catch(function(){
-        // Fallback en cas de blocage clipboard
-        var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
-        ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
-      });
-    }else{
-      var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
-      ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
-    }
-  });
-});
-// Ouvre par défaut s'il y a des erreurs
-if(!sch.error&&(sch.total||0)>0){panel.querySelector('#schematronBody').classList.add('open');}
-}
+if(data.schematron){appendSchematronPanel(cont, data.schematron, '');}
 // Trier les catégories dans l'ordre défini
 var categoryOrder={'BG-INFOS-GENERALES':1,'BG-TOTAUX':2,'BG-TVA':3,'BG-LIGNES':4,'BG-VENDEUR':5,'BG-ACHETEUR':6};
 var sortedCategories=Object.keys(data.categories_results).sort(function(a,b){
@@ -6185,6 +6466,339 @@ saveRules();
 document.getElementById('editRuleModal').style.display='none';
 });
 
+/* ---- DETAIL MODAL : aperçu détaillé style facture ---- */
+function _detFmtAmount(v,currency){
+  if(!v) return '';
+  var n=_parseAmtFR(v);
+  if(isNaN(n)) return String(v);
+  return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+(currency?' '+currency:' €');
+}
+function _detFmtDate(v){
+  if(!v) return '';
+  var s=String(v).trim();
+  var m=s.match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+  if(m) return m[3]+'/'+m[2]+'/'+m[1];
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s.slice(0,10);
+  return s;
+}
+function _detGet(results,balise){
+  if(!results) return '';
+  for(var i=0;i<results.length;i++){
+    if(results[i].balise===balise){
+      var v=(results[i].rdi||'').toString().trim();
+      if(!v) v=(results[i].xml||'').toString().trim();
+      return v;
+    }
+  }
+  return '';
+}
+function _detGetAll(results,balise){
+  // Récupère tous les xml_all si disponibles, sinon liste des valeurs trouvées
+  if(!results) return [];
+  for(var i=0;i<results.length;i++){
+    if(results[i].balise===balise){
+      var arr=results[i].xml_all;
+      if(arr&&arr.length) return arr.slice();
+      var v=(results[i].rdi||'').toString().trim()||(results[i].xml||'').toString().trim();
+      return v?[v]:[];
+    }
+  }
+  return [];
+}
+function _detKv(label,value){
+  if(value==null||value==='') return '';
+  return '<div class="kv"><span class="k">'+escHtml(label)+'</span><span class="v">'+escHtml(value)+'</span></div>';
+}
+function _detBuildParty(results,role){
+  // role: 'seller' (BG-4: BT-27..40) ou 'buyer' (BG-7: BT-44..55, BT-49)
+  var get=function(b){return _detGet(results,b);};
+  var name,trade,vat,siren,reg,info,email,a1,a2,a3,city,zip,sub,ctry,id,scheme,chorus;
+  if(role==='seller'){
+    name=get('BT-27');trade=get('BT-28');siren=get('BT-30');vat=get('BT-31');reg=get('BT-32');info=get('BT-33');email=get('BT-34');
+    a1=get('BT-35');a2=get('BT-36');a3=get('BT-162');city=get('BT-37');zip=get('BT-38');sub=get('BT-39');ctry=get('BT-40');
+    id=get('BT-29');scheme='';chorus='';
+  }else{
+    name=get('BT-44');trade=get('BT-45');id=get('BT-46');scheme=get('BT-47');vat=get('BT-48');chorus=get('BT-49');
+    a1=get('BT-50');a2=get('BT-51');a3=get('BT-163');city=get('BT-52');zip=get('BT-53');sub=get('BT-54');ctry=get('BT-55');email=get('BT-58');reg='';info='';siren='';
+  }
+  if(!name&&!a1&&!vat&&!id) return '';
+  var label=role==='seller'?'Vendeur':'Acheteur';
+  var addr=[];
+  var l1=[a1,a2].filter(Boolean).join(' ').trim();if(l1) addr.push(l1);
+  if(a3) addr.push(a3);
+  var l3=[zip,city].filter(Boolean).join(' ').trim();if(l3) addr.push(l3);
+  var l4=[sub,ctry].filter(Boolean).join(' — ').trim();if(l4) addr.push(l4);
+  var ids='';
+  var emptyChip='<span class="empty-chip">(vide)</span>';
+  if(role==='seller'){
+    if(siren) ids+='<div><b>SIREN/SIRET</b> <code>'+escHtml(siren)+'</code></div>';
+    if(id&&id!==siren) ids+='<div><b>Identifiant</b> <code>'+escHtml(id)+'</code></div>';
+  }else{
+    // Pour l'acheteur, BT-46 = identifiant légal (SIREN/SIRET en France selon BT-47).
+    // On affiche toujours la ligne, même vide, pour signaler l'absence.
+    var schemeLbl='SIREN/SIRET';
+    if(scheme){
+      var s=String(scheme).trim();
+      if(s==='0002') schemeLbl='SIREN';
+      else if(s==='0009') schemeLbl='SIRET';
+      else schemeLbl='Identifiant ('+s+')';
+    }
+    ids+='<div><b>'+escHtml(schemeLbl)+'</b> '+(id?('<code>'+escHtml(id)+'</code>'):emptyChip)+'</div>';
+  }
+  if(vat) ids+='<div><b>N° TVA</b> <code>'+escHtml(vat)+'</code></div>';
+  if(reg) ids+='<div><b>RCS</b> '+escHtml(reg)+'</div>';
+  if(chorus) ids+='<div><b>Code service</b> <code>'+escHtml(chorus)+'</code></div>';
+  if(email) ids+='<div><b>Email</b> '+escHtml(email)+'</div>';
+  if(info) ids+='<div style="color:#64748b;font-style:italic;font-size:0.94em;margin-top:4px">'+escHtml(info)+'</div>';
+  return '<div class="inv-detail-party '+role+'">'+
+    '<div class="party-label">'+label+'</div>'+
+    (name?'<div class="party-name">'+escHtml(name)+'</div>':'')+
+    (trade?'<div class="party-trade">'+escHtml(trade)+'</div>':'')+
+    (addr.length?'<div class="party-addr">'+escHtml(addr.join('\n'))+'</div>':'')+
+    (ids?'<div class="party-id">'+ids+'</div>':'')+
+    '</div>';
+}
+function _detBuildLines(results,currency){
+  // Regrouper les entrées articles par article_index
+  var groups={};
+  var order=[];
+  for(var i=0;i<results.length;i++){
+    var r=results[i];
+    if(r.categorie_bg!=='BG-LIGNES') continue;
+    var k=r.article_index;
+    if(k==null) continue;
+    if(!(k in groups)){groups[k]={index:k,line_id:r.article_line_id||'',name:r.article_name||'',fields:{}};order.push(k);}
+    var v=(r.rdi||'').toString().trim()||(r.xml||'').toString().trim();
+    if(v) groups[k].fields[r.balise]=v;
+  }
+  if(!order.length) return '';
+  var rows='';
+  for(var j=0;j<order.length;j++){
+    var g=groups[order[j]];
+    var f=g.fields;
+    var lineId=g.line_id||f['BT-126']||(g.index+1);
+    var name=g.name||f['BT-153']||'';
+    var desc=f['BT-154']||'';
+    var qty=f['BT-129']||'';
+    var unit=f['BT-130']||'';
+    var pu=f['BT-146']||'';
+    var pug=f['BT-148']||'';
+    var net=f['BT-131']||'';
+    var taux=f['BT-152']||'';
+    var ref=f['BT-155']||f['BT-156']||'';
+    var qtyN=_parseAmtFR(qty);
+    var qtyFmt=(qty&&!isNaN(qtyN))?(qtyN.toLocaleString('fr-FR',{maximumFractionDigits:3})+(unit?' '+unit:'')):(qty?String(qty)+(unit?' '+unit:''):'');
+    rows+='<tr>'+
+      '<td class="line-num">'+escHtml(lineId)+'</td>'+
+      '<td class="designation">'+escHtml(name||'—')+
+        (desc?'<small>'+escHtml(desc)+'</small>':'')+
+        (ref?'<small>Réf : '+escHtml(ref)+'</small>':'')+
+      '</td>'+
+      '<td class="num">'+escHtml(qtyFmt)+'</td>'+
+      '<td class="num">'+escHtml(pu?_detFmtAmount(pu,currency):'')+'</td>'+
+      '<td class="num">'+escHtml(net?_detFmtAmount(net,currency):'')+'</td>'+
+      '<td class="num">'+escHtml(taux?((isNaN(_parseAmtFR(taux))?String(taux):_parseAmtFR(taux).toLocaleString('fr-FR',{maximumFractionDigits:2}))+' %'):'')+'</td>'+
+    '</tr>';
+  }
+  return '<table class="inv-detail-table">'+
+    '<thead><tr><th>N°</th><th>Désignation</th><th style="text-align:right">Qté</th><th style="text-align:right">PU</th><th style="text-align:right">Montant HT</th><th style="text-align:right">TVA</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table>';
+}
+function _detBuildVat(results,currency){
+  var bases=_detGetAll(results,'BT-116');
+  var taxes=_detGetAll(results,'BT-117');
+  var cats=_detGetAll(results,'BT-118');
+  var rates=_detGetAll(results,'BT-119');
+  var reasons=_detGetAll(results,'BT-121');
+  var n=Math.max(bases.length,taxes.length,cats.length,rates.length);
+  if(!n) return '';
+  var rows='';
+  for(var i=0;i<n;i++){
+    var b=bases[i]||'',t=taxes[i]||'',c=cats[i]||'',r=rates[i]||'',rs=reasons[i]||'';
+    rows+='<tr>'+
+      '<td>'+escHtml(c||'—')+(rs?' <span style="color:#94a3b8;font-style:italic">('+escHtml(rs)+')</span>':'')+'</td>'+
+      '<td>'+escHtml(r?((isNaN(_parseAmtFR(r))?String(r):_parseAmtFR(r).toLocaleString('fr-FR',{maximumFractionDigits:2}))+' %'):'—')+'</td>'+
+      '<td>'+escHtml(b?_detFmtAmount(b,currency):'—')+'</td>'+
+      '<td>'+escHtml(t?_detFmtAmount(t,currency):'—')+'</td>'+
+    '</tr>';
+  }
+  return '<table class="inv-detail-vat-table"><thead><tr><th>Catégorie</th><th>Taux</th><th>Base</th><th>TVA</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function _detBuildTotals(results,currency){
+  var get=function(b){return _detGet(results,b);};
+  var rows=[];
+  var bt106=get('BT-106'),bt107=get('BT-107'),bt108=get('BT-108');
+  var bt109=get('BT-109'),bt110=get('BT-110'),bt112=get('BT-112');
+  var bt113=get('BT-113'),bt114=get('BT-114'),bt115=get('BT-115');
+  if(bt106) rows.push('<div class="row sub"><span>Sous-total HT lignes</span><span class="v">'+escHtml(_detFmtAmount(bt106,currency))+'</span></div>');
+  if(bt107){var nb=_parseAmtFR(bt107);if(!isNaN(nb)&&Math.abs(nb)>0.0001) rows.push('<div class="row sub"><span>Remises documentaires</span><span class="v">− '+escHtml(_detFmtAmount(bt107,currency))+'</span></div>');}
+  if(bt108){var na=_parseAmtFR(bt108);if(!isNaN(na)&&Math.abs(na)>0.0001) rows.push('<div class="row sub"><span>Charges documentaires</span><span class="v">+ '+escHtml(_detFmtAmount(bt108,currency))+'</span></div>');}
+  if(bt109) rows.push('<div class="row divider"><span><b>Total HT</b></span><span class="v">'+escHtml(_detFmtAmount(bt109,currency))+'</span></div>');
+  if(bt110) rows.push('<div class="row"><span>Total TVA</span><span class="v">'+escHtml(_detFmtAmount(bt110,currency))+'</span></div>');
+  if(bt112) rows.push('<div class="row"><span><b>Total TTC</b></span><span class="v">'+escHtml(_detFmtAmount(bt112,currency))+'</span></div>');
+  if(bt113){var nc=_parseAmtFR(bt113);if(!isNaN(nc)&&Math.abs(nc)>0.0001) rows.push('<div class="row sub"><span>Acompte payé</span><span class="v">− '+escHtml(_detFmtAmount(bt113,currency))+'</span></div>');}
+  if(bt114){var nd=_parseAmtFR(bt114);if(!isNaN(nd)&&Math.abs(nd)>0.0001) rows.push('<div class="row sub"><span>Arrondi</span><span class="v">'+escHtml(_detFmtAmount(bt114,currency))+'</span></div>');}
+  if(bt115) rows.push('<div class="row net"><span>Net à payer</span><span class="v">'+escHtml(_detFmtAmount(bt115,currency))+'</span></div>');
+  if(!rows.length) return '';
+  return '<div class="inv-detail-totals">'+rows.join('')+'</div>';
+}
+function _detBuildPayment(results){
+  var get=function(b){return _detGet(results,b);};
+  var bt81=get('BT-81'),bt82=get('BT-82'),bt83=get('BT-83');
+  var bt84=get('BT-84'),bt85=get('BT-85'),bt86=get('BT-86'),bt87=get('BT-87');
+  var bt89=get('BT-89'),bt90=get('BT-90'),bt91=get('BT-91'),bt20=get('BT-20');
+  var rows=[];
+  if(bt82||bt81) rows.push(_detKv('Mode de paiement',bt82||bt81));
+  if(bt83) rows.push(_detKv('Référence paiement',bt83));
+  if(bt84) rows.push(_detKv('IBAN',bt84));
+  if(bt85) rows.push(_detKv('Titulaire compte',bt85));
+  if(bt86) rows.push(_detKv('BIC',bt86));
+  if(bt87) rows.push(_detKv('N° de compte',bt87));
+  if(bt89) rows.push(_detKv('Carte (4 derniers)',bt89));
+  if(bt90) rows.push(_detKv('Mandat SEPA',bt90));
+  if(bt91) rows.push(_detKv('Compte débiteur',bt91));
+  if(bt20) rows.push(_detKv('Conditions',bt20));
+  rows=rows.filter(Boolean);
+  if(!rows.length) return '';
+  return '<div class="inv-detail-kv">'+rows.join('')+'</div>';
+}
+function _detBuildNotes(results){
+  var labels={
+    'BAR':'Traitement attendu',
+    'SUR':'Remarques fournisseur',
+    'ADN':'Référence Chorus (B2G)',
+    'AAB':'Escompte',
+    'PMT':'Indemnité forfaitaire',
+    'PMD':'Pénalités de retard'
+  };
+  var keys=['BAR','SUR','ADN','AAB','PMT','PMD'];
+  var html='';
+  for(var i=0;i<keys.length;i++){
+    var sfx=keys[i];
+    var code=_detGet(results,'BT-21-'+sfx);
+    var text=_detGet(results,'BT-22-'+sfx);
+    if(!code&&!text) continue;
+    html+='<div class="inv-detail-note">'+
+      '<span class="nl">'+escHtml(labels[sfx]||sfx)+(code?' · '+escHtml(code):'')+'</span>'+
+      escHtml(text||'(sans texte)')+
+    '</div>';
+  }
+  return html?'<div class="inv-detail-notes">'+html+'</div>':'';
+}
+function showInvoiceDetails(){
+  var results=window._lastInvoiceResults||[];
+  var modal=document.getElementById('invDetailOverlay');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='invDetailOverlay';
+    modal.className='inv-detail-overlay';
+    modal.addEventListener('click',function(e){if(e.target===modal) closeInvoiceDetails();});
+    document.body.appendChild(modal);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape') closeInvoiceDetails();});
+  }
+  var get=function(b){return _detGet(results,b);};
+  var bt1=get('BT-1'),bt2=get('BT-2'),bt3=get('BT-3'),bt5=get('BT-5')||'EUR',bt9=get('BT-9');
+  var bt7=get('BT-7'),bt19=get('BT-19'),bt10=get('BT-10'),bt13=get('BT-13'),bt11=get('BT-11'),bt12=get('BT-12');
+  var bt72=get('BT-72'),bt73=get('BT-73'),bt74=get('BT-74');
+  var bt15=get('BT-15'),bt16=get('BT-16'),bt17=get('BT-17'),bt18=get('BT-18');
+
+  var docTypes={'380':'Facture','381':'Avoir','384':'Facture rectificative','386':"Facture d'acompte",'389':'Autofacture','326':'Facture partielle','393':'Régularisation','751':'Facture pour information','875':'Facture pro forma'};
+  var typeLbl=bt3?(docTypes[String(bt3).trim()]||'Type '+bt3):'Facture';
+
+  var destInfo=_summDestination(get('BT-22-BAR'));
+  var bannerBadges='';
+  if(destInfo) bannerBadges+='<span class="b">'+destInfo.label+'</span>';
+  if(bt5&&bt5!=='EUR') bannerBadges+='<span class="b">'+escHtml(bt5)+'</span>';
+
+  var headerMeta='';
+  if(bt2) headerMeta+='<span>📅 Émise le <b>'+escHtml(_detFmtDate(bt2))+'</b></span>';
+  if(bt9) headerMeta+='<span>⏰ Échéance <b>'+escHtml(_detFmtDate(bt9))+'</b></span>';
+  if(bt1) headerMeta+='<span class="num">N° '+escHtml(bt1)+'</span>';
+
+  var partiesHtml='<div class="inv-detail-parties">'+
+    _detBuildParty(results,'seller')+
+    _detBuildParty(results,'buyer')+
+  '</div>';
+
+  // Section références & dates
+  var bt25=get('BT-25'),bt26=get('BT-26');
+  var isAvoir=String(bt3||'').trim()==='381';
+  var refsKv=[];
+  if(bt2) refsKv.push(_detKv("Date d'émission",_detFmtDate(bt2)));
+  if(bt9) refsKv.push(_detKv("Date d'échéance",_detFmtDate(bt9)));
+  if(bt7) refsKv.push(_detKv('Date point TVA',_detFmtDate(bt7)));
+  if(bt72) refsKv.push(_detKv('Date livraison',_detFmtDate(bt72)));
+  if(bt73||bt74) refsKv.push(_detKv('Période',(_detFmtDate(bt73)||'…')+' → '+(_detFmtDate(bt74)||'…')));
+  if(bt10) refsKv.push(_detKv('Référence acheteur',bt10));
+  if(bt13) refsKv.push(_detKv('N° de commande',bt13));
+  if(bt11) refsKv.push(_detKv('Référence projet',bt11));
+  if(bt12) refsKv.push(_detKv('Référence contrat',bt12));
+  if(bt15) refsKv.push(_detKv('N° de réception',bt15));
+  if(bt16) refsKv.push(_detKv('N° bon de livraison',bt16));
+  if(bt17) refsKv.push(_detKv('N° marché public',bt17));
+  if(bt18) refsKv.push(_detKv('Identifiant objet facturé',bt18));
+  if(bt19) refsKv.push(_detKv('Code comptable',bt19));
+  refsKv=refsKv.filter(Boolean);
+  // Bloc dédié facture d'origine (BG-3 : BT-25 / BT-26) — mis en valeur pour les avoirs
+  var origHtml='';
+  if(bt25||bt26){
+    var origLbl=isAvoir?"Facture d'origine (avoir)":'Facture précédente';
+    origHtml='<div class="inv-detail-orig'+(isAvoir?' avoir':'')+'">'+
+      '<div class="orig-label">↩ '+escHtml(origLbl)+'</div>'+
+      '<div class="orig-rows">'+
+        (bt25?'<span><b>N°</b> <code>'+escHtml(bt25)+'</code></span>':'')+
+        (bt26?'<span><b>Émise le</b> '+escHtml(_detFmtDate(bt26))+'</span>':'')+
+      '</div>'+
+    '</div>';
+  }
+  var refsInner='';
+  if(refsKv.length) refsInner+='<div class="inv-detail-kv">'+refsKv.join('')+'</div>';
+  if(origHtml) refsInner+=origHtml;
+  var refsHtml=refsInner?('<div class="inv-detail-section"><div class="inv-detail-section-title"><span class="icn">📎</span>Références &amp; dates</div>'+refsInner+'</div>'):'';
+
+  var linesHtml=_detBuildLines(results,bt5);
+  var linesSection=linesHtml?('<div class="inv-detail-section"><div class="inv-detail-section-title"><span class="icn">📋</span>Lignes de facture</div>'+linesHtml+'</div>'):'';
+
+  var totalsHtml=_detBuildTotals(results,bt5);
+  var vatHtml=_detBuildVat(results,bt5);
+  var totalsSection=(totalsHtml||vatHtml)?
+    ('<div class="inv-detail-section"><div class="inv-detail-section-title"><span class="icn">💰</span>Totaux &amp; TVA</div>'+
+      (vatHtml?vatHtml:'')+
+      (totalsHtml?totalsHtml:'')+
+    '</div>'):'';
+
+  var paymentHtml=_detBuildPayment(results);
+  var paymentSection=paymentHtml?('<div class="inv-detail-section"><div class="inv-detail-section-title"><span class="icn">💳</span>Paiement</div>'+paymentHtml+'</div>'):'';
+
+  var notesHtml=_detBuildNotes(results);
+  var notesSection=notesHtml?('<div class="inv-detail-section"><div class="inv-detail-section-title"><span class="icn">📝</span>Notes</div>'+notesHtml+'</div>'):'';
+
+  modal.innerHTML='<div class="inv-detail-modal">'+
+    '<button type="button" class="inv-detail-close" onclick="closeInvoiceDetails()" title="Fermer (Echap)">✕</button>'+
+    '<div class="inv-detail-banner">'+
+      '<h2>'+escHtml(typeLbl)+'</h2>'+
+      '<div class="meta">'+headerMeta+'</div>'+
+      (bannerBadges?'<div class="meta-badges">'+bannerBadges+'</div>':'')+
+    '</div>'+
+    '<div class="inv-detail-body">'+
+      '<div class="inv-detail-section">'+partiesHtml+'</div>'+
+      refsHtml+
+      linesSection+
+      totalsSection+
+      paymentSection+
+      notesSection+
+    '</div>'+
+  '</div>';
+  modal.classList.add('visible');
+  document.body.style.overflow='hidden';
+}
+function closeInvoiceDetails(){
+  var modal=document.getElementById('invDetailOverlay');
+  if(!modal) return;
+  modal.classList.remove('visible');
+  document.body.style.overflow='';
+}
+
 </script>
 </body>
 </div></div>
@@ -6648,6 +7262,46 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
         results.extend(articles_results)
         results = apply_business_rules(results, type_formulaire)
 
+        # Validation schematron officielle EN16931 — même flux que controle() :
+        # respect du toggle global, XML réel si dispo sinon reconstruction depuis le RDI.
+        _global_settings = load_business_rules() or {}
+        _schematron_on = _global_settings.get('schematron_enabled', True)
+        if not _schematron_on:
+            schematron_summary = {
+                'skipped': True,
+                'reason': 'Validation schématron désactivée dans les paramètres globaux.',
+                'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                'rules': [], 'errors': [], 'orphans': [],
+            }
+        elif xml_doc is not None:
+            schematron_summary = apply_schematron(xml_content, results)
+        elif rdi_data or rdi_articles:
+            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping)
+            if synthetic_xml:
+                schematron_summary = apply_schematron(synthetic_xml, results)
+                if schematron_summary:
+                    schematron_summary['synthetic'] = True
+                    schematron_summary['note'] = (
+                        'Aucun XML CII fourni : la validation tourne sur un XML '
+                        'reconstruit depuis le RDI via le mapping. Les attributs CII '
+                        'que le RDI ne porte pas (schemeID, etc.) peuvent générer '
+                        'de faux positifs.'
+                    )
+            else:
+                schematron_summary = {
+                    'skipped': True,
+                    'reason': 'Impossible de reconstruire un XML depuis ce RDI.',
+                    'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                    'rules': [], 'errors': [], 'orphans': [],
+                }
+        else:
+            schematron_summary = {
+                'skipped': True,
+                'reason': 'Aucune donnée RDI ni XML pour la validation EN16931.',
+                'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                'rules': [], 'errors': [], 'orphans': [],
+            }
+
         stats = {
             'total': len(results),
             'ok': sum(1 for r in results if r['status'] == 'OK'),
@@ -6656,6 +7310,9 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
             'ambigu': sum(1 for r in results if r['status'] == 'AMBIGU'),
             'nb_articles': nb_articles,
         }
+        if schematron_summary:
+            stats['schematron_total'] = schematron_summary.get('total', 0)
+            stats['schematron_fatal'] = schematron_summary.get('fatal', 0)
 
         categories_results = defaultdict(lambda: {'champs': [], 'stats': {'total': 0, 'ok': 0, 'erreur': 0}})
         for result in results:
@@ -6674,7 +7331,8 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
             'results': results,
             'stats': stats,
             'categories_results': dict(categories_results),
-            'type_controle': type_controle
+            'type_controle': type_controle,
+            'schematron': schematron_summary,
         }, None
 
     except Exception as e:
