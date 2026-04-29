@@ -2,11 +2,18 @@
 # -*- coding: utf-8 -*-
 """Factur-X V12.0 - Enhanced Mapping Management"""
 from flask import Flask, request, jsonify, send_file
-import os, json, sqlite3, PyPDF2, io
+import os, json, re, sqlite3, PyPDF2, io
 import pikepdf
 import logging
 from lxml import etree
 from collections import defaultdict
+from validators.schematron_validator import (
+    validate_xml as schematron_validate_xml,
+    candidates_for_balise,
+    line_index_from_location,
+    index_errors_by_bt,
+)
+from validators.cii_builder import build_cii_xml
 
 app = Flask(__name__)
 
@@ -71,6 +78,7 @@ print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
 # Catégories de règles (ordre d'affichage dans l'UI)
 _RULE_CATEGORIES_ORDER = [
     "Calculs",
+    "EN16931 (Schematron)",
     "Exonérations TVA",
     "B2G / Chorus",
     "Notes & mentions",
@@ -280,6 +288,66 @@ _DEFAULT_RULES = {
                 {"type": "make_mandatory", "field": "BT-120"},
                 {"type": "make_mandatory", "field": "BT-121"}
             ]
+        },
+        # ─── Règles liées au schématron officiel EN16931 (CII v1.3.16) ─────────
+        # Le calcul est exécuté par le schématron — la règle Facturix ne sert
+        # qu'à exposer un toggle on/off et le nom convivial dans le tableau.
+        # `schematron_id` doit correspondre exactement à l'id d'une assertion
+        # du fichier EN16931-CII-validation-preprocessed.sch.
+        {
+            "id": "schematron_br_co_10",
+            "name": "📜 BR-CO-10 — Σ BT-131 = BT-106 (somme des montants nets)",
+            "category": "EN16931 (Schematron)",
+            "description": "Somme des montants nets des lignes (BT-106) = Σ Montant net ligne (BT-131). Vérifié par le schématron officiel EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-CO-10",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_co_13",
+            "name": "📜 BR-CO-13 — BT-109 = Σ BT-131 − BT-107 + BT-108",
+            "category": "EN16931 (Schematron)",
+            "description": "Total HT facture (BT-109) = Σ montants nets lignes (BT-131) − total remises document (BT-107) + total charges document (BT-108). Vérifié par le schématron officiel.",
+            "enabled": True,
+            "schematron_id": "BR-CO-13",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_co_16",
+            "name": "📜 BR-CO-16 — BT-115 = BT-112 − BT-113 + BT-114",
+            "category": "EN16931 (Schematron)",
+            "description": "Reste à payer (BT-115) = Total TTC (BT-112) − Acompte (BT-113) + Arrondi (BT-114). Vérifié par le schématron officiel.",
+            "enabled": True,
+            "schematron_id": "BR-CO-16",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_s_05",
+            "name": "📜 BR-S-05 — Ligne 'Standard rated' : BT-152 > 0",
+            "category": "EN16931 (Schematron)",
+            "description": "Pour chaque ligne dont la catégorie TVA (BT-151) vaut 'Standard rated', le taux TVA ligne (BT-152) doit être strictement supérieur à 0.",
+            "enabled": True,
+            "schematron_id": "BR-S-05",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_s_08",
+            "name": "📜 BR-S-08 — Cohérence ventilation TVA Standard rated",
+            "category": "EN16931 (Schematron)",
+            "description": "Pour chaque taux TVA distinct (BT-119) avec catégorie 'Standard rated' (BT-118), la base imposable (BT-116) doit égaler Σ BT-131 + Σ BT-99 − Σ BT-92 sur les lignes/charges/remises de même catégorie. Vérifié par le schématron officiel.",
+            "enabled": True,
+            "schematron_id": "BR-S-08",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "conditions": [],
+            "actions": []
         }
     ]
 }
@@ -1158,6 +1226,140 @@ def get_category_order(categorie_bg):
     return order_map.get(categorie_bg, 999)
 
 
+def _index_business_rules_by_schematron_id():
+    """Renvoie un dict {schematron_id: business_rule} pour les règles qui en déclarent un."""
+    try:
+        rules_data = load_business_rules() or {}
+    except Exception:
+        return {}
+    out = {}
+    for rule in rules_data.get('rules', []):
+        sid = (rule.get('schematron_id') or '').strip()
+        if sid:
+            out[sid] = rule
+    return out
+
+
+def apply_schematron(xml_content, results):
+    """Applique le schematron officiel EN16931 et fusionne ses erreurs dans les résultats.
+
+    Renvoie un dict de synthèse (compteurs + erreurs orphelines) à exposer à l'UI.
+    En cas d'échec de validation, retourne un dict avec 'error'.
+    """
+    if not xml_content:
+        return None
+
+    try:
+        errors = schematron_validate_xml(xml_content)
+    except Exception as exc:
+        print(f"[Schematron] échec validation: {exc}")
+        return {'error': str(exc), 'total': 0, 'fatal': 0, 'warning': 0,
+                'errors': [], 'orphans': [], 'rules': []}
+
+    # Périmètre du mapping : ensemble des BT couverts par les résultats.
+    # Inclut le préfixe court (BT-21) pour matcher les balises suffixées (BT-21-BAR).
+    mapped_balises = set()
+    for r in results:
+        bal = (r.get('balise') or '').strip()
+        if not bal:
+            continue
+        mapped_balises.add(bal)
+        parts = bal.split('-')
+        if len(parts) >= 3 and parts[0] == 'BT':
+            mapped_balises.add('-'.join(parts[:2]))
+
+    # Pont schematron ↔ règles métier + filtrage des erreurs hors mapping.
+    rules_by_sid = _index_business_rules_by_schematron_id()
+    kept = []
+    skipped_out_of_scope = 0
+    for err in errors:
+        rule = rules_by_sid.get(err.get('rule_id'))
+        if rule and not rule.get('enabled', True):
+            continue  # règle désactivée par l'utilisateur
+
+        # Filtrer les BT cités pour ne garder que ceux du mapping en cours.
+        # Si la règle citait des BT mais aucun n'est mappé → erreur hors scope, on saute.
+        original_bts = list(err.get('bts') or [])
+        if mapped_balises and original_bts:
+            scoped = [bt for bt in original_bts if bt in mapped_balises]
+            if not scoped:
+                skipped_out_of_scope += 1
+                continue
+            err['bts'] = scoped
+            err['bts_full'] = original_bts  # pour ne pas perdre l'info de la règle officielle
+
+        if rule:
+            err['business_rule_name'] = rule.get('name')
+            err['business_rule_id'] = rule.get('id')
+            err['business_rule_category'] = rule.get('category') or 'EN16931 (Schematron)'
+        kept.append(err)
+    errors = kept
+
+    by_bt = index_errors_by_bt(errors)
+    matched_keys = set()
+
+    def _attach(result, *, article_index=None):
+        candidates = candidates_for_balise(result.get('balise', ''))
+        if not candidates:
+            return
+        seen = set()
+        for cand in candidates:
+            for err in by_bt.get(cand, []):
+                err_line = line_index_from_location(err.get('location', ''))
+                if article_index is not None:
+                    # Ligne article : on ne prend que les erreurs ciblant cette même ligne
+                    if err_line is None or err_line != article_index:
+                        continue
+                else:
+                    # Champ d'en-tête : on exclut les erreurs scopées à une ligne précise
+                    if err_line is not None:
+                        continue
+                key = (err['rule_id'], err.get('location', ''), err.get('message', ''))
+                if key in seen:
+                    continue
+                seen.add(key)
+                matched_keys.add(key)
+                result.setdefault('schematron_errors', []).append(err)
+
+                # Si une règle métier porte ce schematron_id, on utilise son nom
+                # convivial — sinon label générique préfixé pour l'identifier.
+                rule_label = err.get('business_rule_name') or f"📜 Schematron {err['rule_id']}"
+                if rule_label not in result['regles_testees']:
+                    result['regles_testees'].append(rule_label)
+                if 'RAS' in result['details_erreurs']:
+                    result['details_erreurs'].remove('RAS')
+                # Format compact en colonne ; le tooltip fournit le détail complet
+                short_msg = err['message']
+                # Retire le préfixe "[BR-XX]-" déjà présent dans le message officiel
+                short_msg = re.sub(r'^\[' + re.escape(err['rule_id']) + r'\]-?', '', short_msg).strip()
+                if len(short_msg) > 140:
+                    short_msg = short_msg[:137].rstrip() + '…'
+                msg = f"[{err['rule_id']}] {short_msg}"
+                if msg not in result['details_erreurs']:
+                    result['details_erreurs'].append(msg)
+                if err['flag'] == 'fatal' and result['status'] == 'OK':
+                    result['status'] = 'ERREUR'
+
+    for r in results:
+        _attach(r, article_index=r.get('article_index'))
+
+    orphans = [
+        e for e in errors
+        if (e['rule_id'], e.get('location', ''), e.get('message', '')) not in matched_keys
+    ]
+
+    return {
+        'total': len(errors),
+        'fatal': sum(1 for e in errors if e['flag'] == 'fatal'),
+        'warning': sum(1 for e in errors if e['flag'] != 'fatal'),
+        'matched': len(errors) - len(orphans),
+        'skipped_out_of_scope': skipped_out_of_scope,
+        'rules': sorted({e['rule_id'] for e in errors}),
+        'errors': errors,
+        'orphans': orphans,
+    }
+
+
 def apply_business_rules(results, type_formulaire='simple'):
     """
     Applique les règles métiers configurables.
@@ -1934,7 +2136,30 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .batch-status-chip.pending{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
 /* Résultats — colonne facture */
 .batch-inv-num{font-weight:800;font-size:1em;color:#1e293b;letter-spacing:0.01em}
-.batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}</style>
+.batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+/* Schematron EN16931 panel */
+.schematron-panel{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.schematron-header{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#fff;cursor:pointer;font-size:0.92em}
+.schematron-header.ok{background:linear-gradient(135deg,#065f46 0%,#10b981 100%)}
+.schematron-header.err{background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)}
+.schematron-header.warn{background:linear-gradient(135deg,#78350f 0%,#f59e0b 100%)}
+.schematron-header .badges{display:flex;gap:8px;font-size:0.82em;font-weight:600}
+.schematron-header .badge{background:rgba(255,255,255,0.2);padding:3px 10px;border-radius:14px}
+.schematron-body{background:#fff;padding:0;max-height:0;overflow:hidden;transition:max-height 0.3s}
+.schematron-body.open{max-height:30000px;padding:12px 18px}
+.schematron-body table{width:100%;border-collapse:collapse;font-size:0.85em;margin-top:6px}
+.schematron-body th{background:#f1f5f9;color:#475569;padding:6px 10px;text-align:left;font-size:0.78em;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #e2e8f0}
+.schematron-body td{padding:6px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;color:#1e293b}
+.schematron-body td.rule{font-family:monospace;font-weight:700;color:#dc2626;white-space:nowrap}
+.schematron-body td.flag.fatal{color:#dc2626;font-weight:700}
+.schematron-body td.flag.warning{color:#b45309;font-weight:700}
+.schematron-body td.location{text-align:center;white-space:nowrap}
+.schematron-body button.copy-xpath{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;font-size:0.78em;font-weight:600;cursor:pointer;transition:all 0.15s}
+.schematron-body button.copy-xpath:hover{background:#dbeafe;border-color:#60a5fa}
+.schematron-body button.copy-xpath.copied{background:#dcfce7;color:#15803d;border-color:#86efac}
+.schematron-body .empty{color:#15803d;padding:8px 0;font-weight:600}
+.schematron-body .intro{color:#64748b;font-size:0.82em;margin-bottom:6px}
+.schematron-body .bts span{display:inline-block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:1px 6px;margin:1px 3px 1px 0;font-size:0.78em;font-weight:600}</style>
 </head>
 <body>
 
@@ -2076,6 +2301,19 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 
 <!-- ONGLET PARAMETRAGE - ENHANCED -->
 <div id="contentParam" class="tab-content">
+<div class="section">
+<h2 style="margin:0 0 14px 0">⚙️ Paramètres globaux</h2>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+<input type="checkbox" id="settingSchematronEnabled" checked style="width:18px;height:18px;cursor:pointer">
+<div>
+<div style="font-weight:700;color:#1e293b">📜 Validation schematron officielle EN16931 (CII)</div>
+<div style="font-size:0.85em;color:#64748b;margin-top:2px">Décoche pour désactiver complètement la validation schematron lors des contrôles. Le panneau de synthèse et les règles « 📜 BR-XX » disparaissent du résultat.</div>
+</div>
+</label>
+<span id="settingSaveIndicator" style="margin-left:auto;font-size:0.85em;color:#15803d;opacity:0;transition:opacity 0.3s">✓ Enregistré</span>
+</div>
+</div>
 <div class="section">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
 <h2 style="margin:0">Gestion des Mappings</h2>
@@ -2651,6 +2889,33 @@ document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove
 this.classList.add('active');
 document.getElementById('contentParam').classList.add('active');
 loadMappings();
+loadGlobalSettings();
+});
+
+/* ── Global settings toggle (schematron on/off) ────────────────────────── */
+async function loadGlobalSettings(){
+  try{
+    var resp=await fetch(BASE+'/api/rules');
+    if(!resp.ok)return;
+    var data=await resp.json();
+    var cb=document.getElementById('settingSchematronEnabled');
+    if(cb){cb.checked=data.schematron_enabled!==false;}
+  }catch(e){console.warn('loadGlobalSettings',e);}
+}
+
+document.getElementById('settingSchematronEnabled').addEventListener('change',async function(){
+  var enabled=this.checked;
+  try{
+    var resp=await fetch(BASE+'/api/rules');
+    var data=resp.ok?await resp.json():{};
+    delete data.categories;  // injecté par GET, pas à renvoyer
+    data.schematron_enabled=enabled;
+    var save=await fetch(BASE+'/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(save.ok){
+      var ind=document.getElementById('settingSaveIndicator');
+      if(ind){ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},1500);}
+    }
+  }catch(e){alert('Erreur sauvegarde paramètre: '+e.message);}
 });
 document.getElementById('tabRules').addEventListener('click',function(){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
@@ -3440,6 +3705,36 @@ function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* Construit le bloc tooltip "Schematron officiel EN16931" pour une ligne du tableau.
+   Source : r.schematron_errors = [{rule_id, severity, flag, message, location, bts}, ...] */
+function buildSchematronTooltip(r){
+  if(!r||!r.schematron_errors||r.schematron_errors.length===0)return '';
+  var html='<hr style="margin:6px 0;border-color:#7c3aed">'+
+    '<strong style="color:#c4b5fd">📜 Schematron officiel EN16931 (CII)</strong>'+
+    '<div style="font-size:0.85em;color:#cbd5e1;margin:2px 0 4px">'+
+      r.schematron_errors.length+' règle(s) du standard non respectée(s)</div>';
+  r.schematron_errors.forEach(function(e){
+    var sevColor=(e.flag==='fatal')?'#fca5a5':'#fde68a';
+    var sevLabel=(e.flag==='fatal')?'fatale':(e.severity||e.flag||'warning');
+    html+='<div style="margin:6px 0;padding:6px 8px;background:rgba(124,58,237,0.18);border-left:3px solid #a78bfa;border-radius:4px">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:3px">'+
+        '<strong style="color:#ddd6fe;font-family:monospace">'+escHtml(e.rule_id||'')+'</strong>'+
+        '<span style="color:'+sevColor+';font-size:0.78em;font-weight:700;text-transform:uppercase">'+escHtml(sevLabel)+'</span>'+
+      '</div>'+
+      '<div style="color:#fde2e2;font-size:0.86em;line-height:1.35">'+escHtml(e.message||'')+'</div>';
+    if(e.bts&&e.bts.length>0){
+      html+='<div style="margin-top:4px;font-size:0.78em;color:#a5b4fc"><strong>BT cités :</strong> '+
+        e.bts.map(function(b){return escHtml(b);}).join(', ')+'</div>';
+    }
+    if(e.location){
+      html+='<div style="margin-top:3px;font-size:0.72em;color:#94a3b8;font-family:monospace;word-break:break-all">'+
+        '<strong style="color:#cbd5e1">XPath :</strong> '+escHtml(e.location)+'</div>';
+    }
+    html+='</div>';
+  });
+  return html;
+}
+
 /* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
 function updateDeleteButtonVisibility() {
     const paramSelect = document.getElementById('typeFormulaireParam');
@@ -3799,6 +4094,94 @@ track.onmousemove=function(e){
 track.onmouseleave=function(){overlay.classList.remove('visible');};
 var cont=document.getElementById('categoriesContainer');
 cont.innerHTML='';
+// Bandeau de synthèse Schematron officiel EN16931 (CII)
+if(data.schematron){
+var sch=data.schematron;
+var panel=document.createElement('div');
+panel.className='schematron-panel';
+var headerCls,headerTxt;
+var synthSuffix=sch.synthetic?' — XML reconstruit depuis le RDI':'';
+if(sch.skipped){headerCls='warn';headerTxt='ℹ️ Schematron EN16931 (CII) — non exécuté';}
+else if(sch.error){headerCls='warn';headerTxt='⚠️ Schematron EN16931 — erreur de validation';}
+else if(sch.fatal>0){headerCls='err';headerTxt='❌ Schematron EN16931 (CII) — '+sch.fatal+' erreur'+(sch.fatal>1?'s':'')+synthSuffix;}
+else if(sch.total>0){headerCls='warn';headerTxt='⚠️ Schematron EN16931 (CII) — '+sch.total+' avertissement'+(sch.total>1?'s':'')+synthSuffix;}
+else{headerCls='ok';headerTxt='✅ Schematron EN16931 (CII) — conforme'+synthSuffix;}
+var badges='';
+if(!sch.error&&!sch.skipped){
+  badges='<span class="badge">'+(sch.total||0)+' total</span>'+
+         '<span class="badge">'+(sch.fatal||0)+' fatales</span>'+
+         '<span class="badge">'+(sch.warning||0)+' warnings</span>'+
+         '<span class="badge">'+(sch.matched||0)+' attachées</span>'+
+         '<span class="badge">'+((sch.orphans||[]).length)+' orphelines</span>';
+  if(sch.skipped_out_of_scope&&sch.skipped_out_of_scope>0){
+    badges+='<span class="badge" title="Erreurs schematron dont aucun BT cité n\'est dans ce mapping — masquées">'+
+      sch.skipped_out_of_scope+' hors mapping</span>';
+  }
+}
+var hHtml='<div class="schematron-header '+headerCls+'" id="schematronHeader">'+
+  '<div>'+headerTxt+'</div><div class="badges">'+badges+'</div></div>';
+var bHtml='<div class="schematron-body" id="schematronBody"><div class="intro">Validation contre le schematron officiel <code>EN16931-CII v1.3.16</code> de ConnectingEurope. Les erreurs liées à un BT du mapping sont aussi affichées dans le tableau ci-dessous, à côté du champ concerné.</div>';
+if(sch.synthetic&&sch.note){bHtml+='<div class="intro" style="background:#fef3c7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:4px;color:#78350f;margin-bottom:8px"><strong>ℹ️ XML synthétique :</strong> '+escHtml(sch.note)+'</div>';}
+if(sch.skipped){
+  bHtml+='<div class="empty" style="color:#b45309">'+escHtml(sch.reason||'Schematron non exécuté.')+'</div>';
+}else if(sch.error){
+  bHtml+='<div class="empty" style="color:#b45309">Validation impossible : '+escHtml(sch.error)+'</div>';
+}else if((sch.errors||[]).length===0){
+  bHtml+='<div class="empty">Aucun écart détecté ✨</div>';
+}else{
+  bHtml+='<table><thead><tr><th>Règle</th><th>Sévérité</th><th>BT concernés</th><th>Message</th><th>XPath</th></tr></thead><tbody>';
+  (sch.errors||[]).forEach(function(e){
+    var bts=(e.bts||[]).map(function(b){return '<span>'+escHtml(b)+'</span>';}).join('');
+    var loc=e.location||'';
+    var locCell=loc
+      ? '<button type="button" class="copy-xpath" data-xpath="'+escHtml(loc)+'" title="'+escHtml(loc)+'">📋 Copier</button>'
+      : '<span style="color:#94a3b8">—</span>';
+    bHtml+='<tr>'+
+      '<td class="rule">'+escHtml(e.rule_id||'')+'</td>'+
+      '<td class="flag '+(e.flag||'')+'">'+escHtml(e.severity||e.flag||'')+'</td>'+
+      '<td class="bts">'+(bts||'<span style="color:#94a3b8">—</span>')+'</td>'+
+      '<td>'+escHtml(e.message||'')+'</td>'+
+      '<td class="location">'+locCell+'</td>'+
+    '</tr>';
+  });
+  bHtml+='</tbody></table>';
+  if((sch.orphans||[]).length>0){
+    bHtml+='<div class="intro" style="margin-top:12px;color:#b45309"><strong>'+sch.orphans.length+' erreur(s) orpheline(s)</strong> : règles dont le BT cible n\'est pas mappé dans ce formulaire — elles ne sont visibles que dans ce panneau.</div>';
+  }
+}
+bHtml+='</div>';
+panel.innerHTML=hHtml+bHtml;
+cont.appendChild(panel);
+panel.querySelector('#schematronHeader').addEventListener('click',function(){
+  panel.querySelector('#schematronBody').classList.toggle('open');
+});
+// Boutons "📋 Copier" pour chaque XPath
+panel.querySelectorAll('button.copy-xpath').forEach(function(btn){
+  btn.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    var xp=this.getAttribute('data-xpath')||'';
+    var done=this;
+    var ok=function(){
+      done.classList.add('copied');
+      var prev=done.textContent;
+      done.textContent='✓ Copié';
+      setTimeout(function(){done.classList.remove('copied');done.textContent=prev;},1500);
+    };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(xp).then(ok).catch(function(){
+        // Fallback en cas de blocage clipboard
+        var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
+        ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
+      });
+    }else{
+      var ta=document.createElement('textarea');ta.value=xp;document.body.appendChild(ta);
+      ta.select();try{document.execCommand('copy');ok();}catch(e){}finally{ta.remove();}
+    }
+  });
+});
+// Ouvre par défaut s'il y a des erreurs
+if(!sch.error&&(sch.total||0)>0){panel.querySelector('#schematronBody').classList.add('open');}
+}
 // Trier les catégories dans l'ordre défini
 var categoryOrder={'BG-INFOS-GENERALES':1,'BG-TOTAUX':2,'BG-TVA':3,'BG-LIGNES':4,'BG-VENDEUR':5,'BG-ACHETEUR':6};
 var sortedCategories=Object.keys(data.categories_results).sort(function(a,b){
@@ -3853,11 +4236,14 @@ tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles appl
 r.regles_testees.forEach(function(reg){tooltipContent+='<li>'+reg+'</li>';});
 tooltipContent+='</ul>';
 }
-if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){
+// Filtrer les details_erreurs pour ne pas dupliquer les schematron (ils ont leur propre section)
+var nonSchDetails=(r.details_erreurs||[]).filter(function(e){return !/^\[BR-/.test(e);});
+if(nonSchDetails.length>0&&!(nonSchDetails.length===1&&nonSchDetails[0]==='RAS')){
 tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0 0;padding-left:16px;color:#fcc">';
-r.details_erreurs.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
+nonSchDetails.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
 tooltipContent+='</ul>';
 }
+tooltipContent+=buildSchematronTooltip(r);
 if(r.rule_details){
 Object.keys(r.rule_details).forEach(function(ruleName){
 tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+ruleName+' :</strong><ul style="margin:2px 0 0 0;padding-left:16px;font-family:monospace;font-size:0.9em">';
@@ -3942,11 +4328,13 @@ tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Règles appl
 r.regles_testees.forEach(function(reg){tooltipContent+='<li>'+reg+'</li>';});
 tooltipContent+='</ul>';
 }
-if(r.details_erreurs&&r.details_erreurs.length>0&&!(r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS')){
+var nonSchDetailsArt=(r.details_erreurs||[]).filter(function(e){return !/^\[BR-/.test(e);});
+if(nonSchDetailsArt.length>0&&!(nonSchDetailsArt.length===1&&nonSchDetailsArt[0]==='RAS')){
 tooltipContent+='<hr style="margin:4px 0;border-color:#c44"><strong style="color:#f88">Erreurs :</strong><ul style="margin:2px 0 0 0;padding-left:16px;color:#fcc">';
-r.details_erreurs.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
+nonSchDetailsArt.forEach(function(err){tooltipContent+='<li>'+err+'</li>';});
 tooltipContent+='</ul>';
 }
+tooltipContent+=buildSchematronTooltip(r);
 if(r.rule_details){
 Object.keys(r.rule_details).forEach(function(ruleName){
 tooltipContent+='<hr style="margin:4px 0;border-color:#555"><strong>Détail calcul — '+ruleName+' :</strong><ul style="margin:2px 0 0 0;padding-left:16px;font-family:monospace;font-size:0.9em">';
@@ -6324,6 +6712,48 @@ def controle():
         # Appliquer les règles métiers configurables
         results = apply_business_rules(results, type_formulaire)
 
+        # Validation schematron officielle EN16931 CII (en plus des contrôles BT)
+        # — si on a un XML CII (modes 'xml', 'xmlonly', 'cii') on l'utilise tel quel,
+        # — sinon (mode RDI seul) on reconstruit un XML synthétique depuis le mapping.
+        # Toggle global : business_rules.schematron_enabled (défaut True)
+        _global_settings = load_business_rules() or {}
+        _schematron_on = _global_settings.get('schematron_enabled', True)
+        if not _schematron_on:
+            schematron_summary = {
+                'skipped': True,
+                'reason': 'Validation schématron désactivée dans les paramètres globaux.',
+                'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                'rules': [], 'errors': [], 'orphans': [],
+            }
+        elif xml_doc is not None:
+            schematron_summary = apply_schematron(xml_content, results)
+        elif rdi_data or rdi_articles:
+            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping)
+            if synthetic_xml:
+                schematron_summary = apply_schematron(synthetic_xml, results)
+                if schematron_summary:
+                    schematron_summary['synthetic'] = True
+                    schematron_summary['note'] = (
+                        'Aucun XML CII fourni : la validation tourne sur un XML '
+                        'reconstruit depuis le RDI via le mapping. Les attributs CII '
+                        'que le RDI ne porte pas (schemeID, etc.) peuvent générer '
+                        'de faux positifs.'
+                    )
+            else:
+                schematron_summary = {
+                    'skipped': True,
+                    'reason': 'Impossible de reconstruire un XML depuis ce RDI.',
+                    'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                    'rules': [], 'errors': [], 'orphans': [],
+                }
+        else:
+            schematron_summary = {
+                'skipped': True,
+                'reason': 'Aucune donnée RDI ni XML pour la validation EN16931.',
+                'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+                'rules': [], 'errors': [], 'orphans': [],
+            }
+
         stats = {
             'total': len(results),
             'ok': sum(1 for r in results if r['status'] == 'OK'),
@@ -6332,6 +6762,9 @@ def controle():
             'ambigu': sum(1 for r in results if r['status'] == 'AMBIGU'),
             'nb_articles': nb_articles,
         }
+        if schematron_summary:
+            stats['schematron_total'] = schematron_summary.get('total', 0)
+            stats['schematron_fatal'] = schematron_summary.get('fatal', 0)
 
         categories_results = defaultdict(lambda: {'champs': [], 'stats': {'total': 0, 'ok': 0, 'erreur': 0}})
         for result in results:
@@ -6379,7 +6812,8 @@ def controle():
             'results': results,
             'stats': stats,
             'categories_results': dict(categories_results),
-            'type_controle': type_controle
+            'type_controle': type_controle,
+            'schematron': schematron_summary,
         })
     except Exception as e:
         print(f"ERREUR: {e}")
