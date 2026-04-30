@@ -1056,7 +1056,17 @@ def serve_image(filename):
 @app.route('/')
 def index():
     prefix = request.script_root or URL_PREFIX
-    return HTML.replace('__URL_PREFIX__', prefix)
+    # Cache-buster basé sur la mtime de app.js : force le navigateur à recharger
+    # le JS dès qu'il change, plutôt que de servir une version périmée du cache.
+    try:
+        js_ver = str(int(os.path.getmtime(os.path.join(SCRIPT_DIR, 'static', 'js', 'app.js'))))
+    except OSError:
+        js_ver = '0'
+    return (
+        HTML
+        .replace('__URL_PREFIX__', prefix)
+        .replace('static/js/app.js"', f'static/js/app.js?v={js_ver}"')
+    )
 
 @app.route('/api/mapping/<type_formulaire>')
 def get_mapping(type_formulaire):

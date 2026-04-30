@@ -571,6 +571,7 @@ async function batchLaunch(){
 
 function batchRenderResults(data){
   var batch=data.batch||[];
+  window._batchInvList=batch;
   var skipped=data.skipped||[];
   var now=new Date();
   var dateStr=now.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})
@@ -619,6 +620,7 @@ function batchRenderResults(data){
       mainDiv.className='batch-inv-main inv-error';
       mainDiv.innerHTML=
         '<div><div class="batch-inv-name">'+escHtml(inv.name)+'<span class="bsub">Erreur technique</span></div></div>'+
+        '<div></div>'+
         '<div class="batch-sc" colspan="3" style="grid-column:span 3;color:#f59e0b">—</div>'+
         '<div></div>'+
         '<div style="padding:0 6px;color:#f59e0b;font-size:0.82em">⚠ '+escHtml(inv.error)+'</div>'+
@@ -655,10 +657,25 @@ function batchRenderResults(data){
     var bt1res=(inv.results||[]).find(function(r){return r.balise==='BT-1';});
     var invoiceNum=inv.invoice_number||(bt1res?(bt1res.rdi||bt1res.xml||''):'');
 
+    // Détails: nom du client (BT-44) + date facture (BT-2) + bouton "+ de détails"
+    var clientName=_detGet(inv.results,'BT-44');
+    var dateFact=_detGet(inv.results,'BT-2');
+    var detailsInner='';
+    if(clientName||dateFact){
+      detailsInner='<div class="batch-inv-details-text">'+
+        (clientName?'<div class="batch-inv-client" title="'+escHtml(clientName)+'">'+escHtml(clientName)+'</div>':'')+
+        (dateFact?'<div class="batch-inv-date">'+escHtml(_detFmtDate(dateFact))+'</div>':'')+
+        '</div>';
+    } else {
+      detailsInner='<div class="batch-inv-details-text"><span class="batch-inv-details-empty">—</span></div>';
+    }
+    detailsInner+='<button type="button" class="btn-batch-details-plus" onclick="batchShowInvoiceDetails('+i+')" title="Afficher tous les détails de la facture">+ de détails</button>';
+
     var mainDiv=document.createElement('div');
     mainDiv.className='batch-inv-main '+(nbErrInv>0?'has-err':'all-ok');
     mainDiv.innerHTML=
       '<div><div class="batch-inv-num">'+(invoiceNum?escHtml(invoiceNum):'<span style="color:#94a3b8;font-weight:400;font-style:italic;font-size:0.85em">N° inconnu</span>')+'</div><div class="batch-inv-filename" data-fullname="'+escHtml(inv.name)+'">'+escHtml(inv.name)+'</div></div>'+
+      '<div class="batch-inv-details">'+detailsInner+'</div>'+
       '<div class="batch-sc ok">'+nbOkInv+'</div>'+
       '<div class="batch-sc err">'+nbErrInv+'</div>'+
       '<div class="batch-sc amb">'+nbAmbInv+'</div>'+
@@ -708,6 +725,14 @@ function batchToggleDetail(i){
   var open=zone.classList.contains('open');
   if(open){zone.classList.remove('open');btn.classList.remove('open');}
   else{zone.classList.add('open');btn.classList.add('open');}
+}
+
+function batchShowInvoiceDetails(i){
+  var list=window._batchInvList||[];
+  var inv=list[i];
+  if(!inv||!inv.results) return;
+  window._lastInvoiceResults=inv.results;
+  showInvoiceDetails();
 }
 
 function batchExpandAll(i){
@@ -1463,8 +1488,10 @@ if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
 if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
 document.getElementById('loading').style.display='block';
 document.getElementById('results').style.display='none';
+// Reset complet de l'aperçu et du conteneur des catégories avant l'appel
 var _sumBox=document.getElementById('invoiceSummary');
 if(_sumBox){_sumBox.innerHTML='';_sumBox.style.display='none';}
+window._lastInvoiceResults=null;
 var fd=new FormData();
 if(pdf)fd.append('pdf',pdf);
 if(cii)fd.append('cii',cii);
@@ -1475,7 +1502,11 @@ try{
 var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
-try{buildInvoiceSummary(data.results||[]);}catch(e){console.error('[summary]',e);var _b=document.getElementById('invoiceSummary');if(_b){_b.style.display='none';_b.innerHTML='';}}
+// Aperçu : reset DOM + state global, puis rebuild — même pattern que categoriesContainer
+var _summaryBox=document.getElementById('invoiceSummary');
+if(_summaryBox){_summaryBox.innerHTML='';_summaryBox.style.display='none';}
+window._lastInvoiceResults=null;
+buildInvoiceSummary(data.results||[]);
 document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;
 document.getElementById('statErreur').textContent=data.stats.erreur;

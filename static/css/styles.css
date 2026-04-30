@@ -445,12 +445,12 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .btn-batch-remove{background:#fff;color:#94a3b8;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:0.85em;transition:all 0.15s}
 .btn-batch-remove:hover{background:#fff5f5;border-color:#fca5a5;color:#ef4444}
 .batch-wrap{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:14px}
-.batch-thead{display:grid;grid-template-columns:220px 70px 70px 70px 140px 1fr 110px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;padding:8px 14px;gap:0}
+.batch-thead{display:grid;grid-template-columns:200px 220px 60px 60px 60px 130px 1fr 110px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;padding:8px 14px;gap:0}
 .batch-thead span{font-size:0.73em;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.06em}
 .batch-thead .bcenter{text-align:center}
 .batch-inv-row{border-bottom:1px solid #f1f5f9}
 .batch-inv-row:last-child{border-bottom:none}
-.batch-inv-main{display:grid;grid-template-columns:220px 70px 70px 70px 140px 1fr 110px;align-items:center;padding:11px 14px;gap:0;transition:background 0.15s}
+.batch-inv-main{display:grid;grid-template-columns:200px 220px 60px 60px 60px 130px 1fr 110px;align-items:center;padding:11px 14px;gap:0;transition:background 0.15s}
 .batch-inv-main:hover{background:#f8fafc}
 .batch-inv-main.has-err{border-left:3px solid #ef4444}
 .batch-inv-main.all-ok{border-left:3px solid #10b981}
@@ -510,6 +510,14 @@ table.ceg-table td{padding:6px 10px;border-bottom:1px solid #ede9fe;background:#
 .batch-inv-num{font-weight:800;font-size:1em;color:#1e293b;letter-spacing:0.01em}
 .batch-inv-filename{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;position:relative}
 .batch-inv-filename[data-fullname]:hover::after{content:attr(data-fullname);position:absolute;left:0;top:100%;margin-top:4px;background:#1e293b;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:1em;white-space:nowrap;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.18);pointer-events:none}
+/* Résultats — colonne détails (client / date + bouton) */
+.batch-inv-details{display:flex;align-items:center;gap:8px;padding-right:10px;min-width:0}
+.batch-inv-details-text{flex:1;min-width:0;overflow:hidden}
+.batch-inv-client{font-weight:600;font-size:0.85em;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-inv-date{font-size:0.74em;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-inv-details-empty{font-size:0.78em;color:#cbd5e1;font-style:italic}
+.btn-batch-details-plus{background:#fff;color:#667eea;border:1.5px solid #c7d2fe;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:0.74em;font-weight:700;font-family:'Outfit',Arial,sans-serif;white-space:nowrap;transition:all 0.15s;flex-shrink:0}
+.btn-batch-details-plus:hover{background:#eef2ff;border-color:#818cf8}
 /* Schematron EN16931 panel */
 .schematron-panel{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
 .schematron-header{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#fff;cursor:pointer;font-size:0.92em}
