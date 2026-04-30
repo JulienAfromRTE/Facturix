@@ -433,10 +433,31 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 
 <!-- Historique -->
 <div class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:12px">
 <h3 style="margin:0">Dernières factures contrôlées</h3>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<label style="font-size:0.85em;color:#475569;display:flex;align-items:center;gap:6px;margin:0">
+Type
+<select id="statsHistType" style="padding:4px 8px;font-size:0.85em">
+<option value="">Tous</option>
+</select>
+</label>
+<label style="font-size:0.85em;color:#475569;display:flex;align-items:center;gap:6px;margin:0">
+Tri
+<select id="statsHistSort" style="padding:4px 8px;font-size:0.85em">
+<option value="recent">Plus récent</option>
+<option value="errors_asc">Moins d'erreurs d'abord</option>
+<option value="conformity_desc">Meilleure conformité d'abord</option>
+</select>
+</label>
+<label style="font-size:0.85em;color:#475569;display:flex;align-items:center;gap:6px;margin:0">
+Erreurs max
+<input type="number" id="statsHistMaxErr" min="0" step="1" placeholder="∞" style="width:70px;padding:4px 6px;font-size:0.85em">
+</label>
 <button class="btn-secondary" id="btnStatsExportCsv" style="padding:6px 12px">⬇ Export CSV</button>
 </div>
+</div>
+<div id="statsHistCount" style="font-size:0.82em;color:#94a3b8;margin-bottom:6px"></div>
 <div id="statsHistory" style="overflow-x:auto"></div>
 </div>
 </div>

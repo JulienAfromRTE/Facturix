@@ -69,6 +69,11 @@ else:
 UPLOAD_FOLDER = os.path.join(SCRIPT_DIR, 'uploads_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+ARCHIVE_FOLDER = os.path.join(SCRIPT_DIR, 'archive_files')
+os.makedirs(ARCHIVE_FOLDER, exist_ok=True)
+ARCHIVE_KINDS = ('rdi', 'pdf', 'cii', 'xml')
+ARCHIVE_RETENTION_DAYS = 7
+
 DB_FILE = os.path.join(SCRIPT_DIR, 'facturix.db')
 
 print(f"[FACTURX] Dossier de travail : {SCRIPT_DIR}")
@@ -1045,8 +1050,14 @@ def apply_business_rules(results, type_formulaire='simple'):
 
 
 # HTML charge depuis templates/index.html (extrait pour economiser des tokens)
-with open(os.path.join(SCRIPT_DIR, 'templates', 'index.html'), 'r', encoding='utf-8') as _f:
-    HTML = _f.read()
+_HTML_PATH = os.path.join(SCRIPT_DIR, 'templates', 'index.html')
+
+def _read_html():
+    with open(_HTML_PATH, 'r', encoding='utf-8') as f:
+        return f.read()
+
+# Pré-charge initial (utilisé en fallback si le fichier devient illisible).
+HTML = _read_html()
 
 @app.route('/img/<path:filename>')
 def serve_image(filename):
@@ -1062,8 +1073,14 @@ def index():
         js_ver = str(int(os.path.getmtime(os.path.join(SCRIPT_DIR, 'static', 'js', 'app.js'))))
     except OSError:
         js_ver = '0'
+    # Relit le template à chaque requête : évite de devoir relancer le serveur
+    # à chaque modif du HTML. Coût négligeable (lecture disque ~ qq Ko).
+    try:
+        html = _read_html()
+    except OSError:
+        html = HTML
     return (
-        HTML
+        html
         .replace('__URL_PREFIX__', prefix)
         .replace('static/js/app.js"', f'static/js/app.js?v={js_ver}"')
     )
@@ -1262,9 +1279,119 @@ def save_rules():
     success = save_business_rules(rules_data)
     return jsonify({'success': success})
 
+def _safe_archive_name(name, fallback):
+    if not name:
+        return fallback
+    base = os.path.basename(name)
+    cleaned = re.sub(r'[^A-Za-z0-9._-]', '_', base).strip('._-')
+    return cleaned or fallback
+
+
+def archive_invoice_files(invoice_id, *, rdi_path=None, pdf_path=None,
+                          cii_path=None, xml_content=None):
+    """Copie les fichiers d'entrée + le XML extrait dans archive_files/<invoice_id>/
+    et met à jour les colonnes archive_* de invoice_history."""
+    if not invoice_id:
+        return
+    import shutil
+    try:
+        target_dir = os.path.join(ARCHIVE_FOLDER, str(invoice_id))
+        os.makedirs(target_dir, exist_ok=True)
+        paths = {}
+        if rdi_path and os.path.exists(rdi_path):
+            name = _safe_archive_name(os.path.basename(rdi_path), 'rdi.txt')
+            dest = os.path.join(target_dir, 'rdi__' + name)
+            shutil.copy2(rdi_path, dest)
+            paths['archive_rdi'] = os.path.relpath(dest, ARCHIVE_FOLDER)
+        if pdf_path and os.path.exists(pdf_path):
+            name = _safe_archive_name(os.path.basename(pdf_path), 'document.pdf')
+            dest = os.path.join(target_dir, 'pdf__' + name)
+            shutil.copy2(pdf_path, dest)
+            paths['archive_pdf'] = os.path.relpath(dest, ARCHIVE_FOLDER)
+        if cii_path and os.path.exists(cii_path):
+            name = _safe_archive_name(os.path.basename(cii_path), 'cii.xml')
+            dest = os.path.join(target_dir, 'cii__' + name)
+            shutil.copy2(cii_path, dest)
+            paths['archive_cii'] = os.path.relpath(dest, ARCHIVE_FOLDER)
+        if xml_content:
+            dest = os.path.join(target_dir, 'xml__extracted.xml')
+            content = xml_content if isinstance(xml_content, str) else xml_content.decode('utf-8', errors='replace')
+            with open(dest, 'w', encoding='utf-8') as f:
+                f.write(content)
+            paths['archive_xml'] = os.path.relpath(dest, ARCHIVE_FOLDER)
+        if paths:
+            conn = get_db()
+            sets = ', '.join(f'{k} = ?' for k in paths)
+            conn.execute(
+                f'UPDATE invoice_history SET {sets} WHERE id = ?',
+                list(paths.values()) + [invoice_id]
+            )
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        print(f"[ARCHIVE] Erreur archivage facture {invoice_id}: {e}")
+
+
+_LAST_ARCHIVE_PURGE = [0.0]
+
+def purge_old_archive_files(retention_days=ARCHIVE_RETENTION_DAYS, min_interval_sec=300):
+    """Supprime les dossiers archive_files/<id>/ pour les lignes invoice_history
+    plus anciennes que retention_days, et nullifie les colonnes archive_*.
+    Appelée paresseusement ; min_interval_sec évite les passes trop rapprochées."""
+    import time, shutil
+    from datetime import datetime, timedelta
+    now = time.time()
+    if now - _LAST_ARCHIVE_PURGE[0] < min_interval_sec:
+        return
+    _LAST_ARCHIVE_PURGE[0] = now
+    try:
+        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat(timespec='seconds')
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT id FROM invoice_history "
+            "WHERE timestamp < ? AND ("
+            "    archive_rdi IS NOT NULL OR archive_pdf IS NOT NULL "
+            " OR archive_cii IS NOT NULL OR archive_xml IS NOT NULL)",
+            (cutoff,)
+        ).fetchall()
+        expired_ids = {r['id'] for r in rows}
+        for inv_id in expired_ids:
+            d = os.path.join(ARCHIVE_FOLDER, str(inv_id))
+            if os.path.isdir(d):
+                shutil.rmtree(d, ignore_errors=True)
+        if expired_ids:
+            conn.executemany(
+                "UPDATE invoice_history SET archive_rdi=NULL, archive_pdf=NULL, "
+                "archive_cii=NULL, archive_xml=NULL WHERE id = ?",
+                [(i,) for i in expired_ids]
+            )
+            conn.commit()
+        # Orphelins : dossier sans ligne en BDD
+        if os.path.isdir(ARCHIVE_FOLDER):
+            for entry in os.listdir(ARCHIVE_FOLDER):
+                full = os.path.join(ARCHIVE_FOLDER, entry)
+                if not os.path.isdir(full):
+                    continue
+                try:
+                    inv_id = int(entry)
+                except ValueError:
+                    continue
+                row = conn.execute(
+                    "SELECT 1 FROM invoice_history WHERE id = ?", (inv_id,)
+                ).fetchone()
+                if not row:
+                    shutil.rmtree(full, ignore_errors=True)
+        conn.close()
+        if expired_ids:
+            print(f"[ARCHIVE] Purgé {len(expired_ids)} archive(s) > {retention_days}j.")
+    except Exception as e:
+        print(f"[ARCHIVE] Erreur purge: {e}")
+
+
 def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_controle):
     """Traite une facture à partir de chemins de fichiers déjà sauvegardés.
-    Retourne (result_dict, error_str). result_dict contient results, stats, categories_results, type_controle."""
+    Retourne (result_dict, error_str, xml_content). result_dict contient results, stats, categories_results, type_controle."""
+    xml_content = None
     try:
         rdi_data = {}
         rdi_articles = []
@@ -1279,23 +1406,23 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
             try:
                 xml_doc = etree.fromstring(xml_content.encode('utf-8'))
             except Exception:
-                return None, 'XML CII invalide'
+                return None, 'XML CII invalide', xml_content
         elif pdf_path:
             if pdf_path.lower().endswith('.pdf'):
                 xml_content = extract_xml_from_pdf(pdf_path)
                 if not xml_content:
-                    return None, 'XML introuvable dans le PDF'
+                    return None, 'XML introuvable dans le PDF', None
             else:
                 with open(pdf_path, 'r', encoding='utf-8') as f:
                     xml_content = f.read()
             try:
                 xml_doc = etree.fromstring(xml_content.encode('utf-8'))
             except Exception:
-                return None, 'XML invalide'
+                return None, 'XML invalide', xml_content
 
         mapping_data = load_mapping(type_formulaire)
         if not mapping_data:
-            return None, 'Mapping introuvable'
+            return None, 'Mapping introuvable', xml_content
 
         mapping = mapping_data.get('champs', [])
         namespaces = build_xml_namespaces(xml_doc)
@@ -1566,12 +1693,12 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
             'categories_results': dict(categories_results),
             'type_controle': type_controle,
             'schematron': schematron_summary,
-        }, None
+        }, None, xml_content
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return None, str(e)
+        return None, str(e), xml_content
 
 
 @app.route('/controle-batch', methods=['POST'])
@@ -1602,14 +1729,16 @@ def controle_batch():
                 rdi_file.save(rdi_path)
                 saved_paths.append(rdi_path)
 
-            result, error = _process_invoice(rdi_path, pdf_path, None, type_formulaire, type_controle)
+            result, error, xml_content = _process_invoice(
+                rdi_path, pdf_path, None, type_formulaire, type_controle
+            )
 
             if error:
                 batch_results.append({'name': name, 'error': error,
                                        'stats': None, 'results': None,
                                        'categories_results': None,
                                        'type_controle': type_controle})
-                _log_invoice_to_history(
+                invoice_id = _log_invoice_to_history(
                     type_formulaire, type_controle, 'batch',
                     invoice_number=invoice_number_hint or None, filename=name,
                     stats=None, results=None, error=error
@@ -1625,11 +1754,18 @@ def controle_batch():
                         if r.get('balise') == 'BT-1':
                             inv_num = (r.get('rdi') or r.get('xml') or '').strip() or None
                             break
-                _log_invoice_to_history(
+                invoice_id = _log_invoice_to_history(
                     type_formulaire, type_controle, 'batch',
                     invoice_number=inv_num, filename=name,
                     stats=result.get('stats'), results=result.get('results')
                 )
+            archive_invoice_files(
+                invoice_id,
+                rdi_path=rdi_path, pdf_path=pdf_path, cii_path=None,
+                xml_content=xml_content,
+            )
+
+        purge_old_archive_files()
 
         for p in saved_paths:
             try:
@@ -1687,6 +1823,7 @@ def controle():
                 print(f"  Article {i}: {art}")
 
         xml_doc = None
+        xml_content = None
         pdf_path = None
         cii_path = None
 
@@ -2058,14 +2195,6 @@ def controle():
         for bg_id in categories_results:
             categories_results[bg_id]['champs'].sort(key=lambda x: x.get('order_index', 9999))
 
-        # Nettoyage
-        if rdi_path and os.path.exists(rdi_path):
-            os.remove(rdi_path)
-        if pdf_path and os.path.exists(pdf_path):
-            os.remove(pdf_path)
-        if cii_path and os.path.exists(cii_path):
-            os.remove(cii_path)
-
         # Log dans l'historique (statistiques)
         inv_num = None
         for r in results:
@@ -2079,11 +2208,25 @@ def controle():
             src_filename = rdi_file.filename
         elif cii_file is not None:
             src_filename = cii_file.filename
-        _log_invoice_to_history(
+        invoice_id = _log_invoice_to_history(
             type_formulaire, type_controle, 'unitaire',
             invoice_number=inv_num, filename=src_filename,
             stats=stats, results=results
         )
+        archive_invoice_files(
+            invoice_id,
+            rdi_path=rdi_path, pdf_path=pdf_path, cii_path=cii_path,
+            xml_content=xml_content,
+        )
+        purge_old_archive_files()
+
+        # Nettoyage
+        if rdi_path and os.path.exists(rdi_path):
+            os.remove(rdi_path)
+        if pdf_path and os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        if cii_path and os.path.exists(cii_path):
+            os.remove(cii_path)
 
         return jsonify({
             'results': results,
@@ -2548,29 +2691,68 @@ def api_stats_top_ko():
 
 @app.route('/api/stats/history', methods=['GET'])
 def api_stats_history():
-    """Liste paginée des dernières factures contrôlées."""
+    """Liste des dernières factures contrôlées (sans limite par défaut)."""
     try:
         where, params = _stats_build_filters(request.args)
-        try:
-            limit = int(request.args.get('limit', 50))
-        except ValueError:
-            limit = 50
-        limit = max(1, min(limit, 500))
+        raw_limit = request.args.get('limit')
+        sql_tail = ' ORDER BY id DESC'
+        sql_params = list(params)
+        if raw_limit not in (None, '', '0', 'all'):
+            try:
+                limit = max(1, int(raw_limit))
+                sql_tail += ' LIMIT ?'
+                sql_params.append(limit)
+            except ValueError:
+                pass
         conn = get_db()
         rows = conn.execute(
             f"SELECT id, timestamp, type_formulaire, type_controle, mode, "
             f"       invoice_number, filename, total, ok, erreur, "
-            f"       ignore_count, ambigu, conformity_pct, error "
-            f"FROM invoice_history{where} ORDER BY id DESC LIMIT ?",
-            params + [limit]
+            f"       ignore_count, ambigu, conformity_pct, error, "
+            f"       archive_rdi, archive_pdf, archive_cii, archive_xml "
+            f"FROM invoice_history{where}{sql_tail}",
+            sql_params
         ).fetchall()
         conn.close()
-        return jsonify({
-            'items': [dict(r) for r in rows]
-        })
+        items = []
+        for r in rows:
+            d = dict(r)
+            d['files'] = {
+                k: bool(d.pop('archive_' + k))
+                for k in ARCHIVE_KINDS
+            }
+            items.append(d)
+        return jsonify({'items': items})
     except Exception as e:
         print(f"[STATS] history erreur : {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stats/file/<int:invoice_id>/<kind>', methods=['GET'])
+def api_stats_file(invoice_id, kind):
+    """Renvoie le fichier archivé associé à une ligne d'historique."""
+    if kind not in ARCHIVE_KINDS:
+        return jsonify({'error': 'kind invalide'}), 400
+    col = 'archive_' + kind
+    try:
+        conn = get_db()
+        row = conn.execute(
+            f"SELECT {col} FROM invoice_history WHERE id = ?", (invoice_id,)
+        ).fetchone()
+        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    if not row or not row[col]:
+        return jsonify({'error': 'fichier indisponible'}), 404
+    rel = row[col]
+    full = os.path.normpath(os.path.join(ARCHIVE_FOLDER, rel))
+    if not full.startswith(os.path.normpath(ARCHIVE_FOLDER) + os.sep):
+        return jsonify({'error': 'chemin invalide'}), 400
+    if not os.path.isfile(full):
+        return jsonify({'error': 'fichier purgé'}), 404
+    base = os.path.basename(full)
+    download_name = base.split('__', 1)[-1] if '__' in base else base
+    return send_file(full, as_attachment=True, download_name=download_name)
 
 
 _STATS_BUILTIN_LABELS = {

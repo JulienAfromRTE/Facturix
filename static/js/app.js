@@ -317,14 +317,88 @@ async function statsLoadTopKo(){
     +'<tbody>'+rows+'</tbody></table>';
 }
 
-async function statsLoadHistory(){
-  var qs = statsBuildQuery();
-  var r = await fetch(BASE+'/api/stats/history'+qs+(qs?'&':'?')+'limit=50');
-  var d = await r.json();
-  statsState.lastHistory = d;
-  var items = d.items || [];
+var STATS_FILE_KINDS = [
+  {k:'rdi', label:'RDI'},
+  {k:'pdf', label:'PDF'},
+  {k:'cii', label:'CII'},
+  {k:'xml', label:'XML'},
+];
+
+function statsFileButtons(x){
+  var f = x.files || {};
+  return STATS_FILE_KINDS.map(function(it){
+    if(f[it.k]){
+      return '<a class="btn-secondary" style="padding:2px 8px;font-size:0.78em;text-decoration:none" '
+        +'href="'+BASE+'/api/stats/file/'+x.id+'/'+it.k+'" '
+        +'title="Télécharger '+it.label+'">'+it.label+'</a>';
+    }
+    return '<span style="padding:2px 8px;font-size:0.78em;color:#cbd5e1;border:1px dashed #e2e8f0;border-radius:4px" '
+      +'title="'+it.label+' indisponible (non fourni ou purgé après 7 jours)">'+it.label+'</span>';
+  }).join('');
+}
+
+function statsHistFilteredItems(){
+  var items = (statsState.lastHistory && statsState.lastHistory.items) || [];
+  var typeEl = document.getElementById('statsHistType');
+  var maxErrEl = document.getElementById('statsHistMaxErr');
+  var sortEl = document.getElementById('statsHistSort');
+  var typeVal = typeEl ? typeEl.value : '';
+  if(typeVal){
+    items = items.filter(function(x){ return (x.type_formulaire||'') === typeVal; });
+  }
+  var maxErr = maxErrEl && maxErrEl.value !== '' ? parseInt(maxErrEl.value, 10) : null;
+  if(maxErr !== null && !isNaN(maxErr)){
+    items = items.filter(function(x){ return (x.erreur||0) <= maxErr; });
+  }
+  var sortMode = sortEl ? sortEl.value : 'recent';
+  if(sortMode === 'errors_asc'){
+    items = items.slice().sort(function(a,b){
+      var ea = a.erreur||0, eb = b.erreur||0;
+      if(ea !== eb) return ea - eb;
+      return (b.conformity_pct||0) - (a.conformity_pct||0);
+    });
+  } else if(sortMode === 'conformity_desc'){
+    items = items.slice().sort(function(a,b){
+      var ca = a.conformity_pct||0, cb = b.conformity_pct||0;
+      if(cb !== ca) return cb - ca;
+      return (a.erreur||0) - (b.erreur||0);
+    });
+  }
+  return items;
+}
+
+function statsHistPopulateTypes(){
+  var sel = document.getElementById('statsHistType');
+  if(!sel) return;
+  var all = (statsState.lastHistory && statsState.lastHistory.items) || [];
+  var present = {};
+  all.forEach(function(x){
+    var t = x.type_formulaire || '';
+    if(t) present[t] = true;
+  });
+  var current = sel.value;
+  var opts = ['<option value="">Tous</option>'];
+  Object.keys(present).sort(function(a,b){
+    return statsLabel(a).localeCompare(statsLabel(b));
+  }).forEach(function(t){
+    opts.push('<option value="'+t+'">'+statsLabel(t)+'</option>');
+  });
+  sel.innerHTML = opts.join('');
+  if(current && present[current]) sel.value = current;
+}
+
+function statsRenderHistory(){
+  statsHistPopulateTypes();
+  var all = (statsState.lastHistory && statsState.lastHistory.items) || [];
+  var items = statsHistFilteredItems();
+  var countEl = document.getElementById('statsHistCount');
+  if(countEl){
+    countEl.textContent = items.length === all.length
+      ? items.length + ' facture(s)'
+      : items.length + ' / ' + all.length + ' facture(s) après filtre';
+  }
   if(!items.length){
-    document.getElementById('statsHistory').innerHTML = '<p style="color:#94a3b8;font-style:italic">Aucun contrôle enregistré pour ces filtres.</p>';
+    document.getElementById('statsHistory').innerHTML = '<p style="color:#94a3b8;font-style:italic">Aucune facture ne correspond aux filtres.</p>';
     return;
   }
   var rows = items.map(function(x){
@@ -345,16 +419,25 @@ async function statsLoadHistory(){
         +'<div class="progress-track" style="flex:1;height:8px"><div class="progress-fill '+statsPctClass(x.conformity_pct||0)+'" style="width:'+(x.conformity_pct||0)+'%"></div></div>'
         +'<span style="font-weight:700;width:42px;text-align:right">'+pct+'%</span>'
       +'</div></td>'
+      +'<td><div style="display:flex;gap:4px;flex-wrap:wrap">'+statsFileButtons(x)+'</div></td>'
     +'</tr>';
   }).join('');
   document.getElementById('statsHistory').innerHTML =
     '<table class="main-table">'
-    +'<thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>N° facture</th><th>Fichier</th><th style="text-align:right">Total</th><th>Statut</th><th>Conformité</th></tr></thead>'
+    +'<thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>N° facture</th><th>Fichier</th><th style="text-align:right">Total</th><th>Statut</th><th>Conformité</th><th>Fichiers</th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table>';
 }
 
+async function statsLoadHistory(){
+  var qs = statsBuildQuery();
+  var r = await fetch(BASE+'/api/stats/history'+qs);
+  var d = await r.json();
+  statsState.lastHistory = d;
+  statsRenderHistory();
+}
+
 function statsExportCsv(){
-  var items = (statsState.lastHistory && statsState.lastHistory.items) || [];
+  var items = statsHistFilteredItems();
   if(!items.length){ alert('Aucune ligne à exporter.'); return; }
   var hdr = ['date','type','mode','invoice_number','filename','total','ok','erreur','ignore','ambigu','conformity_pct','error'];
   var esc = function(v){
@@ -378,9 +461,23 @@ document.getElementById('btnStatsReset').addEventListener('click', function(){
   document.getElementById('statsFilterMode').value = '';
   document.getElementById('statsFilterStart').value = '';
   document.getElementById('statsFilterEnd').value = '';
+  var sortEl = document.getElementById('statsHistSort');
+  if(sortEl) sortEl.value = 'recent';
+  var maxErrEl = document.getElementById('statsHistMaxErr');
+  if(maxErrEl) maxErrEl.value = '';
+  var typeEl = document.getElementById('statsHistType');
+  if(typeEl) typeEl.value = '';
   statsLoadAll();
 });
 document.getElementById('btnStatsExportCsv').addEventListener('click', statsExportCsv);
+(function(){
+  var typeEl = document.getElementById('statsHistType');
+  var sortEl = document.getElementById('statsHistSort');
+  var maxErrEl = document.getElementById('statsHistMaxErr');
+  if(typeEl) typeEl.addEventListener('change', statsRenderHistory);
+  if(sortEl) sortEl.addEventListener('change', statsRenderHistory);
+  if(maxErrEl) maxErrEl.addEventListener('input', statsRenderHistory);
+})();
 window.addEventListener('resize', function(){
   if(document.getElementById('contentStats').classList.contains('active') && statsState.lastTrend){
     statsRenderTrend(statsState.lastTrend);
@@ -958,25 +1055,33 @@ function _summDestination(code){
 }
 function _summDocType(code){
   var map={
-    '380':{label:'Facture',cls:''},
-    '381':{label:'Avoir',cls:'avoir'},
-    '384':{label:'Facture rectificative',cls:''},
-    '386':{label:"Facture d'acompte",cls:'acompte'},
-    '389':{label:'Autofacture',cls:'autofact'},
-    '326':{label:'Facture partielle',cls:''},
-    '393':{label:'Régularisation',cls:''},
-    '751':{label:'Facture pour information',cls:''},
-    '875':{label:'Facture pro forma',cls:''}
+    '380':{label:'🧾 Facture',cls:''},
+    '381':{label:'↩️ Avoir',cls:'avoir'},
+    '384':{label:'📝 Facture rectificative',cls:''},
+    '386':{label:"💶 Facture d'acompte",cls:'acompte'},
+    '389':{label:'🔄 Autofacture',cls:'autofact'},
+    '326':{label:'📋 Facture partielle',cls:''},
+    '393':{label:'⚖️ Régularisation',cls:''},
+    '751':{label:'ℹ️ Facture pour information',cls:''},
+    '875':{label:'📄 Facture pro forma',cls:''}
   };
   if(!code) return null;
   var c=String(code).trim();
   return map[c]||{label:'Type '+c,cls:''};
 }
 function buildInvoiceSummary(results){
-  var box=document.getElementById('invoiceSummary');
-  if(!box) return;
+  console.log('[summary] buildInvoiceSummary called with',results?results.length:0,'results');
+  // Stratégie : on remplace entièrement le node #invoiceSummary par un node fraichement créé.
+  // Ainsi, même si une référence stale traîne quelque part, le DOM est garanti propre.
+  var oldBox=document.getElementById('invoiceSummary');
+  if(!oldBox) return;
+  var box=document.createElement('div');
+  box.id='invoiceSummary';
+  box.className='invoice-summary';
+  box.style.display='none';
+  oldBox.parentNode.replaceChild(box,oldBox);
   window._lastInvoiceResults=results||[];
-  if(!results||!results.length){box.style.display='none';box.innerHTML='';return;}
+  if(!results||!results.length){return;}
   var get=function(b){return _summFindBT(results,b);};
   var bt1=get('BT-1');
   var bt3=get('BT-3');
@@ -990,7 +1095,7 @@ function buildInvoiceSummary(results){
   var bt52=get('BT-52'),bt53=get('BT-53'),bt54=get('BT-54'),bt55=get('BT-55');
 
   var hasAny=bt1||bt3||bt2||bt9||bt109||bt112||bt115||bt44;
-  if(!hasAny){box.style.display='none';box.innerHTML='';return;}
+  if(!hasAny){console.log('[summary] no relevant BT in results, hiding box');return;}
 
   var typeInfo=_summDocType(bt3);
   var typeBadge=typeInfo?('<span class="invoice-summary-type '+typeInfo.cls+'">'+escHtml(typeInfo.label)+'</span>'):'';
@@ -1037,7 +1142,7 @@ function buildInvoiceSummary(results){
   var datesHtml=dateRows.length?('<div class="invoice-summary-block"><div class="invoice-summary-block-title"><span class="icn">📅</span>Dates</div>'+dateRows.join('')+'</div>'):'';
 
   var blocks=[amountsHtml,clientHtml,datesHtml].filter(Boolean).join('');
-  if(!blocks&&!typeBadge&&!numHtml){box.style.display='none';box.innerHTML='';return;}
+  if(!blocks&&!typeBadge&&!numHtml){console.log('[summary] all blocks empty, hiding box');return;}
 
   box.innerHTML=
     '<div class="invoice-summary-header">'+
@@ -1488,24 +1593,35 @@ if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
 if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
 document.getElementById('loading').style.display='block';
 document.getElementById('results').style.display='none';
-// Reset complet de l'aperçu et du conteneur des catégories avant l'appel
-var _sumBox=document.getElementById('invoiceSummary');
-if(_sumBox){_sumBox.innerHTML='';_sumBox.style.display='none';}
+// Reset de l'aperçu : remplace le node entier par un vide
+var _sumOld=document.getElementById('invoiceSummary');
+if(_sumOld){
+  var _sumNew=document.createElement('div');
+  _sumNew.id='invoiceSummary';_sumNew.className='invoice-summary';_sumNew.style.display='none';
+  _sumOld.parentNode.replaceChild(_sumNew,_sumOld);
+}
 window._lastInvoiceResults=null;
 var fd=new FormData();
-if(pdf)fd.append('pdf',pdf);
-if(cii)fd.append('cii',cii);
-if(rdi)fd.append('rdi',rdi);
+// N'envoyer QUE les fichiers pertinents au type de contrôle actuel — sinon les
+// fichiers d'un test précédent (autre mode) traînent dans le form et polluent la réponse.
+if(typeControle==='cii'){
+  if(cii) fd.append('cii',cii);
+}else if(typeControle==='xmlonly'){
+  if(pdf) fd.append('pdf',pdf);
+}else if(typeControle==='rdi'){
+  if(rdi) fd.append('rdi',rdi);
+}else{ // 'xml' (RDI vs XML)
+  if(pdf) fd.append('pdf',pdf);
+  if(rdi) fd.append('rdi',rdi);
+}
 fd.append('type_formulaire',document.getElementById('typeFormulaire').value);
 fd.append('type_controle',typeControle);
 try{
 var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
 var data=await resp.json();
 if(data.error){alert('Erreur: '+data.error);return}
-// Aperçu : reset DOM + state global, puis rebuild — même pattern que categoriesContainer
-var _summaryBox=document.getElementById('invoiceSummary');
-if(_summaryBox){_summaryBox.innerHTML='';_summaryBox.style.display='none';}
-window._lastInvoiceResults=null;
+console.log('[summary] /controle returned',(data.results||[]).length,'results');
+// Aperçu : buildInvoiceSummary remplace le node entier (cf. fonction)
 buildInvoiceSummary(data.results||[]);
 document.getElementById('statTotal').textContent=data.stats.total;
 document.getElementById('statOk').textContent=data.stats.ok;

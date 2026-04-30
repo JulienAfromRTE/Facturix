@@ -124,7 +124,11 @@ def init_db():
             ignore_count    INTEGER DEFAULT 0,
             ambigu          INTEGER DEFAULT 0,
             conformity_pct  REAL DEFAULT 0,
-            error           TEXT
+            error           TEXT,
+            archive_rdi     TEXT,
+            archive_pdf     TEXT,
+            archive_cii     TEXT,
+            archive_xml     TEXT
         );
         CREATE TABLE IF NOT EXISTS invoice_field_ko (
             id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,6 +153,12 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # colonne déjà présente
+    for _col in ('archive_rdi', 'archive_pdf', 'archive_cii', 'archive_xml'):
+        try:
+            conn.execute(f"ALTER TABLE invoice_history ADD COLUMN {_col} TEXT")
+            conn.commit()
+        except Exception:
+            pass  # colonne déjà présente
     _migrate_to_relational(conn)
     conn.commit()
     _seed_default_data(conn)
@@ -396,8 +406,10 @@ def _log_invoice_to_history(type_formulaire, type_controle, mode,
                 )
         conn.commit()
         conn.close()
+        return invoice_id
     except Exception as e:
         print(f"[STATS] Erreur log historique : {e}")
+        return None
 
 # ── Business rules ──────────────────────────────────────────────────────────
 

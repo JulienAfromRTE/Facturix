@@ -7,3 +7,5 @@ __pycache__/
 *.pyc
 *.pyo
 *.db*
+archive_files/
+uploads_temp/
