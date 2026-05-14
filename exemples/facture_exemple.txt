@@ -1,0 +1,53 @@
+H046A012000000000000FZGRT_CART_STREAM                                                                                                                             1LOCLSAPWIN  X  XSCRIPT    MT00000T    X 0   00000000000000                                 Formulaire de controle Factur-X exemple                        /1PWB/SAPL99999990000000             000000000000000
+S
+CCODEPAGE 4103 LANGUAGE FR
+CPAGENAME PAGE1
+CRDI-CONTROL %%LINES-BEGIN CART_STREAM_HEADER TEXT ST FR
+DHEADER                                  GS_FECT_EINV-FORM                                                                                                                  018CART_STREAM_HEADER
+DMAIN                                    WNUM_FACT                                                                                                                          014FAC-2024-00001
+DMAIN                                    DATE_FACT                                                                                                                          00820240115
+DMAIN                                    GS_FECT_EINV-BG0-BT3_CODE_TYPE_FACT                                                                                                003380
+DMAIN                                    WCURR_FACTURE                                                                                                                      003EUR
+DMAIN                                    GS_FECT_EINV-BG0-BT8_TVA_COMMENT                                                                                                   0015
+DMAIN                                    GS_FECT_EINV-BG0-BT9_DATE_ECHEANCE                                                                                                 00820240215
+DMAIN                                    GS_FECT_EINV-BG2-BT23_TYPE_PROC                                                                                                    023urn:cen.eu:en16931:2017
+DMAIN                                    GS_FECT_EINV-BG1-BT21-BAR                                                                                                          003BAR
+DMAIN                                    GS_FECT_EINV-BG1-BT22-BAR                                                                                                          003B2B
+DMAIN                                    GS_FECT_EINV-BG1-BT21-SUR                                                                                                          003SUR
+DMAIN                                    GS_FECT_EINV-BG1-BT22-SUR                                                                                                          003ISU
+DMAIN                                    BT20_COND_PAIEMENT                                                                                                                 029Paiement 30 jours fin de mois
+DMAIN                                    GS_FECT_EINV-BG4-BT27_RAISON_SOC                                                                                                   008ACME SAS
+DMAIN                                    GS_FECT_EINV-BG4-BT30_SIREN_RTE                                                                                                    009123456789
+DMAIN                                    GS_FECT_EINV-BG4-BT30_1_ID_SCHEMA_RTE                                                                                              0040002
+DMAIN                                    MENTION_ID_TVA                                                                                                                     013FR12123456789
+DMAIN                                    GS_FECT_EINV-BG5-BT35_ADRESSE                                                                                                      01712 rue de la Paix
+DMAIN                                    GS_FECT_EINV-BG5-BT37_LOCALITE                                                                                                     005PARIS
+DMAIN                                    GS_FECT_EINV-BG5-BT38_POSTAL                                                                                                       00575001
+DMAIN                                    ADRC_ORG-COUNTRY                                                                                                                   002FR
+DMAIN                                    ADRC_DE-NAME1                                                                                                                      010EXEMPLE SA
+DMAIN                                    ADRC_DO-RCS                                                                                                                        009987654321
+DMAIN                                    ADRC_DO-IDTVA                                                                                                                      013FR98987654321
+DMAIN                                    ADRC_DE-STREET                                                                                                                     01910 avenue des Tests
+DMAIN                                    ADRC_DE-CITY1                                                                                                                      004LYON
+DMAIN                                    ADRC_DE-POST_CODE1                                                                                                                 00569001
+DMAIN                                    ADRC_DE-COUNTRY                                                                                                                    002FR
+DMAIN                                    WMNT_HT                                                                                                                            014       1000,00
+DMAIN                                    MAP_HT                                                                                                                             014       1000,00
+DMAIN                                    MAP_TVA                                                                                                                            014        200,00
+DMAIN                                    MNT_A_PAYER                                                                                                                        014       1200,00
+DMAIN                                    GT_TVA-TAUX                                                                                                                        003 20
+DMAIN                                    GS_FECT_EINV-BG23-BT118_TVA_CODE_TYPE                                                                                              003VAT
+DMAIN                                    GS_FECT_EINV-BG23-BT118_0_ID_CODE_TVA                                                                                              001S
+CRDI-CONTROL %%LINES-END CART_STREAM_HEADER TEXT ST FR
+CRDI-CONTROL %%LINES-BEGIN CART_STREAM_ARTICLES TEXT ST FR
+DMAIN                                    GS_FECT_EINV-BG25-BT126_ID_LIGNE                                                                                                   0011
+DMAIN                                    GS_FECT_EINV-BG31-BT153_NOM_ARTICLE                                                                                                036Prestation de services informatiques
+DMAIN                                    GS_FECT_EINV-BG26-BT134_DATE_DEBUT_ARTICLE                                                                                         00820240101
+DMAIN                                    GS_FECT_EINV-BG26-BT135_DATE_FIN_ARTICLE                                                                                           00820240131
+DMAIN                                    GS_FECT_EINV-BG25-BT129_INVOICED_QUANTITE                                                                                          00610.000
+DMAIN                                    GS_FECT_EINV-BG25-BT130_INVOICED_UNITE                                                                                             003HUR
+DMAIN                                    GS_FECT_EINV-BG29-BT146_PRIX_NET                                                                                                   006100.00
+DMAIN                                    GS_FECT_EINV-BG25-BT131_MNT_NET                                                                                                    0071000.00
+DMAIN                                    GS_FECT_EINV-BG30-BT151_CODE_TVA_ARTICLE                                                                                           001S
+DMAIN                                    GS_FECT_EINV-BG30-BT152_TAUX_TVA_ARTICLE                                                                                           00520.00
+CRDI-CONTROL %%LINES-END CART_STREAM_ARTICLES TEXT ST FR

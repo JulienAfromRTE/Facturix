@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/x-icon" href="__URL_PREFIX__/img/IcoSite.ico">
+<link rel="icon" type="image/png" href="__URL_PREFIX__/img/AppLogo_V2.png">
+<title>Facturix - La potion magique pour des factures certifiées !</title>
+<link rel="stylesheet" href="__URL_PREFIX__/static/css/styles.css">
+</head>
+<body>
+
+<div class="konami-overlay" id="konamiOverlay">
+  <div class="konami-box">
+    <img src="__URL_PREFIX__/img/BigPicture.png" alt="Easter egg !">
+  </div>
+  <div class="konami-close" onclick="document.getElementById('konamiOverlay').classList.remove('visible')">
+    ↑↑↓↓←→←→ B A — Cliquez pour fermer
+  </div>
+</div>
+<div class="gaulois-overlay" id="gauloisOverlay">
+<div class="gaulois-card">
+<img id="gauloisImg" src="__URL_PREFIX__/img/0-25.jpg" alt="Gaulois">
+</div>
+</div>
+<div class="sidebar">
+</div>
+<div class="main-wrap">
+<div class="container">
+<div class="header">
+<div class="header-left">
+<img class="header-logo" id="headerLogo" src="__URL_PREFIX__/img/AppLogo_V2.png" alt="Logo"><div class="header-text"><h1><span class="title-facturix" id="headerTitleFacturix">Facturix</span><span class="title-subtitle"> &nbsp;&nbsp;&nbsp;&nbsp;   La potion magique pour des factures certifiées !</span></h1>
+<div class="version">v16</div></div>
+</div>
+<div class="header-banner" onclick="document.getElementById('konamiOverlay').classList.add('visible')">
+<img src="__URL_PREFIX__/img/TopLogo.png" alt="On va vérifier tes factures, par Bélénos !">
+</div>
+</div>
+<div class="tabs">
+<button class="tab active" id="tabControle">Contrôle</button>
+<button class="tab" id="tabBatch">📦 Batch</button>
+<button class="tab" id="tabStats">📊 Statistiques</button>
+<button class="tab" id="tabParam">Mapping BT</button>
+<button class="tab" id="tabRules">Règles Métiers</button>
+<button class="tab" id="tabSettings">Paramétrage</button>
+<button class="tab" id="tabAide">Aide</button>
+</div>
+
+<!-- BANNIÈRE ALERTE BDD -->
+<div id="dbAlertBanner" style="display:none;margin:10px 0 0 0;padding:14px 20px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;display:none;align-items:center;gap:14px">
+  <span style="font-size:1.4em">🔴</span>
+  <div style="flex:1">
+    <strong style="color:#b91c1c">Base de données volumineuse</strong>
+    <span id="dbAlertMsg" style="color:#7f1d1d;font-size:0.93em;margin-left:8px"></span>
+  </div>
+  <button onclick="document.getElementById('tabSettings').click()" style="padding:7px 16px;background:#b91c1c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;white-space:nowrap">
+    ⚙️ Aller aux Paramètres
+  </button>
+</div>
+
+<!-- ONGLET CONTROLE -->
+<div id="contentControle" class="tab-content active">
+<div class="section" id="sectionConfiguration">
+<h2>Configuration</h2>
+<div class="form-row">
+<div class="form-group">
+<label>Type de Factures :</label>
+<select id="typeFormulaire">
+<option value="simple">CART Simple</option>
+<option value="groupee">CART Groupe</option>
+<option value="ventesdiverses">Ventes Diverses</option>
+</select>
+</div>
+<div class="form-group">
+<label>Type de Contrôle :</label>
+<select id="typeControle">
+<option value="xmlonly" selected>XML - Vérif facture uniquement</option>
+<option value="xml">RDI vs XML - Comparaison sortie SAP / Exstream</option>
+<option value="rdi">RDI - Sortie SAP</option>
+<option value="cii">CII - GCP (XML direct)</option>
+</select>
+</div>
+</div>
+<div class="help-box" id="helpControle"></div>
+</div>
+<div class="section" id="sectionFichiers">
+<div style="display:flex;align-items:center;margin-bottom:10px">
+<h3 style="margin:0;flex:1">Fichiers</h3>
+<button id="btnCorrectionXml" class="btn-secondary" style="display:none;font-size:0.8em;padding:5px 13px;margin-right:6px" onclick="openCorrectionPage(this.dataset.iid)">✏️ Corriger XML</button><button id="shareBtnControle" class="btn-secondary" style="display:none;font-size:0.8em;padding:5px 13px" onclick="shareControle(this.dataset.iid)"><span id="shareBtnLabel">🔗 Partager cette analyse</span></button>
+</div>
+<div class="form-row">
+<div class="form-group" id="groupePdf">
+<label>PDF ou XML :</label>
+<input type="file" id="pdfFile" accept=".pdf,.xml">
+<button class="btn-secondary" id="btnDownloadXml" style="display:none;margin-top:6px;font-size:12px;padding:4px 10px"><span>📄</span> Télécharger XML</button>
+<button class="btn-secondary" id="btnRemoveSignature" style="display:none;margin-top:6px;margin-left:6px;font-size:12px;padding:4px 10px"><span>✂️</span> Supprimer signature</button>
+</div>
+<div class="form-group" id="groupeCii" style="display:none">
+<label>Fichier XML CII :</label>
+<input type="file" id="ciiFile" accept=".xml">
+</div>
+<div class="form-group" id="groupeRdi">
+<label>Fichier RDI :</label>
+<input type="file" id="rdiFile" accept=".txt,.rdi">
+</div>
+</div>
+<button class="btn" id="btnControle">LANCER LE CONTRÔLE</button>
+</div>
+<div class="loading" id="loading"><div class="spinner"></div><p>Controle en cours...</p></div>
+<div class="results" id="results">
+<div id="sharedBanner" style="display:none;background:#eef2ff;border-left:4px solid #667eea;border-radius:0 8px 8px 0;padding:10px 16px;margin-bottom:10px;align-items:center;gap:12px">
+  <span style="font-size:1.1em">🔗</span>
+  <div style="flex:1">
+    <span id="sharedBannerTitle" style="font-size:0.88em;font-weight:700;color:#3730a3"></span>
+    <span id="sharedBannerFile" style="font-size:0.82em;color:#4338ca;margin-left:6px"></span>
+  </div>
+  <span id="sharedBannerMapping" style="background:#667eea;color:#fff;font-size:0.78em;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.02em"></span>
+</div>
+<div class="invoice-summary" id="invoiceSummary" style="display:none"></div>
+<div class="progress-section">
+<div class="progress-label-row">
+<h3>Taux de conformité</h3>
+<span class="progress-pct" id="progressPct">0%</span>
+</div>
+
+<div class="progress-track">
+<div class="progress-fill pct-0" id="progressFill" style="width:0%"></div>
+</div>
+</div>
+<div class="section">
+<div class="stats">
+<div class="stat-card"><div>Total</div><div class="stat-value" id="statTotal">0</div></div>
+<div class="stat-card ok"><div>OK</div><div class="stat-value" id="statOk">0</div></div>
+<div class="stat-card erreur"><div>Erreurs</div><div class="stat-value" id="statErreur">0</div></div>
+<div class="stat-card ignore"><div>Ignorés</div><div class="stat-value" id="statIgnore">0</div></div>
+<div class="stat-card ambigu"><div>Ambigus</div><div class="stat-value" id="statAmbigu">0</div></div>
+<div class="stat-card" style="background:#1a3a5a;color:#fff"><div>📦 Articles</div><div class="stat-value" id="statArticles" style="color:#fff">—</div></div>
+</div>
+</div>
+<div class="section">
+<div class="search-box">
+<div class="search-box-row">
+<label for="searchBT">🔍 Rechercher un BT :</label>
+<input type="text" id="searchBT" placeholder="Tapez un n° de BT (ex: 48)">
+<button class="btn-clear" id="btnClearSearch" style="display:none">✕ Effacer</button>
+<label for="searchContent" style="margin-left:10px;font-weight:600;font-size:0.84em;color:#475569;white-space:nowrap">🔎 Contenu RDI / XML :</label>
+<input type="text" id="searchContent" placeholder="Ex: FR12345...">
+<button class="btn-clear" id="btnClearContent" style="display:none">✕ Effacer</button>
+</div>
+<div class="search-box-row">
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="filterErrors" style="width:18px;height:18px">
+<span>Uniquement les erreurs</span>
+</label>
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="filterAmbigus" style="width:18px;height:18px">
+<span>Uniquement les ambigus</span>
+</label>
+<label style="display:flex;align-items:center;gap:6px;font-weight:normal">
+<input type="checkbox" id="showCegedim" style="width:18px;height:18px">
+<span>Afficher contrôles CEGEDIM</span>
+</label>
+<div style="margin-left:auto;display:flex;gap:8px">
+<button class="btn-clear" id="btnExpandAll" style="display:inline-block;font-size:12px;padding:4px 10px">▼ Tout déplier</button>
+<button class="btn-clear" id="btnCollapseAll" style="display:inline-block;font-size:12px;padding:4px 10px">▲ Tout replier</button>
+</div>
+</div>
+</div>
+</div>
+<div class="section"><div id="categoriesContainer"></div></div>
+</div>
+</div>
+
+<!-- ONGLET MAPPING BT -->
+<div id="contentParam" class="tab-content">
+<div class="section">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+<h2 style="margin:0">Gestion des Mappings</h2>
+<button class="btn-create" id="btnCreateMapping"><span>➕</span> Créer un mapping</button>
+</div>
+<div class="form-group" style="margin-bottom:20px">
+<label>Mapping actif :</label>
+<div style="display:flex;gap:8px;align-items:center">
+<select id="typeFormulaireParam" class="mapping-type-select">
+<option value="simple">CART Simple</option>
+<option value="groupee">CART Groupée</option>
+<option value="flux">Flux Générique</option>
+</select>
+<button id="btnDeleteCurrentMapping" class="btn-delete" style="display:none" onclick="deleteCurrentMapping()"><span>🗑️</span> Supprimer</button>
+</div>
+</div>
+<div class="btn-group">
+<button class="btn-add" id="btnAdd"><span>➕</span> Ajouter un champ</button>
+<button class="btn-history" id="btnHistory"><span>📋</span> Historique</button><label class="mapping-color-btn" id="mappingColorBtn" title="Couleur du mapping">
+<span class="color-swatch" id="mappingColorSwatch"></span>
+<input type="color" id="mappingColorPicker" value="#667eea">
+</label>
+</div>
+<div class="search-box">
+<label for="searchBTParam">🔍 Rechercher un BT :</label>
+<input type="text" id="searchBTParam" placeholder="Tapez un num. de BT (ex: 48)">
+<button class="btn-clear" id="btnClearSearchParam" style="display:none">✕ Effacer</button>
+</div>
+</div>
+
+<div class="section">
+<div id="mappingList"></div>
+</div>
+</div>
+
+<!-- ONGLET PARAMÉTRAGE -->
+<div id="contentSettings" class="tab-content">
+
+<div class="section">
+<h2 style="margin:0 0 14px 0">⚙️ Paramètres globaux</h2>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+<input type="checkbox" id="settingSchematronEnabled" checked style="width:18px;height:18px;cursor:pointer">
+<div>
+<div style="font-weight:700;color:#1e293b">📜 Validation schematron officielle EN16931 (CII)</div>
+<div style="font-size:0.85em;color:#64748b;margin-top:2px">Décoche pour désactiver complètement la validation schematron lors des contrôles. Le panneau de synthèse et les règles « 📜 BR-XX » disparaissent du résultat.</div>
+</div>
+</label>
+<span id="settingSaveIndicator" style="margin-left:auto;font-size:0.85em;color:#15803d;opacity:0;transition:opacity 0.3s">✓ Enregistré</span>
+</div>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="display:flex;align-items:center;gap:10px;margin:0;flex:1">
+<div>
+<div style="font-weight:700;color:#1e293b">🔴 Seuil d'alerte taille BDD</div>
+<div style="font-size:0.85em;color:#64748b;margin-top:2px">Une bannière d'alerte s'affiche sur la page d'accueil si la taille totale (base + archives) dépasse ce seuil.</div>
+</div>
+</label>
+<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+<input type="number" id="settingDbAlertMb" min="50" step="50" value="200"
+  style="width:90px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.95em;text-align:right">
+<span style="color:#64748b;font-size:0.9em;white-space:nowrap">Mo</span>
+</div>
+<span id="settingDbAlertSaveIndicator" style="margin-left:8px;font-size:0.85em;color:#15803d;opacity:0;transition:opacity 0.3s;white-space:nowrap">✓ Enregistré</span>
+</div>
+</div>
+
+<div class="section">
+<h2 style="margin:0 0 6px 0">📊 État de la base de données</h2>
+<div id="dbStatsBox" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
+  <div class="stat-card" style="text-align:center"><div style="font-size:0.82em;color:#64748b">Entrées en base</div><div class="stat-value" id="dbStatCount">—</div></div>
+  <div class="stat-card" style="text-align:center"><div style="font-size:0.82em;color:#64748b">Taille SQLite</div><div class="stat-value" id="dbStatSize">—</div></div>
+  <div class="stat-card" style="text-align:center">
+    <div style="font-size:0.82em;color:#64748b">Fichiers archivés</div>
+    <div class="stat-value" id="dbStatArchiveSize">—</div>
+    <div style="font-size:0.75em;color:#94a3b8;margin-top:2px" id="dbStatArchiveNote"></div>
+  </div>
+  <div class="stat-card" style="text-align:center"><div style="font-size:0.82em;color:#64748b">Entrée la plus ancienne</div><div class="stat-value" id="dbStatOldest" style="font-size:1em">—</div></div>
+  <div class="stat-card" style="text-align:center"><div style="font-size:0.82em;color:#64748b">Entrée la plus récente</div><div class="stat-value" id="dbStatNewest" style="font-size:1em">—</div></div>
+</div>
+<div id="dbStatsByType" style="margin-top:14px;font-size:0.88em;color:#475569"></div>
+</div>
+
+<div class="section">
+<h2 style="margin:0 0 14px 0">🗑️ Purge de l'historique</h2>
+<p style="color:#64748b;font-size:0.93em;margin-bottom:16px">Supprime les entrées de la base de données selon les critères ci-dessous. Les fichiers archivés associés sont également supprimés.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px">
+
+<div style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="font-weight:600;color:#1e293b;display:block;margin-bottom:8px">📂 Type de facture</label>
+<select id="purgeTypeFormulaire" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.95em">
+  <option value="">Tous les types</option>
+</select>
+<div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Limiter la purge à un type de facture spécifique.</div>
+</div>
+
+<div style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="font-weight:600;color:#1e293b;display:block;margin-bottom:8px">📉 Taux de conformité inférieur à</label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="number" id="purgeMinPct" min="0" max="100" step="1" placeholder="ex : 50"
+  style="width:80px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.95em">
+<span style="color:#64748b;font-size:0.9em">%</span>
+</div>
+<div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Supprime les factures dont le taux de conformité est strictement inférieur à cette valeur.</div>
+</div>
+
+<div style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="font-weight:600;color:#1e293b;display:block;margin-bottom:8px">📅 Ancienneté supérieure à</label>
+<div style="display:flex;align-items:center;gap:8px">
+<input type="number" id="purgeMaxAgeDays" min="1" step="1" placeholder="ex : 90"
+  style="width:80px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.95em">
+<span style="color:#64748b;font-size:0.9em">jours</span>
+</div>
+<div style="font-size:0.8em;color:#94a3b8;margin-top:6px">Supprime les entrées dont la date est antérieure à aujourd'hui moins ce nombre de jours.</div>
+</div>
+
+<div style="padding:16px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+<label style="font-weight:600;color:#1e293b;display:block;margin-bottom:8px">⚠️ Uniquement les contrôles en erreur</label>
+<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:4px">
+<input type="checkbox" id="purgeOnlyErrors" style="width:18px;height:18px;cursor:pointer">
+<span style="font-size:0.9em;color:#475569">Limiter la purge aux entrées dont le champ <strong>error</strong> est renseigné (contrôle en échec)</span>
+</label>
+</div>
+
+</div>
+
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+<button id="btnPurgePreview" class="btn-secondary" style="padding:8px 20px">🔍 Prévisualiser</button>
+<button id="btnPurge" class="btn-delete" style="padding:8px 20px">🗑️ Purger</button>
+<span id="purgeResult" style="font-size:0.9em;color:#475569"></span>
+</div>
+
+<div id="purgePreviewBox" style="display:none;margin-top:14px;padding:12px 16px;background:#fef9c3;border:1px solid #fde047;border-radius:8px;font-size:0.9em;color:#713f12"></div>
+</div>
+
+</div>
+
+<!-- ONGLET RÈGLES MÉTIERS -->
+<div id="contentRules" class="tab-content">
+<div class="section">
+<h2>Règles Métiers Configurables</h2>
+<p>Gérez les règles de validation conditionnelles qui s'appliquent aux champs de la facture.</p>
+<div style="background:#e8f0fb;border-left:4px solid #366092;border-radius:6px;padding:14px 18px;margin:16px 0;font-size:0.93em;line-height:1.7">
+  <strong style="color:#366092">ℹ️ Ordre d'application des contrôles</strong><br>
+  Les contrôles s'appliquent en deux passes successives :<br>
+  <ol style="margin:8px 0 8px 20px;padding:0">
+    <li><strong>Mapping</strong> — chaque champ est contrôlé selon sa définition (obligatoire / type / XPath). C'est la base.</li>
+    <li><strong>Règles Métiers</strong> — les règles ci-dessous s'appliquent <em>après</em> le mapping et <strong>prennent le dessus</strong> sur les contrôles par défaut.</li>
+  </ol>
+  Exemples de surcharge possibles : rendre un champ <em>obligatoire</em> ou <em>non obligatoire</em> selon la valeur d'un autre champ, imposer une valeur fixe, exiger un signe négatif.<br>
+</div>
+<div class="form-row" style="margin-bottom:15px">
+<div class="form-group">
+<label>Filtrer par type de factures :</label>
+<select id="filterFormType">
+<option value="all">Toutes les factures</option>
+</select>
+</div>
+</div>
+<div class="btn-group">
+<button class="btn-secondary" id="btnReloadRules">🔄 Actualiser</button>
+<button class="btn-add" id="btnAddRule">+ Nouvelle règle</button>
+</div>
+</div>
+<div class="section">
+<div id="rulesList"></div>
+</div>
+</div>
+
+<!-- ONGLET AIDE -->
+<div id="contentAide" class="tab-content">
+<div class="section">
+<div style="max-width:760px;margin:0 auto">
+
+  <p style="color:#64748b;font-size:0.95em;margin-bottom:28px;line-height:1.7">
+    <strong>Facturix</strong> vérifie la conformité des factures électroniques <strong>Factur-X / CII</strong> (norme EN 16931).
+    Il peut contrôler le XML embarqué dans un PDF, un fichier RDI issu d'un ERP, ou comparer les deux sources champ par champ.
+  </p>
+
+  <!-- DÉMARRAGE RAPIDE -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">🚀 Démarrage rapide — quelle option choisir ?</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px">
+      <div style="font-weight:700;color:#065f46;margin-bottom:6px">✅ Je veux vérifier un PDF</div>
+      <div style="font-size:0.85em;color:#374151;line-height:1.6">Choisir <strong>XML / PDF seul</strong>.<br>Déposer le fichier PDF (le XML Factur-X est extrait automatiquement).</div>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px">
+      <div style="font-weight:700;color:#1e40af;margin-bottom:6px">🔄 Je veux comparer ERP ↔ PDF</div>
+      <div style="font-size:0.85em;color:#374151;line-height:1.6">Choisir <strong>RDI vs XML</strong>.<br>Déposer le fichier RDI (.txt) <em>et</em> le PDF correspondant.</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:14px">
+      <div style="font-weight:700;color:#6b21a8;margin-bottom:6px">📄 J'ai un XML CII brut</div>
+      <div style="font-size:0.85em;color:#374151;line-height:1.6">Choisir <strong>CII direct</strong>.<br>Déposer directement le fichier .xml sans PDF.</div>
+    </div>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px">
+      <div style="font-weight:700;color:#92400e;margin-bottom:6px">📊 Je veux contrôler plusieurs factures</div>
+      <div style="font-size:0.85em;color:#374151;line-height:1.6">Utiliser l'onglet <strong>Batch</strong>.<br>Glisser-déposer plusieurs fichiers, export CSV disponible.</div>
+    </div>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">📊 Lire les résultats</h3>
+  <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin-bottom:24px;font-size:0.88em;color:#374151;line-height:1.8">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px">
+      <span style="color:#10b981;font-weight:700">✅ OK</span><span>Valeurs RDI et XML identiques (ou conformes après normalisation)</span>
+      <span style="color:#ef4444;font-weight:700">❌ KO</span><span>Écart détecté ou champ obligatoire absent</span>
+      <span style="color:#f59e0b;font-weight:700">⚠️ Ambigu</span><span>Plusieurs occurrences détectées, correspondance incertaine</span>
+      <span style="color:#6b7280;font-weight:700">⊘ Ignoré</span><span>Champ marqué "Ignorer les erreurs" dans le mapping</span>
+      <span style="color:#3b82f6;font-weight:700">ℹ️ Info</span><span>Champ non obligatoire, absent mais sans impact bloquant</span>
+    </div>
+  </div>
+
+  <!-- MODES DÉTAILLÉS -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">🔍 Modes de contrôle</h3>
+  <div style="margin-bottom:24px">
+    <div style="background:#f0fdf4;border-left:4px solid #10b981;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:8px">
+      <div style="font-weight:700;color:#065f46;margin-bottom:4px">XML / PDF seul</div>
+      <div style="font-size:0.87em;color:#374151;line-height:1.6">Extrait et valide le XML Factur-X embarqué dans le PDF. Vérifie les champs obligatoires, les règles métier, et optionnellement la conformité Schematron EN16931. Aucun fichier RDI nécessaire.</div>
+    </div>
+    <div style="background:#fef9c3;border-left:4px solid #eab308;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:8px">
+      <div style="font-weight:700;color:#713f12;margin-bottom:4px">RDI vs XML</div>
+      <div style="font-size:0.87em;color:#374151;line-height:1.6">Compare champ par champ les données du fichier RDI (sortie ERP, format colonnes fixes cp1252) avec le XML extrait du PDF. Détecte les écarts de valeur, les champs présents d'un côté et absents de l'autre.</div>
+    </div>
+    <div style="background:#fdf4ff;border-left:4px solid #a855f7;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:8px">
+      <div style="font-weight:700;color:#581c87;margin-bottom:4px">CII direct</div>
+      <div style="font-size:0.87em;color:#374151;line-height:1.6">Analyse un fichier XML CII brut (sans PDF). Utile pour tester des fichiers issus d'une PDP ou générés par un outil tiers. Supporte les namespaces dynamiques.</div>
+    </div>
+    <div style="background:#fff1f2;border-left:4px solid #f43f5e;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:8px">
+      <div style="font-weight:700;color:#9f1239;margin-bottom:4px">RDI seul</div>
+      <div style="font-size:0.87em;color:#374151;line-height:1.6">Contrôle uniquement le fichier RDI : présence des champs obligatoires, cohérence des valeurs, application des règles métier. Utile pour diagnostiquer la sortie ERP avant de générer le PDF.</div>
+    </div>
+  </div>
+
+  <!-- MAPPING BT -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">⚙️ Mapping BT</h3>
+  <div style="background:#eff6ff;border-radius:8px;padding:16px 20px;margin-bottom:24px;font-size:0.88em;color:#374151;line-height:1.8">
+    <p style="margin:0 0 8px 0">Le mapping définit, pour chaque champ BT (Business Term de la norme EN 16931) :</p>
+    <ul style="margin:0;padding-left:18px">
+      <li>Le <strong>tag RDI</strong> attendu dans le fichier ERP (nom de colonne cp1252)</li>
+      <li>Le <strong>XPath XML</strong> pour localiser la valeur dans le CII</li>
+      <li>Le <strong>caractère obligatoire</strong> (Oui / Non / Dépendant)</li>
+      <li>La <strong>règle de gestion</strong> (texte libre, affiché dans les résultats)</li>
+      <li>L'option <strong>"Ignorer les erreurs"</strong> pour masquer un écart connu</li>
+    </ul>
+    <p style="margin:8px 0 0 0">Plusieurs mappings coexistent (ex. facture simple, facture groupée, ventes diverses). Chaque mapping peut être cloné et personnalisé.</p>
+  </div>
+
+  <!-- RÈGLES MÉTIERS -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">📐 Règles métier</h3>
+  <div style="background:#fff7ed;border-radius:8px;padding:16px 20px;margin-bottom:24px;font-size:0.88em;color:#374151;line-height:1.8">
+    <p style="margin:0 0 8px 0">Les règles métier ajoutent des contrôles conditionnels au-delà du mapping de base :</p>
+    <ul style="margin:0;padding-left:18px">
+      <li><strong>BT-22-BAR = B2G</strong> → rend obligatoires BT-10 (référence acheteur), BT-13 (commande), BT-29 (ID Chorus)</li>
+      <li><strong>BT-3 = 381</strong> (avoir) → rend obligatoires BT-25 (facture d'origine) et BT-26 (date facture d'origine)</li>
+      <li><strong>BT-8</strong> doit valoir "5" (TVA sur les débits)</li>
+      <li><strong>BT-48</strong> ne commence pas par FR → BT-58 (IBAN) devient obligatoire</li>
+      <li><strong>BT-131 négatif</strong> → BT-129 (quantité) doit être négatif</li>
+      <li><strong>BT-22-SUR</strong> doit valoir "ISU"</li>
+    </ul>
+    <p style="margin:8px 0 0 0">Toutes les règles sont éditables depuis l'onglet <strong>Règles Métiers</strong>, sans modification du code.</p>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">📋 Historique &amp; traçabilité</h3>
+  <div style="background:#faf5ff;border-radius:8px;padding:16px 20px;margin-bottom:24px;font-size:0.88em;color:#374151;line-height:1.8">
+    <ul style="margin:0;padding-left:18px">
+      <li>Chaque contrôle est enregistré avec date, mode, numéro de facture et score de conformité</li>
+      <li>L'onglet <strong>Statistiques</strong> affiche les tendances de conformité dans le temps</li>
+      <li>Les modifications de mapping sont <strong>auditées</strong> : valeur avant / après, auteur, horodatage</li>
+      <li>Bouton <strong>↩ Revenir</strong> pour annuler une modification individuelle (le rollback est lui-même tracé)</li>
+      <li>L'onglet <strong>Paramétrage</strong> permet de purger l'historique par critères (ancienneté, taux de conformité, type)</li>
+    </ul>
+  </div>
+
+  <!-- SCHEMATRON -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">🔬 Validation Schematron EN16931</h3>
+  <div style="background:#f0f9ff;border-radius:8px;padding:16px 20px;margin-bottom:24px;font-size:0.88em;color:#374151;line-height:1.8">
+    <p style="margin:0 0 8px 0">En activant le <strong>Schematron EN16931</strong> (onglet Paramétrage), Facturix exécute les règles de validation officielles de la norme européenne en plus des contrôles de mapping.</p>
+    <ul style="margin:0;padding-left:18px">
+      <li>Basé sur <strong>EN16931-CII v1.3.16</strong> (fichiers XSLT inclus dans <code>schematron/</code>)</li>
+      <li>Chaque erreur Schematron est affichée avec son identifiant de règle (ex. <em>BR-CO-10</em>) et son explication</li>
+      <li>Les erreurs sont distinguées selon leur sévérité (<em>fatal</em> vs <em>warning</em>)</li>
+    </ul>
+  </div>
+
+  <!-- FAQ -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">❓ Questions fréquentes</h3>
+  <div style="margin-bottom:24px">
+    <details style="margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0">
+      <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.9em;color:#1e293b">Mon PDF n'a pas de XML embarqué — que faire ?</summary>
+      <div style="padding:0 16px 14px 16px;font-size:0.87em;color:#374151;line-height:1.6">Un PDF Factur-X contient obligatoirement un fichier XML nommé <code>factur-x.xml</code> (ou <code>xrechnung.xml</code>). Si Facturix indique que le PDF ne contient pas de XML, c'est que le fichier n'est pas un Factur-X valide — vérifiez la source du PDF.</div>
+    </details>
+    <details style="margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0">
+      <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.9em;color:#1e293b">Comment ajouter un nouveau champ BT manquant dans mon mapping ?</summary>
+      <div style="padding:0 16px 14px 16px;font-size:0.87em;color:#374151;line-height:1.6">Aller dans l'onglet <strong>Mapping BT</strong> → sélectionner le mapping → cliquer <strong>+ Ajouter un champ</strong>. Renseigner le code BT, le tag RDI correspondant, le XPath XML et le caractère obligatoire. La modification est immédiatement active.</div>
+    </details>
+    <details style="margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0">
+      <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.9em;color:#1e293b">Un champ est en erreur mais c'est normal dans mon cas — comment l'ignorer ?</summary>
+      <div style="padding:0 16px 14px 16px;font-size:0.87em;color:#374151;line-height:1.6">Dans le mapping, cocher <strong>"Ignorer les erreurs"</strong> pour ce champ BT. Il continuera d'être contrôlé mais ses erreurs n'impacteront pas le score de conformité et seront affichées en grisé.</div>
+    </details>
+    <details style="margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0">
+      <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.9em;color:#1e293b">Quelle est la différence entre BT-22-BAR, BT-22-SUR, etc. ?</summary>
+      <div style="padding:0 16px 14px 16px;font-size:0.87em;color:#374151;line-height:1.6">Les champs BT-21/BT-22 apparaissent en <strong>paires multiples</strong>, chacune identifiée par un code sujet (<em>SubjectCode</em>) : <strong>BAR</strong> = traitement attendu, <strong>SUR</strong> = remarques fournisseur, <strong>ADN</strong> = référence Chorus Pro, <strong>AAB</strong> = escompte, <strong>PMT</strong> = indemnité, <strong>PMD</strong> = pénalités.</div>
+    </details>
+    <details style="margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0">
+      <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.9em;color:#1e293b">La base de données grossit trop — comment nettoyer ?</summary>
+      <div style="padding:0 16px 14px 16px;font-size:0.87em;color:#374151;line-height:1.6">Aller dans l'onglet <strong>Paramétrage</strong> → section <strong>Purge de l'historique</strong>. Filtrer par ancienneté, taux de conformité ou type de facture. Un aperçu (nombre de lignes + espace libéré) est affiché avant confirmation.</div>
+    </details>
+  </div>
+
+  <!-- GLOSSAIRE -->
+  <h3 style="font-size:1em;font-weight:700;color:#1e293b;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e2e8f0">📖 Glossaire</h3>
+  <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin-bottom:16px;font-size:0.87em;color:#374151">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 20px;line-height:1.9">
+      <strong>Factur-X</strong><span>Format hybride PDF/XML franco-allemand, conforme EN 16931 (profil EXTENDED)</span>
+      <strong>CII</strong><span>Cross Industry Invoice — norme XML UN/CEFACT pour les factures inter-entreprises</span>
+      <strong>EN 16931</strong><span>Norme européenne définissant le modèle sémantique de la facture électronique</span>
+      <strong>BT</strong><span>Business Term — champ sémantique de la norme (ex. BT-1 = numéro de facture)</span>
+      <strong>BG</strong><span>Business Group — groupe de champs BT (ex. BG-4 = informations vendeur)</span>
+      <strong>RDI</strong><span>Fichier texte à colonnes fixes exporté par l'ERP, encodage cp1252</span>
+      <strong>PDP</strong><span>Plateforme de Dématérialisation Partenaire — opérateur privé de la réforme française</span>
+      <strong>PPF</strong><span>Portail Public de Facturation — concentrateur central géré par la DGFiP</span>
+      <strong>Schematron</strong><span>Langage de règles de validation XML ; EN16931 publie un ensemble de règles officielles</span>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- ONGLET BATCH -->
+<div id="contentBatch" class="tab-content">
+<div class="section">
+<h2>Configuration</h2>
+<div class="form-row">
+<div class="form-group">
+<label>Type de Factures :</label>
+<select id="batchTypeFormulaire">
+<option value="simple">CART Simple</option>
+<option value="groupee">CART Groupée</option>
+<option value="ventesdiverses">Ventes Diverses</option>
+</select>
+</div>
+<div class="form-group">
+<label>Type de Contrôle :</label>
+<select id="batchTypeControle" onchange="batchUpdatePairLabels()">
+<option value="xml">RDI vs XML — comparaison SAP / Exstream</option>
+<option value="rdi">RDI seul — sortie SAP</option>
+<option value="xmlonly">XML / PDF seul</option>
+<option value="cii">CII direct — XML brut</option>
+</select>
+</div>
+</div>
+</div>
+<div class="section">
+<h2>Factures à contrôler</h2>
+<input type="file" id="batchFileInput" multiple accept=".pdf,.xml,.txt,.rdi" style="display:none" onchange="batchHandleFileInput(this.files)">
+<div id="batchDropZone" class="batch-dropzone" onclick="document.getElementById('batchFileInput').click()">
+  <span class="dz-icon">📂</span>
+  <div class="dz-title">Glissez vos fichiers ici ou cliquez pour parcourir</div>
+  <div class="dz-hint" id="batchDzHint">PDF + RDI — les numéros de facture sont détectés automatiquement</div>
+  <button class="btn-secondary" style="pointer-events:none;margin-top:2px">Parcourir les fichiers</button>
+</div>
+<div id="batchFilesSection" style="display:none;margin-top:12px">
+  <table class="batch-files-table" id="batchFilesTable">
+    <thead id="batchFilesHead"></thead>
+    <tbody id="batchFilesBody"></tbody>
+  </table>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+    <button class="btn-secondary" onclick="batchReset()" style="font-size:0.82em;padding:6px 13px">🗑 Tout effacer</button>
+    <button class="btn" id="btnLaunchBatch" onclick="batchLaunch()" style="width:auto;padding:10px 26px;margin-left:auto;opacity:0.5;pointer-events:none">▶ Lancer le contrôle (0 facture)</button>
+  </div>
+</div>
+</div>
+<div class="batch-loading" id="batchLoading">
+<div class="spinner"></div>
+<p id="batchLoadingMsg">Contrôle en cours…</p>
+</div>
+<div id="batchResults" style="display:none">
+<div style="font-size:1em;font-weight:700;color:#1e293b;margin-bottom:12px;display:flex;align-items:baseline;gap:10px">
+Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" id="batchResultsSub"></span>
+</div>
+<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap" id="batchStatsGlobal"></div>
+<div id="batchSkippedWarning" style="display:none;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.84em;color:#92400e;line-height:1.5"></div>
+<div class="batch-wrap">
+<div class="batch-thead">
+<span>Facture</span>
+<span>Détails</span>
+<span class="bcenter">✅ OK</span>
+<span class="bcenter">❌ ERR</span>
+<span class="bcenter">⚠️ AMB</span>
+<span>Score</span>
+<span>Erreurs détectées</span>
+<span></span>
+</div>
+<div id="batchTableBody"></div>
+</div>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px">
+<button class="btn-secondary" id="btnBatchCsvAll" style="padding:8px 16px">⬇ Exporter tout en CSV</button>
+<button class="btn-secondary" onclick="batchReset()" style="padding:8px 16px">🔁 Nouveau lot</button>
+</div>
+</div>
+</div>
+
+<!-- ONGLET STATISTIQUES -->
+<div id="contentStats" class="tab-content">
+<div class="section">
+<h2>📊 Statistiques de contrôle</h2>
+<p style="color:#64748b;font-size:0.92em;margin-top:6px">Vue d'ensemble des factures contrôlées (unitaire et batch). Toutes les analyses lancées depuis l'onglet Contrôle ou Batch sont enregistrées automatiquement.</p>
+</div>
+
+<div class="section">
+<h3>Filtres</h3>
+<div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+<div class="form-group">
+<label>Type de factures</label>
+<select id="statsFilterType">
+<option value="all">Tous les types</option>
+</select>
+</div>
+<div class="form-group">
+<label>Mode</label>
+<select id="statsFilterMode">
+<option value="">Unitaire + Batch</option>
+<option value="unitaire">Unitaire</option>
+<option value="batch">Batch</option>
+</select>
+</div>
+<div class="form-group">
+<label>Du</label>
+<input type="date" id="statsFilterStart">
+</div>
+<div class="form-group">
+<label>Au</label>
+<input type="date" id="statsFilterEnd">
+</div>
+</div>
+<div class="btn-group" style="margin:0">
+<button class="btn-secondary" id="btnStatsApply">🔍 Appliquer</button>
+<button class="btn-secondary" id="btnStatsReset">↻ Réinitialiser</button>
+<span id="statsRangeHint" style="margin-left:auto;color:#94a3b8;font-size:0.82em;align-self:center"></span>
+</div>
+</div>
+
+<!-- Cartes synthétiques -->
+<div class="section">
+<h3>Vue d'ensemble</h3>
+<div class="stats" id="statsCards">
+<div class="stat-card"><div>Factures contrôlées</div><div class="stat-value" id="kpiTotal">—</div></div>
+<div class="stat-card ok"><div>Taux moyen</div><div class="stat-value" id="kpiAvgPct">—</div></div>
+<div class="stat-card erreur"><div>Échecs / erreurs techniques</div><div class="stat-value" id="kpiErrors">—</div></div>
+<div class="stat-card" style="background:#1a3a5a;color:#fff"><div>Unitaire</div><div class="stat-value" id="kpiUnitaire" style="color:#fff">—</div></div>
+<div class="stat-card" style="background:#365e3b;color:#fff"><div>Batch</div><div class="stat-value" id="kpiBatch" style="color:#fff">—</div></div>
+<div class="stat-card" style="background:#5a3a1a;color:#fff"><div>Types analysés</div><div class="stat-value" id="kpiTypes" style="color:#fff">—</div></div>
+</div>
+</div>
+
+<!-- Ventilation par type -->
+<div class="section">
+<h3>Ventilation par type de factures</h3>
+<div id="statsByType" style="overflow-x:auto"></div>
+</div>
+
+<!-- Trend -->
+<div class="section">
+<h3>Évolution du taux de conformité</h3>
+<p style="color:#64748b;font-size:0.85em;margin:-6px 0 10px 0">Une courbe par type de factures. Survolez les points pour voir le détail.</p>
+<div id="statsChartWrap" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px"></div>
+<div id="statsChartLegend" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:0.84em;color:#475569"></div>
+</div>
+
+<!-- Top KO -->
+<div class="section">
+<h3>Champs les plus souvent KO</h3>
+<p style="color:#64748b;font-size:0.85em;margin:-6px 0 10px 0">Classement par occurrences (ERREUR + AMBIGU). Filtré selon les filtres ci-dessus.</p>
+<div id="statsTopKo" style="overflow-x:auto"></div>
+</div>
+
+<!-- Historique -->
+<div class="section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+<h3 style="margin:0">Dernières factures contrôlées</h3>
+<div class="hist-filters">
+<label class="hist-field">
+<span class="hist-field-label">Type</span>
+<select id="statsHistType">
+<option value="">Tous</option>
+</select>
+</label>
+<span class="hist-sep"></span>
+<label class="hist-field">
+<span class="hist-field-label">Tri</span>
+<select id="statsHistSort">
+<option value="recent">Plus récent</option>
+<option value="errors_asc">Moins d'erreurs d'abord</option>
+<option value="conformity_desc">Meilleure conformité d'abord</option>
+</select>
+</label>
+<span class="hist-sep"></span>
+<label class="hist-field">
+<span class="hist-field-label">Erreurs max</span>
+<input type="number" id="statsHistMaxErr" min="0" step="1" placeholder="∞">
+</label>
+<span class="hist-sep"></span>
+<button class="btn-secondary" id="btnStatsExportCsv" style="padding:6px 12px">⬇ Export CSV</button>
+</div>
+</div>
+<div id="statsHistCount" class="hist-count"></div>
+<div id="statsHistory" style="overflow-x:auto"></div>
+</div>
+</div>
+
+<div id="ignored-tooltip"><strong>⚠️ Ignorer les erreurs est activé</strong>Ce champ est configuré pour masquer ses erreurs — utile quand un bug connu sur ce BT polluerait systématiquement les résultats.<em>↩ Pensez à désactiver cette option une fois l'anomalie corrigée.</em></div>
+
+<!-- MODAL EDITION -->
+<div id="editModal" class="modal">
+<div class="modal-content edit-field-modal">
+<div class="modal-header edit-field-header">
+<div style="display:flex;align-items:center">
+<div class="edit-field-hicon">⚙️</div>
+<div><h2 id="modalTitle">Mapping</h2><p id="modalSubtitle">Mise à jour du champ BT</p></div>
+</div>
+<div class="edit-field-header-actions">
+<button class="btn-clone-field" id="btnCloneField" style="display:none" title="Copier ce champ vers un autre mapping">⎘ Cloner vers…</button>
+<span class="modal-close" id="modalClose">&times;</span>
+</div>
+</div>
+<div class="edit-field-body">
+<!-- Identification -->
+<div class="edit-section">
+<div class="edit-section-title">Identification</div>
+<div class="edit-row-2">
+<div class="edit-fg">
+<label class="edit-lbl">Balise BT</label>
+<input type="text" id="editBalise" class="edit-inp" placeholder="ex : BT-24">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Catégorie</label>
+<select id="editCategorie" class="edit-inp">
+<option value="BG-INFOS-GENERALES|INFORMATIONS GÉNÉRALES DE LA FACTURE">Informations générales</option>
+<option value="BG-TOTAUX|TOTAUX DE LA FACTURE">Totaux de la facture</option>
+<option value="BG-TVA|DÉTAIL DE LA TVA">Détail de la TVA</option>
+<option value="BG-LIGNES|LIGNES DE FACTURE">Lignes de facture</option>
+<option value="BG-VENDEUR|INFORMATIONS VENDEUR">Informations vendeur</option>
+<option value="BG-ACHETEUR|INFORMATIONS ACHETEUR">Informations client</option>
+</select>
+</div>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Libellé</label>
+<input type="text" id="editLibelle" class="edit-inp" placeholder="Description lisible du champ">
+</div>
+</div>
+<!-- Mapping technique -->
+<div class="edit-section">
+<div class="edit-section-title">Mapping technique</div>
+<div class="edit-row-2">
+<div class="edit-fg">
+<label class="edit-lbl">Champ RDI</label>
+<input type="text" id="editRdi" class="edit-inp mono" placeholder="ex : GS_FECT_EINV-BG1-BT21-BAR">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Type d'enregistrement <span class="edit-opt">optionnel</span></label>
+<input type="text" id="editTypeEnreg" class="edit-inp mono" placeholder="ex : DMAIN">
+<span class="edit-hint">Si le même tag RDI existe dans plusieurs types de lignes, précisez lequel utiliser.</span>
+</div>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">XPath</label>
+<input type="text" id="editXpath" class="edit-inp mono" placeholder="ex : /rsm:CrossIndustryInvoice/...">
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Attribut <span class="edit-opt">optionnel</span></label>
+<input type="text" id="editAttribute" class="edit-inp mono" placeholder="ex : schemeID, format">
+<span class="edit-hint">Laissez vide pour extraire le texte. Indiquez un nom d'attribut pour extraire sa valeur.</span>
+</div>
+</div>
+<!-- Comportement -->
+<div class="edit-section">
+<div class="edit-section-title">Comportement</div>
+<div class="edit-row-2">
+<div class="edit-fg">
+<label class="edit-lbl">Obligatoire</label>
+<select id="editObligatoire" class="edit-inp">
+<option value="Oui">Oui</option>
+<option value="Non">Non</option>
+<option value="Dependant">Dépendant</option>
+</select>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Ignorer les erreurs</label>
+<select id="editIgnore" class="edit-inp">
+<option value="Non">Non</option>
+<option value="Oui">Oui</option>
+</select>
+<span class="edit-hint">Si Oui, marqué "Ignoré" dans la liste</span>
+</div>
+</div>
+<div class="edit-fg">
+<label class="edit-lbl">Règle de gestion (RDG)</label>
+<textarea id="editRdg" class="edit-inp mono textarea-rdg" placeholder="Décrivez la règle métier applicable…"></textarea>
+</div>
+</div>
+</div>
+<div class="edit-field-footer">
+<button class="edit-btn-cancel" id="editCancelBtn">Annuler</button>
+<button class="edit-btn-save" id="btnSave">Sauvegarder</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL SÉLECTION MAPPINGS (ajout champ multi-mapping) -->
+<div id="selectMappingsModal" class="modal">
+<div class="modal-content" style="max-width:520px">
+<div class="modal-header">
+<h2>Ajouter le champ à quel(s) mapping(s) ?</h2>
+<span class="modal-close" id="selectMappingsClose">&times;</span>
+</div>
+<p style="margin-bottom:12px;color:#555;font-size:0.93em">Sélectionnez les mappings dans lesquels ce nouveau champ sera ajouté. Le mapping actuel est présélectionné.</p>
+<div id="selectMappingsList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:18px"></div>
+<div style="display:flex;gap:10px;justify-content:flex-end">
+<button class="btn-secondary" id="selectMappingsCancel">Annuler</button>
+<button class="btn" id="selectMappingsConfirm">Continuer →</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL RESTAURATION -->
+<!-- MODAL EDITION RÈGLE -->
+<div id="editRuleModal" class="modal">
+<div class="modal-content" style="max-width:900px">
+<div class="modal-header">
+<h2 id="ruleModalTitle">Créer une règle</h2>
+<span class="modal-close" id="ruleModalClose">&times;</span>
+</div>
+<div class="form-group">
+<label>Nom de la règle :</label>
+<input type="text" id="ruleName" placeholder="Ex: Facture B2G Chorus">
+</div>
+<div class="form-group">
+<label>Description :</label>
+<textarea id="ruleDescription" placeholder="Expliquez en quelques mots à quoi sert cette règle"></textarea>
+</div>
+<div class="form-group">
+<label>Catégorie :</label>
+<select id="ruleCategory"></select>
+</div>
+<div class="form-group">
+<label style="display:flex;align-items:center;gap:8px">
+<input type="checkbox" id="ruleEnabled" checked style="width:20px;height:20px">
+<span>Règle activée</span>
+</label>
+</div>
+<div class="form-group">
+<label>Applicable aux types de factures :</label>
+<div id="ruleFormsContainer" style="display:flex;flex-direction:column;gap:8px;padding:10px;background:#f9f9f9;border-radius:6px"></div>
+<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
+Si aucune case n'est cochée, la règle s'appliquera à tous les types de factures.
+</small>
+</div>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<h3>Conditions (SI...)</h3>
+<p style="font-size:0.9em;color:#666;margin-bottom:12px">Si toutes ces conditions sont remplies, les actions seront déclenchées. Laissez vide pour appliquer toujours.</p>
+<div id="conditionsList"></div>
+<button class="btn-secondary" id="btnAddCondition" style="margin-top:10px">+ Ajouter une condition</button>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<h3>Actions (ALORS...)</h3>
+<p style="font-size:0.9em;color:#666;margin-bottom:12px">Ces actions seront appliquées si les conditions sont remplies.</p>
+<div id="actionsList"></div>
+<button class="btn-secondary" id="btnAddAction" style="margin-top:10px">+ Ajouter une action</button>
+<hr style="margin:20px 0;border:none;border-top:2px solid #eee">
+<button class="btn" id="btnSaveRule">Enregistrer la règle</button>
+</div>
+</div>
+
+<!-- Create Mapping Modal -->
+<div id="createMappingModal" class="modal">
+<div class="modal-content">
+<div class="modal-header create">
+<span class="warning-icon">➕</span>
+<h2>Créer un nouveau mapping</h2>
+</div>
+<div class="modal-body">
+<div class="form-group" style="margin-bottom:15px">
+<label>Nom du mapping :</label>
+<input type="text" id="newMappingName" placeholder="Ex: Mon nouveau mapping" style="width:100%">
+</div>
+<div class="form-group">
+<label>Cloner depuis un mapping existant (optionnel) :</label>
+<select id="copyFromMapping" class="mapping-type-select">
+<option value="">Mapping vide</option>
+</select>
+<small style="display:block;color:#666;font-size:0.85em;margin-top:4px">
+Choisissez un mapping existant pour copier sa configuration, ou laissez vide
+</small>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-secondary" onclick="closeCreateMappingModal()">Annuler</button>
+<button class="btn-create" onclick="confirmCreateMapping()">
+<span>✓</span> Créer
+</button>
+</div>
+</div>
+</div>
+
+<!-- Delete Mapping Modal -->
+<div id="deleteMappingModal" class="modal">
+<div class="modal-content">
+<div class="modal-header delete">
+<span class="warning-icon">⚠️</span>
+<h2>Confirmation de suppression</h2>
+</div>
+<div class="modal-body">
+<div class="warning-text">
+<strong>⚠️ ATTENTION - Cette action est irréversible !</strong>
+Vous êtes sur le point de supprimer définitivement le mapping suivant :
+</div>
+<div style="background:#f8fafc;padding:1rem;border-radius:0.5rem;margin:1rem 0">
+<p><strong>Nom :</strong> <span id="deleteMappingName"></span></p>
+</div>
+<p style="color:#64748b;font-size:0.9rem">
+Cette suppression supprimera toutes les données associées à ce mapping. 
+Assurez-vous d'avoir une sauvegarde si nécessaire.
+</p>
+</div>
+<div class="modal-footer">
+<button class="btn-secondary" onclick="closeDeleteMappingModal()">Annuler</button>
+<button class="btn-delete" onclick="confirmDeleteMapping()">
+<span>🗑️</span> Supprimer définitivement
+</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL AUTEUR -->
+<div id="authorModal" class="modal">
+<div class="modal-content" style="max-width:420px;text-align:center;padding:32px 28px">
+<div class="author-icon">👤</div>
+<h2 style="margin-bottom:6px;font-size:1.15rem">Qui fait cette modification ?</h2>
+<p style="color:#64748b;font-size:0.9em;margin-bottom:18px">Votre nom sera associé à cette modification dans l'historique.</p>
+<input type="text" id="authorInput" placeholder="Entrez votre prénom ou nom…" autocomplete="off">
+<div style="display:flex;gap:10px;justify-content:center;margin-top:18px">
+<button class="btn-secondary" id="authorCancelBtn">Annuler</button>
+<button class="btn" id="authorConfirmBtn" style="width:auto;padding:10px 28px">Confirmer</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL HISTORIQUE -->
+<div id="historyModal" class="modal">
+<div class="modal-content" style="max-width:720px">
+<div class="modal-header" style="border-bottom:1px solid #e2e8f0;margin-bottom:16px;padding-bottom:12px">
+<h2 style="font-size:1.05rem;font-weight:700;color:#1e293b">📋 Historique des modifications</h2>
+<span class="modal-close" id="historyModalClose">&times;</span>
+</div>
+<div id="auditList" class="audit-list"></div>
+<div style="display:flex;justify-content:flex-end">
+<button class="btn-secondary" id="historyCloseBtn">Fermer</button>
+</div>
+</div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+<script>var BASE='__URL_PREFIX__';</script>
+<script src="__URL_PREFIX__/static/js/app.js"></script>
+</body>
+</div></div>
+
+<script>
+(function(){
+  var seq=[38,38,40,40,37,39,37,39,66,65];
+  var idx=0;
+  document.addEventListener('keydown',function(e){
+    if(e.keyCode===seq[idx]){
+      idx++;
+      if(idx===seq.length){
+        document.getElementById('konamiOverlay').classList.add('visible');
+        idx=0;
+      }
+    } else {
+      idx=(e.keyCode===seq[0])?1:0;
+    }
+  });
+  document.getElementById('konamiOverlay').addEventListener('click',function(e){
+    if(e.target===this) this.classList.remove('visible');
+  });
+})();
+</script>
+</html>

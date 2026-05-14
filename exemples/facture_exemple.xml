@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FICHIER D'EXEMPLE — Facturix
+  Facture fictive au format CII (Cross Industry Invoice) / Factur-X
+  Toutes les données sont fictives : entreprises, numéros, montants.
+  Ce fichier peut être utilisé directement dans Facturix (mode "CII direct").
+-->
+<rsm:CrossIndustryInvoice
+  xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
+  xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- BG-2 : Contexte du processus -->
+  <rsm:ExchangedDocumentContext>
+    <ram:BusinessProcessSpecifiedDocumentContextParameter>
+      <ram:ID>urn:cen.eu:en16931:2017</ram:ID>
+    </ram:BusinessProcessSpecifiedDocumentContextParameter>
+    <ram:GuidelineSpecifiedDocumentContextParameter>
+      <ram:ID>urn:factur-x.eu:1p0:extended</ram:ID>
+    </ram:GuidelineSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <!-- BG-0 : En-tête de la facture -->
+  <rsm:ExchangedDocument>
+    <!-- BT-1 : Numéro de facture -->
+    <ram:ID>FAC-2024-00001</ram:ID>
+    <!-- BT-3 : Code type de facture (380 = facture commerciale) -->
+    <ram:TypeCode>380</ram:TypeCode>
+    <!-- BT-2 : Date d'émission -->
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">20240115</udt:DateTimeString>
+    </ram:IssueDateTime>
+    <!-- BT-22-BAR / BT-21-BAR : Note traitement attendu -->
+    <ram:IncludedNote>
+      <ram:Content>B2B</ram:Content>
+      <ram:SubjectCode>BAR</ram:SubjectCode>
+    </ram:IncludedNote>
+    <!-- BT-22-SUR / BT-21-SUR : Remarques fournisseur (toujours ISU) -->
+    <ram:IncludedNote>
+      <ram:Content>ISU</ram:Content>
+      <ram:SubjectCode>SUR</ram:SubjectCode>
+    </ram:IncludedNote>
+  </rsm:ExchangedDocument>
+
+  <rsm:SupplyChainTradeTransaction>
+
+    <!-- ===== LIGNES DE FACTURE ===== -->
+    <ram:IncludedSupplyChainTradeLineItem>
+      <!-- BT-126 : Identifiant de ligne -->
+      <ram:AssociatedDocumentLineDocument>
+        <ram:LineID>1</ram:LineID>
+      </ram:AssociatedDocumentLineDocument>
+      <!-- BG-31 : Informations sur l'article -->
+      <ram:SpecifiedTradeProduct>
+        <!-- BT-153 : Nom de l'article -->
+        <ram:Name>Prestation de services informatiques</ram:Name>
+      </ram:SpecifiedTradeProduct>
+      <ram:SpecifiedLineTradeAgreement>
+        <ram:NetPriceProductTradePrice>
+          <!-- BT-146 : Prix unitaire net -->
+          <ram:ChargeAmount>100.00</ram:ChargeAmount>
+        </ram:NetPriceProductTradePrice>
+      </ram:SpecifiedLineTradeAgreement>
+      <!-- BG-26 : Période de facturation de la ligne -->
+      <ram:SpecifiedLineTradeDelivery>
+        <ram:BillingSpecifiedPeriod>
+          <ram:StartDateTime>
+            <!-- BT-134 : Date début période -->
+            <udt:DateTimeString format="102">20240101</udt:DateTimeString>
+          </ram:StartDateTime>
+          <ram:EndDateTime>
+            <!-- BT-135 : Date fin période -->
+            <udt:DateTimeString format="102">20240131</udt:DateTimeString>
+          </ram:EndDateTime>
+        </ram:BillingSpecifiedPeriod>
+        <!-- BT-129 : Quantité facturée -->
+        <ram:BilledQuantity unitCode="HUR">10.000</ram:BilledQuantity>
+      </ram:SpecifiedLineTradeDelivery>
+      <ram:SpecifiedLineTradeSettlement>
+        <!-- BG-30 : TVA de la ligne -->
+        <ram:ApplicableTradeTax>
+          <!-- BT-151 : Code catégorie TVA de la ligne -->
+          <ram:CategoryCode>S</ram:CategoryCode>
+          <!-- BT-152 : Taux de TVA de la ligne -->
+          <ram:RateApplicablePercent>20.00</ram:RateApplicablePercent>
+        </ram:ApplicableTradeTax>
+        <ram:SpecifiedTradeSettlementLineMonetarySummation>
+          <!-- BT-131 : Montant net de la ligne -->
+          <ram:LineTotalAmount>1000.00</ram:LineTotalAmount>
+        </ram:SpecifiedTradeSettlementLineMonetarySummation>
+      </ram:SpecifiedLineTradeSettlement>
+    </ram:IncludedSupplyChainTradeLineItem>
+
+    <!-- ===== EN-TÊTE COMMERCIAL ===== -->
+    <ram:ApplicableHeaderTradeAgreement>
+      <!-- BT-10 : Référence acheteur (optionnel ici) -->
+      <!-- <ram:BuyerReference>REF-ACHAT-2024</ram:BuyerReference> -->
+
+      <!-- BG-4 : Informations vendeur -->
+      <ram:SellerTradeParty>
+        <!-- BT-27 : Raison sociale vendeur -->
+        <ram:Name>ACME SAS</ram:Name>
+        <!-- BT-30 : Numéro SIREN vendeur -->
+        <ram:SpecifiedLegalOrganization>
+          <ram:ID schemeID="0002">123456789</ram:ID>
+        </ram:SpecifiedLegalOrganization>
+        <ram:PostalTradeAddress>
+          <!-- BT-35 : Adresse ligne 1 -->
+          <ram:LineOne>12 rue de la Paix</ram:LineOne>
+          <!-- BT-37 : Localité -->
+          <ram:CityName>PARIS</ram:CityName>
+          <!-- BT-38 : Code postal -->
+          <ram:PostcodeCode>75001</ram:PostcodeCode>
+          <!-- BT-40 : Pays -->
+          <ram:CountryID>FR</ram:CountryID>
+        </ram:PostalTradeAddress>
+        <!-- BT-31 : Numéro de TVA intracommunautaire vendeur -->
+        <ram:SpecifiedTaxRegistration>
+          <ram:ID schemeID="VA">FR12123456789</ram:ID>
+        </ram:SpecifiedTaxRegistration>
+      </ram:SellerTradeParty>
+
+      <!-- BG-7 : Informations acheteur -->
+      <ram:BuyerTradeParty>
+        <!-- BT-44 : Raison sociale acheteur -->
+        <ram:Name>EXEMPLE SA</ram:Name>
+        <!-- BT-47 : Numéro SIREN acheteur -->
+        <ram:SpecifiedLegalOrganization>
+          <ram:ID schemeID="0002">987654321</ram:ID>
+        </ram:SpecifiedLegalOrganization>
+        <ram:PostalTradeAddress>
+          <!-- BT-50 : Adresse acheteur -->
+          <ram:LineOne>10 avenue des Tests</ram:LineOne>
+          <!-- BT-52 : Ville acheteur -->
+          <ram:CityName>LYON</ram:CityName>
+          <!-- BT-53 : Code postal acheteur -->
+          <ram:PostcodeCode>69001</ram:PostcodeCode>
+          <!-- BT-55 : Pays acheteur -->
+          <ram:CountryID>FR</ram:CountryID>
+        </ram:PostalTradeAddress>
+        <!-- BT-48 : Numéro de TVA acheteur -->
+        <ram:SpecifiedTaxRegistration>
+          <ram:ID schemeID="VA">FR98987654321</ram:ID>
+        </ram:SpecifiedTaxRegistration>
+      </ram:BuyerTradeParty>
+    </ram:ApplicableHeaderTradeAgreement>
+
+    <!-- ===== LIVRAISON ===== -->
+    <ram:ApplicableHeaderTradeDelivery/>
+
+    <!-- ===== RÈGLEMENT ===== -->
+    <ram:ApplicableHeaderTradeSettlement>
+      <!-- BT-5 : Code devise -->
+      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+
+      <!-- BG-23 : Ventilation TVA -->
+      <ram:ApplicableTradeTax>
+        <!-- BT-118-0 : Code catégorie TVA -->
+        <ram:CategoryCode>S</ram:CategoryCode>
+        <!-- BT-118 : Type de taxe -->
+        <ram:TypeCode>VAT</ram:TypeCode>
+        <!-- BT-116 : Montant HT taxable -->
+        <ram:BasisAmount>1000.00</ram:BasisAmount>
+        <!-- BT-117 : Montant de TVA -->
+        <ram:CalculatedAmount>200.00</ram:CalculatedAmount>
+        <!-- BT-119 : Taux de TVA -->
+        <ram:RateApplicablePercent>20</ram:RateApplicablePercent>
+        <!-- BT-8 : Code de date d'exigibilité de la TVA (5 = sur les débits) -->
+        <ram:DueDateTypeCode>5</ram:DueDateTypeCode>
+      </ram:ApplicableTradeTax>
+
+      <!-- BT-20 : Conditions de paiement -->
+      <ram:SpecifiedTradePaymentTerms>
+        <ram:Description>Paiement 30 jours fin de mois</ram:Description>
+        <!-- BT-9 : Date d'échéance -->
+        <ram:DueDateDateTime>
+          <udt:DateTimeString format="102">20240215</udt:DateTimeString>
+        </ram:DueDateDateTime>
+      </ram:SpecifiedTradePaymentTerms>
+
+      <!-- BG-22 : Totaux de la facture -->
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <!-- BT-106 : Somme des montants nets des lignes -->
+        <ram:LineTotalAmount>1000.00</ram:LineTotalAmount>
+        <!-- BT-109 : Montant HT total (base de TVA) -->
+        <ram:TaxBasisTotalAmount>1000.00</ram:TaxBasisTotalAmount>
+        <!-- BT-110 : Montant total de TVA -->
+        <ram:TaxTotalAmount currencyID="EUR">200.00</ram:TaxTotalAmount>
+        <!-- BT-112 : Montant TTC -->
+        <ram:GrandTotalAmount>1200.00</ram:GrandTotalAmount>
+        <!-- BT-115 : Montant dû -->
+        <ram:DuePayableAmount>1200.00</ram:DuePayableAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>

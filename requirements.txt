@@ -1,0 +1,6 @@
+flask
+PyPDF2
+werkzeug
+lxml
+pikepdf
+saxonche

@@ -1,0 +1,32 @@
+# Système
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+
+# Fichiers de données — ne pas commiter de vraies factures
+*.pdf
+*.xlsx
+*.txt
+*.json
+
+# Exceptions : les fichiers d'exemple fictifs sont trackés
+!exemples/*.txt
+!exemples/*.xml
+!exemples/*.json
+!exemples/README.md
+
+# Base de données et archives
+*.db
+*.db-shm
+*.db-wal
+archive_files/
+uploads_temp/
+mapping_versions/
+mappings/
+
+# Données de test réelles (ne jamais commiter)
+jdd/
+
+# Wiki interne (ne pas publier)
+Wiki/

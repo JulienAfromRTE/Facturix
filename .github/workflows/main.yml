@@ -1,0 +1,52 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation des dépendances
+        run: pip install flask PyPDF2 lxml openpyxl pyinstaller
+
+      - name: Générer le nom avec horodatage
+        id: timestamp
+        run: |
+          $ts = Get-Date -Format "yyyyMMdd_HHmm"
+          $name = "FacturX_V11_$ts"
+          echo "EXE_NAME=$name" >> $env:GITHUB_OUTPUT
+          echo "Nom du .exe : $name"
+
+      - name: Build .exe avec PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --console `
+            --name "${{ steps.timestamp.outputs.EXE_NAME }}" `
+            --hidden-import flask `
+            --hidden-import flask.templating `
+            --hidden-import jinja2 `
+            --hidden-import jinja2.ext `
+            --hidden-import werkzeug `
+            --hidden-import lxml `
+            --hidden-import lxml.etree `
+            --hidden-import lxml._elementpath `
+            --hidden-import PyPDF2 `
+            --hidden-import encodings.cp1252 `
+            --hidden-import encodings.utf_8 `
+            launcher.py
+
+      - name: Upload du .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.timestamp.outputs.EXE_NAME }}
+          path: dist\${{ steps.timestamp.outputs.EXE_NAME }}.exe
+          retention-days: 30
