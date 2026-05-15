@@ -31,6 +31,13 @@ _RULE_CATEGORY_BY_ID = {
     "rule_1776441134212": "Cohérence",
     "rule_1777292841400": "Exonérations TVA",
     "rule_1777299260571": "Notes & mentions",
+    "schematron_br_co_14": "EN16931 (Schematron)",
+    "schematron_br_co_15": "EN16931 (Schematron)",
+    "schematron_br_e_1":   "EN16931 (Schematron)",
+    "schematron_br_g_1":   "EN16931 (Schematron)",
+    "schematron_br_ic_1":  "EN16931 (Schematron)",
+    "schematron_br_s_09":  "EN16931 (Schematron)",
+    "schematron_br_co_26": "EN16931 (Schematron)",
 }
 
 _DEFAULT_RULES = {
@@ -246,7 +253,7 @@ _DEFAULT_RULES = {
             "description": "Somme des montants nets des lignes (BT-106) = Σ Montant net ligne (BT-131). Vérifié par le schématron officiel EN16931.",
             "enabled": True,
             "schematron_id": "BR-CO-10",
-            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
             "conditions": [],
             "actions": []
         },
@@ -257,7 +264,7 @@ _DEFAULT_RULES = {
             "description": "Total HT facture (BT-109) = Σ montants nets lignes (BT-131) − total remises document (BT-107) + total charges document (BT-108). Vérifié par le schématron officiel.",
             "enabled": True,
             "schematron_id": "BR-CO-13",
-            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
             "conditions": [],
             "actions": []
         },
@@ -268,7 +275,7 @@ _DEFAULT_RULES = {
             "description": "Reste à payer (BT-115) = Total TTC (BT-112) − Acompte (BT-113) + Arrondi (BT-114). Vérifié par le schématron officiel.",
             "enabled": True,
             "schematron_id": "BR-CO-16",
-            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
             "conditions": [],
             "actions": []
         },
@@ -279,7 +286,7 @@ _DEFAULT_RULES = {
             "description": "Pour chaque ligne dont la catégorie TVA (BT-151) vaut 'Standard rated', le taux TVA ligne (BT-152) doit être strictement supérieur à 0.",
             "enabled": True,
             "schematron_id": "BR-S-05",
-            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
             "conditions": [],
             "actions": []
         },
@@ -290,7 +297,85 @@ _DEFAULT_RULES = {
             "description": "Pour chaque taux TVA distinct (BT-119) avec catégorie 'Standard rated' (BT-118), la base imposable (BT-116) doit égaler Σ BT-131 + Σ BT-99 − Σ BT-92 sur les lignes/charges/remises de même catégorie. Vérifié par le schématron officiel.",
             "enabled": True,
             "schematron_id": "BR-S-08",
-            "applicable_forms": ["simple", "groupee", "ventesdiverses"],
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        # ─── Nouvelles règles schématron ──────────────────────────────────────
+        {
+            "id": "schematron_br_co_14",
+            "name": "📜 BR-CO-14 — BT-110 = Σ BT-117",
+            "category": "EN16931 (Schematron)",
+            "description": "Total TVA facture (BT-110) = Σ des montants TVA par catégorie (BT-117). Vérifié par le schématron officiel EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-CO-14",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_co_15",
+            "name": "📜 BR-CO-15 — BT-112 = BT-109 + BT-110",
+            "category": "EN16931 (Schematron)",
+            "description": "Total TTC (BT-112) = Total HT (BT-109) + Total TVA (BT-110). Vérifié par le schématron officiel EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-CO-15",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_e_1",
+            "name": "📜 BR-E-1 — TVA exonérée : motif d'exonération obligatoire",
+            "category": "EN16931 (Schematron)",
+            "description": "Si BT-118 = E (exonéré de TVA), BT-120 ou BT-121 doit être renseigné. Vérifié par le schématron EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-E-1",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_g_1",
+            "name": "📜 BR-G-1 — TVA hors UE : motif d'exonération obligatoire",
+            "category": "EN16931 (Schematron)",
+            "description": "Si BT-118 = G (livraison hors UE / export), BT-120 ou BT-121 doit être renseigné. Vérifié par le schématron EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-G-1",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_ic_1",
+            "name": "📜 BR-IC-1 — Livraison intra-UE : pays de livraison obligatoire",
+            "category": "EN16931 (Schematron)",
+            "description": "Si BT-118 = K (livraison intra-UE), BT-80 (pays livraison) ou BT-55 (pays acheteur) doit être renseigné. Vérifié par le schématron EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-IC-1",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_s_09",
+            "name": "📜 BR-S-09 — Montant TVA Standard rated : BT-117 = BT-116 × BT-119 / 100",
+            "category": "EN16931 (Schematron)",
+            "description": "Pour chaque catégorie TVA 'Standard rated' (BT-118=S), BT-117 = BT-116 × BT-119 / 100. Vérifié par le schématron officiel.",
+            "enabled": True,
+            "schematron_id": "BR-S-09",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
+            "conditions": [],
+            "actions": []
+        },
+        {
+            "id": "schematron_br_co_26",
+            "name": "📜 BR-CO-26 — SIREN ou N° TVA vendeur obligatoire",
+            "category": "EN16931 (Schematron)",
+            "description": "Le SIREN vendeur (BT-30) ou le N° TVA intracommunautaire (BT-31) doit être présent sur la facture. Vérifié par le schématron EN16931.",
+            "enabled": True,
+            "schematron_id": "BR-CO-26",
+            "applicable_forms": ["simple", "groupee", "ventesdiverses", "reforme"],
             "conditions": [],
             "actions": []
         }

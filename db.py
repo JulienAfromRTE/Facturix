@@ -7,6 +7,7 @@ import json
 import sqlite3
 
 from default_rules import _DEFAULT_RULES, _RULE_CATEGORY_BY_ID
+from default_mapping_reforme import _REFORME_CHAMPS
 
 # Configures par app.py au demarrage
 DB_FILE = None
@@ -167,6 +168,7 @@ def init_db():
     _migrate_to_relational(conn)
     conn.commit()
     _seed_default_data(conn)
+    _ensure_default_mappings_populated(conn)
     conn.close()
     print("[DB] Base SQLite prête.")
 
@@ -331,32 +333,36 @@ def _seed_default_data(conn):
         )
         print("[DB] Règles métier initialisées.")
 
-    # ── Mappings par défaut ──────────────────────────────────────────────────
-    c.execute("SELECT COUNT(*) FROM mappings")
-    if c.fetchone()[0] == 0:
-        seeds = [
-            ("default_simple",  "CART Simple",    "CART Simple",    "mapping_CARTsimple_1504.json"),
-            ("default_groupee", "CART Groupée",   "CART Groupée",   "mapping_CARTgroupe_1504.json"),
-            ("default_flux",    "Flux Générique", "Flux Générique", "mapping_fluxGénérique_1504.json"),
-        ]
-        for mid, name, mtype, filename in seeds:
-            champs = []
-            filepath = os.path.join(SCRIPT_DIR, filename)
-            if os.path.exists(filepath):
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        champs = json.load(f).get('champs', [])
-                except Exception:
-                    pass
-            c.execute(
-                "INSERT INTO mappings "
-                "(id, name, type, filename, created_date, is_default) VALUES (?,?,?,?,?,1)",
-                (mid, name, mtype, filename, "2025-04-15")
-            )
-            for pos, champ in enumerate(champs):
-                c.execute(_CHAMP_INSERT_SQL, _champ_to_row(mid, pos, champ))
-            print(f"[DB] Mapping initialisé : {name} ({filename})")
+    # Le mapping Réforme Factur-X est géré par _ensure_default_mappings_populated
+    # (idempotent, s'adapte aux installations existantes)
+
+def _ensure_default_mappings_populated(conn):
+    """Injecte le mapping Réforme Factur-X s'il est absent ou vide.
+
+    Idempotent : ne touche jamais aux mappings existants.
+    S'exécute à chaque démarrage.
+    """
+    c = conn.cursor()
+
+    exists = c.execute(
+        "SELECT 1 FROM mappings WHERE id='default_reforme'"
+    ).fetchone()
+    if not exists:
+        c.execute(
+            "INSERT INTO mappings (id, name, type, filename, created_date, is_default) "
+            "VALUES (?,?,?,?,?,1)",
+            ("default_reforme", "Réforme Factur-X (EN16931)", "Réforme",
+             "default_mapping_reforme.py", "2026-05-15")
+        )
+    count = c.execute(
+        "SELECT COUNT(*) FROM mapping_champs WHERE mapping_id='default_reforme'"
+    ).fetchone()[0]
+    if count == 0:
+        for pos, champ in enumerate(_REFORME_CHAMPS):
+            c.execute(_CHAMP_INSERT_SQL, _champ_to_row("default_reforme", pos, champ))
         conn.commit()
+        print(f"[DB] Mapping ajouté : Réforme Factur-X (EN16931) ({len(_REFORME_CHAMPS)} champs)")
+
 
 # ── Statistiques : log d'une facture contrôlée ──────────────────────────────
 
