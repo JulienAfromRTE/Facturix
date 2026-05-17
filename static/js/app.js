@@ -3,6 +3,7 @@ var currentIndex=null;
 var tooltip=document.getElementById('tooltip');
 var mappingsIndex = { mappings: [] };
 var mappingToDelete = null;
+var mappingToRename = null;
 var pendingAuditCallback = null; // callback à exécuter après saisie de l'auteur
 var _dpUidCounter=0;
 
@@ -1836,10 +1837,13 @@ function buildSchematronTooltip(r){
 /* ---- MAPPING MANAGEMENT FUNCTIONS ---- */
 function updateDeleteButtonVisibility() {
     const paramSelect = document.getElementById('typeFormulaireParam');
-    const btn = document.getElementById('btnDeleteCurrentMapping');
-    if (!paramSelect || !btn) return;
+    const btnDel = document.getElementById('btnDeleteCurrentMapping');
+    const btnRen = document.getElementById('btnRenameCurrentMapping');
+    if (!paramSelect) return;
     const opt = paramSelect.options[paramSelect.selectedIndex];
-    btn.style.display = (opt && opt.dataset.isDefault === 'false') ? '' : 'none';
+    const hasMapping = !!(opt && opt.dataset.mappingId);
+    if (btnDel) btnDel.style.display = (opt && opt.dataset.isDefault === 'false') ? '' : 'none';
+    if (btnRen) btnRen.style.display = hasMapping ? '' : 'none';
 }
 
 function deleteCurrentMapping() {
@@ -1847,6 +1851,49 @@ function deleteCurrentMapping() {
     const opt = paramSelect && paramSelect.options[paramSelect.selectedIndex];
     if (!opt || !opt.dataset.mappingId) return;
     openDeleteMappingModal(opt.dataset.mappingId);
+}
+
+function renameCurrentMapping() {
+    const paramSelect = document.getElementById('typeFormulaireParam');
+    const opt = paramSelect && paramSelect.options[paramSelect.selectedIndex];
+    if (!opt || !opt.dataset.mappingId) return;
+    openRenameMappingModal(opt.dataset.mappingId);
+}
+
+function openRenameMappingModal(mappingId) {
+    const mapping = mappingsIndex.mappings.find(m => m.id === mappingId);
+    if (!mapping) return;
+    mappingToRename = mapping;
+    const input = document.getElementById('renameMappingInput');
+    input.value = mapping.name;
+    document.getElementById('renameMappingModal').style.display = 'block';
+    setTimeout(function() { input.select(); }, 50);
+}
+
+function closeRenameMappingModal() {
+    document.getElementById('renameMappingModal').style.display = 'none';
+    mappingToRename = null;
+}
+
+function confirmRenameMapping() {
+    if (!mappingToRename) return;
+    const newName = document.getElementById('renameMappingInput').value.trim();
+    if (!newName) { alert('Le nom ne peut pas être vide.'); return; }
+    fetch(BASE+'/api/mappings/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id: mappingToRename.id, name: newName })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeRenameMappingModal();
+            updateAllMappingDropdowns();
+        } else {
+            alert('Erreur : ' + (data.error || 'Renommage impossible'));
+        }
+    })
+    .catch(function() { alert('Erreur réseau lors du renommage'); });
 }
 
 function openCreateMappingModal() {
@@ -2016,6 +2063,7 @@ document.addEventListener('mousedown', function(e) { _modalMousedownTarget = e.t
 window.onclick = function(event) {
     const createModal = document.getElementById('createMappingModal');
     const deleteModal = document.getElementById('deleteMappingModal');
+    const renameModal = document.getElementById('renameMappingModal');
     const editModal = document.getElementById('editModal');
     const ruleModal = document.getElementById('editRuleModal');
     const historyModal = document.getElementById('historyModal');
@@ -2025,6 +2073,7 @@ window.onclick = function(event) {
     var md = _modalMousedownTarget;
     if (t === createModal && md === createModal) { closeCreateMappingModal(); }
     if (t === deleteModal && md === deleteModal) { closeDeleteMappingModal(); }
+    if (t === renameModal && md === renameModal) { closeRenameMappingModal(); }
     if (t === editModal   && md === editModal)   { editModal.style.display = 'none'; }
     if (t === ruleModal   && md === ruleModal)   { ruleModal.style.display = 'none'; }
     if (t === historyModal && md === historyModal) { historyModal.style.display = 'none'; }

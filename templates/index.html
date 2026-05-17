@@ -185,6 +185,7 @@
 <option value="groupee">CART Groupée</option>
 <option value="flux">Flux Générique</option>
 </select>
+<button id="btnRenameCurrentMapping" class="btn-secondary" style="display:none" onclick="renameCurrentMapping()"><span>✏️</span> Renommer</button>
 <button id="btnDeleteCurrentMapping" class="btn-delete" style="display:none" onclick="deleteCurrentMapping()"><span>🗑️</span> Supprimer</button>
 </div>
 </div>
@@ -873,6 +874,27 @@ Choisissez un mapping existant pour copier sa configuration, ou laissez vide
 <button class="btn-create" onclick="confirmCreateMapping()">
 <span>✓</span> Créer
 </button>
+</div>
+</div>
+</div>
+
+<!-- Rename Mapping Modal -->
+<div id="renameMappingModal" class="modal">
+<div class="modal-content">
+<div class="modal-header create">
+<span class="warning-icon">✏️</span>
+<h2>Renommer le mapping</h2>
+</div>
+<div class="modal-body">
+<div class="form-group">
+<label>Nouveau nom :</label>
+<input type="text" id="renameMappingInput" placeholder="Nom du mapping" style="width:100%"
+  onkeydown="if(event.key==='Enter')confirmRenameMapping()">
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn-secondary" onclick="closeRenameMappingModal()">Annuler</button>
+<button class="btn-create" onclick="confirmRenameMapping()"><span>✓</span> Renommer</button>
 </div>
 </div>
 </div>

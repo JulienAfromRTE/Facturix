@@ -3250,6 +3250,27 @@ def api_create_mapping():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/mappings/rename', methods=['POST'])
+def api_rename_mapping():
+    """Renomme un mapping (tous types)."""
+    try:
+        data = request.json
+        mapping_id = data.get('id')
+        new_name = (data.get('name') or '').strip()
+        if not mapping_id or not new_name:
+            return jsonify({'success': False, 'error': 'ID et nom requis'})
+        conn = get_db()
+        row = conn.execute("SELECT id FROM mappings WHERE id=?", (mapping_id,)).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Mapping non trouvé'})
+        conn.execute("UPDATE mappings SET name=? WHERE id=?", (new_name, mapping_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'name': new_name})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/mappings/delete', methods=['POST'])
 def api_delete_mapping():
     """Supprime un mapping"""
