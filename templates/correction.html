@@ -139,6 +139,7 @@ tr:hover td{background:#f8fafc}
 <script>
 var INVOICE_ID = {{ invoice_id }};
 var TYPE_CONTROLE = '{{ type_controle }}';
+var BASE = '{{ url_prefix }}';
 var DL_LABEL = TYPE_CONTROLE === 'cii' ? 'XML' : 'PDF';
 
 function onFieldChange(inp) {
@@ -171,7 +172,7 @@ async function downloadCorrected() {
     if (b) { b.disabled = true; b.textContent = '⏳ Génération en cours...'; }
   });
   try {
-    var resp = await fetch('/api/patch-xml', {
+    var resp = await fetch(BASE + '/api/patch-xml', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ invoice_id: INVOICE_ID, patches: patches })

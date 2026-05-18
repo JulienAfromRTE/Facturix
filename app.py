@@ -3021,6 +3021,7 @@ def correction_page(invoice_id):
     cat_order = ['BG-INFOS-GENERALES', 'BG-TOTAUX', 'BG-TVA', 'BG-LIGNES', 'BG-VENDEUR', 'BG-ACHETEUR']
     sorted_cat_ids = [c for c in cat_order if c in categories] + \
                      [c for c in categories if c not in cat_order]
+    prefix = request.script_root or URL_PREFIX
     return render_template(
         'correction.html',
         invoice_id=invoice_id,
@@ -3028,6 +3029,7 @@ def correction_page(invoice_id):
         type_controle=row['type_controle'],
         categories=categories,
         sorted_cat_ids=sorted_cat_ids,
+        url_prefix=prefix,
     )
 
 
