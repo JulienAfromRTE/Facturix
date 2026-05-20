@@ -3704,7 +3704,8 @@ def api_invoice_share(invoice_id):
     try:
         conn = get_db()
         row = conn.execute(
-            "SELECT results_json, invoice_number, filename, type_formulaire, type_controle, mode "
+            "SELECT results_json, invoice_number, filename, type_formulaire, type_controle, mode, "
+            "       archive_pdf, archive_xml, archive_cii "
             "FROM invoice_history WHERE id = ?", (invoice_id,)
         ).fetchone()
         conn.close()
@@ -3721,6 +3722,15 @@ def api_invoice_share(invoice_id):
     payload['type_formulaire'] = row['type_formulaire']
     payload['mapping_label'] = _resolve_type_label(row['type_formulaire'])
     payload['mode'] = row['mode']
+    archive_full = os.path.normpath(os.path.join(SCRIPT_DIR, 'archive_files'))
+    def _archive_exists(rel):
+        if not rel:
+            return False
+        full = os.path.normpath(os.path.join(archive_full, rel))
+        return full.startswith(archive_full + os.sep) and os.path.isfile(full)
+    payload['has_pdf'] = _archive_exists(row['archive_pdf'])
+    payload['has_xml'] = _archive_exists(row['archive_xml']) or _archive_exists(row['archive_cii'])
+    payload['xml_kind'] = 'xml' if _archive_exists(row['archive_xml']) else ('cii' if _archive_exists(row['archive_cii']) else None)
     return jsonify(payload)
 
 

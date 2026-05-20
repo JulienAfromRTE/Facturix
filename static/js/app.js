@@ -4674,6 +4674,25 @@ function openCorrectionPage(id){
         if(titleEl) titleEl.textContent='Analyse partagée'+(num?' : '+num:'');
         if(fileEl) fileEl.textContent=fname?'— '+fname:'';
         if(mappingEl) mappingEl.textContent=data.mapping_label||data.type_formulaire||'';
+        var iid=data.invoice_id;
+        var dlPdf=document.getElementById('sharedBannerDlPdf');
+        var dlXml=document.getElementById('sharedBannerDlXml');
+        if(dlPdf){
+          if(data.has_pdf&&iid){
+            dlPdf.href=BASE+'/api/stats/file/'+iid+'/pdf';
+            dlPdf.style.display='';
+          } else {
+            dlPdf.style.display='none';
+          }
+        }
+        if(dlXml){
+          if(data.has_xml&&iid&&data.xml_kind){
+            dlXml.href=BASE+'/api/stats/file/'+iid+'/'+data.xml_kind;
+            dlXml.style.display='';
+          } else {
+            dlXml.style.display='none';
+          }
+        }
         sharedBanner.style.display='flex';
       }
     })

@@ -107,13 +107,17 @@
 </div>
 <div class="loading" id="loading"><div class="spinner"></div><p>Controle en cours...</p></div>
 <div class="results" id="results">
-<div id="sharedBanner" style="display:none;background:#eef2ff;border-left:4px solid #667eea;border-radius:0 8px 8px 0;padding:10px 16px;margin-bottom:10px;align-items:center;gap:12px">
+<div id="sharedBanner" style="display:none;background:#eef2ff;border-left:4px solid #667eea;border-radius:0 8px 8px 0;padding:10px 16px;margin-bottom:10px;align-items:center;gap:12px;flex-wrap:wrap">
   <span style="font-size:1.1em">🔗</span>
-  <div style="flex:1">
+  <div style="flex:1;min-width:0">
     <span id="sharedBannerTitle" style="font-size:0.88em;font-weight:700;color:#3730a3"></span>
     <span id="sharedBannerFile" style="font-size:0.82em;color:#4338ca;margin-left:6px"></span>
   </div>
-  <span id="sharedBannerMapping" style="background:#667eea;color:#fff;font-size:0.78em;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.02em"></span>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <a id="sharedBannerDlPdf" href="#" download style="display:none;background:#dc2626;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ PDF</a>
+    <a id="sharedBannerDlXml" href="#" download style="display:none;background:#059669;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ XML</a>
+    <span id="sharedBannerMapping" style="background:#667eea;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.02em"></span>
+  </div>
 </div>
 <div class="invoice-summary" id="invoiceSummary" style="display:none"></div>
 <div class="progress-section">
