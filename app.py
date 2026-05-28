@@ -29,7 +29,7 @@ app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2 GB max par requê
 # ════════════════════════════════════════════
 APP_NAME = "facturix"
 APP_SLUG = "facturix"
-APP_RELEASE = "v2.1"
+APP_RELEASE = "v2.2"
 APP_DESCRIPTION = "La potion magique pour des factures certifiées"
 APP_ICON = "💵"
 APP_COLOR = "#3b82f6"
@@ -2146,7 +2146,7 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
         elif xml_doc is not None:
             schematron_summary = apply_schematron(xml_content, results)
         elif rdi_data or rdi_articles:
-            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping)
+            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping, rdi_bg23_blocks)
             if synthetic_xml:
                 schematron_summary = apply_schematron(synthetic_xml, results)
                 if schematron_summary:
@@ -2704,7 +2704,7 @@ def controle():
         elif xml_doc is not None:
             schematron_summary = apply_schematron(xml_content, results)
         elif rdi_data or rdi_articles:
-            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping)
+            synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping, rdi_bg23_blocks)
             if synthetic_xml:
                 schematron_summary = apply_schematron(synthetic_xml, results)
                 if schematron_summary:

@@ -24,6 +24,7 @@ NS = {
 }
 
 LINE_ITEM_TAG = 'ram:IncludedSupplyChainTradeLineItem'
+BG23_TAG = 'ram:ApplicableTradeTax'
 
 _STEP_RE = re.compile(r'^([\w-]+:[\w-]+)(?:\[(.+)\])?$')
 _PRED_RE = re.compile(r"([\w-]+:[\w-]+)\s*=\s*['\"]([^'\"]+)['\"]")
@@ -79,7 +80,7 @@ _YYYYMMDD_RE = re.compile(r'^\d{8}$')
 _ROOT_ELEM = 'rsm:CrossIndustryInvoice'
 
 
-def _set_at(root, xpath, value, attribute=None, line_index=None):
+def _set_at(root, xpath, value, attribute=None, line_index=None, bg23_index=None):
     parts = [p.strip() for p in xpath.lstrip('/').split('/') if p.strip()]
     if not parts:
         return
@@ -99,6 +100,8 @@ def _set_at(root, xpath, value, attribute=None, line_index=None):
         last_step_name = name
         if line_index is not None and name == LINE_ITEM_TAG:
             current = _find_or_create_at(current, name, line_index + 1)
+        elif bg23_index is not None and name == BG23_TAG:
+            current = _find_or_create_at(current, name, bg23_index + 1)
         else:
             current = _find_or_create(current, name, predicates)
     if attribute:
@@ -165,12 +168,12 @@ def _normalize_for_xml(value, field_type):
     return value
 
 
-def build_cii_xml(rdi_data, rdi_articles, mapping_champs):
+def build_cii_xml(rdi_data, rdi_articles, mapping_champs, rdi_bg23_blocks=None):
     """Construit un XML CII (string UTF-8) à partir du RDI et du mapping.
 
     Renvoie ``None`` si on n'a ni données d'en-tête ni articles.
     """
-    if not rdi_data and not rdi_articles:
+    if not rdi_data and not rdi_articles and not rdi_bg23_blocks:
         return None
 
     root = etree.Element(_qname('rsm:CrossIndustryInvoice'), nsmap=dict(NS))
@@ -194,7 +197,11 @@ def build_cii_xml(rdi_data, rdi_articles, mapping_champs):
         gid = etree.SubElement(guideline, _qname('ram:ID'))
         gid.text = 'urn:cen.eu:en16931:2017'
 
-    header_fields = [f for f in mapping_champs if not f.get('is_article')]
+    # Sépare les champs BG-23 (TVA, itération par bloc) des champs d'en-tête normaux.
+    bg23_fields = [f for f in mapping_champs
+                   if not f.get('is_article') and f.get('categorie_bg') == 'BG-TVA']
+    header_fields = [f for f in mapping_champs
+                     if not f.get('is_article') and f.get('categorie_bg') != 'BG-TVA']
     article_fields = [f for f in mapping_champs if f.get('is_article')]
 
     for field in header_fields:
@@ -208,6 +215,26 @@ def build_cii_xml(rdi_data, rdi_articles, mapping_champs):
             continue
         value = _normalize_for_xml(value, field.get('type'))
         _set_at(root, xpath, value, field.get('attribute'))
+
+    # Chaque bloc BG-23 du RDI → un ram:ApplicableTradeTax distinct dans le XML.
+    # Sans ça, CategoryCode (BT-118) n'est jamais injecté → faux positif BR-47.
+    # Note : BT-116/BT-117 apparaissent avant BT-118 dans le RDI, donc le parser
+    # les stocke dans rdi_data (le bloc n'est pas encore ouvert) — fallback nécessaire.
+    for bg23_idx, bg23_block in enumerate(rdi_bg23_blocks or []):
+        for field in bg23_fields:
+            if (field.get('ignore') or '').strip().lower() == 'oui':
+                continue
+            rdi_key = (field.get('rdi') or '').strip()
+            value = _resolve_rdi_value(bg23_block, rdi_key)
+            if not value:
+                value = _resolve_rdi_value(rdi_data or {}, rdi_key)
+            if not value:
+                continue
+            xpath = (field.get('xpath') or '').strip()
+            if not xpath or BG23_TAG not in xpath:
+                continue
+            value = _normalize_for_xml(value, field.get('type'))
+            _set_at(root, xpath, value, field.get('attribute'), bg23_index=bg23_idx)
 
     for art_idx, rdi_art in enumerate(rdi_articles or []):
         for field in article_fields:

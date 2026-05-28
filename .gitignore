@@ -11,10 +11,10 @@ __pycache__/
 *.json
 
 # Exceptions : les fichiers d'exemple fictifs sont trackés
-!exemples/*.txt
-!exemples/*.xml
-!exemples/*.json
-!exemples/README.md
+exemples/*.txt
+exemples/*.xml
+exemples/*.json
+exemples/README.md
 
 # Base de données et archives
 *.db

@@ -484,6 +484,7 @@ async function statsReanalyse(id){
     if(data.error){alert('Erreur : '+data.error);return;}
     document.getElementById('tabControle').click();
     _renderControle(data);
+    _initControleFilters();
     statsLoadHistory();
   }catch(e){
     alert('Erreur réseau : '+e.message);
@@ -2531,54 +2532,15 @@ if(_cb){
 }
 }
 
-/* ---- LANCER CONTROLE ---- */
-document.getElementById('btnControle').addEventListener('click',async function(){
-var typeControle=document.getElementById('typeControle').value;
-var pdf=document.getElementById('pdfFile').files[0];
-var rdi=document.getElementById('rdiFile').files[0];
-var cii=document.getElementById('ciiFile').files[0];
-if(typeControle==='xml'&&!pdf){alert('Selectionnez le fichier PDF ou XML');return}
-if(typeControle==='xmlonly'&&!pdf){alert('Selectionnez le fichier PDF');return}
-if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
-if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
-document.getElementById('loading').style.display='block';
-document.getElementById('results').style.display='none';
-// Reset de l'aperçu : remplace le node entier par un vide
-var _sumOld=document.getElementById('invoiceSummary');
-if(_sumOld){
-  var _sumNew=document.createElement('div');
-  _sumNew.id='invoiceSummary';_sumNew.className='invoice-summary';_sumNew.style.display='none';
-  _sumOld.parentNode.replaceChild(_sumNew,_sumOld);
-}
-window._lastInvoiceResults=null;
-var fd=new FormData();
-// N'envoyer QUE les fichiers pertinents au type de contrôle actuel — sinon les
-// fichiers d'un test précédent (autre mode) traînent dans le form et polluent la réponse.
-if(typeControle==='cii'){
-  if(cii) fd.append('cii',cii);
-}else if(typeControle==='xmlonly'){
-  if(pdf) fd.append('pdf',pdf);
-}else if(typeControle==='rdi'){
-  if(rdi) fd.append('rdi',rdi);
-}else{ // 'xml' (RDI vs XML)
-  if(pdf) fd.append('pdf',pdf);
-  if(rdi) fd.append('rdi',rdi);
-}
-fd.append('type_formulaire',document.getElementById('typeFormulaire').value);
-fd.append('type_controle',typeControle);
-try{
-var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
-var data=await resp.json();
-if(data.error){alert('Erreur: '+data.error);return}
-_renderControle(data);
-
-// Filtrage par BT et par erreurs
+/* ---- FILTRES RÉSULTATS (partagé entre soumission et chargement ?share=) ---- */
+function _initControleFilters(){
 var searchInput=document.getElementById('searchBT');
 var clearBtn=document.getElementById('btnClearSearch');
 var searchContentInput=document.getElementById('searchContent');
 var clearContentBtn=document.getElementById('btnClearContent');
 var filterErrorsCheckbox=document.getElementById('filterErrors');
 var filterAmbigusCheckbox=document.getElementById('filterAmbigus');
+var cegedimCheckbox=document.getElementById('showCegedim');
 
 function applyAllFilters(){
 var searchTerm=searchInput.value.toLowerCase().trim();
@@ -2589,47 +2551,6 @@ clearBtn.style.display=searchTerm?'inline-block':'none';
 clearContentBtn.style.display=contentTerm?'inline-block':'none';
 filterResults(searchTerm,contentTerm,showErrorsOnly,showAmbigusOnly);
 }
-
-searchInput.removeEventListener('input',applyAllFilters);
-searchInput.addEventListener('input',applyAllFilters);
-searchContentInput.removeEventListener('input',applyAllFilters);
-searchContentInput.addEventListener('input',applyAllFilters);
-filterErrorsCheckbox.removeEventListener('change',applyAllFilters);
-filterErrorsCheckbox.addEventListener('change',applyAllFilters);
-filterAmbigusCheckbox.removeEventListener('change',applyAllFilters);
-filterAmbigusCheckbox.addEventListener('change',applyAllFilters);
-clearBtn.onclick=function(){
-searchInput.value='';
-clearBtn.style.display='none';
-applyAllFilters();
-};
-clearContentBtn.onclick=function(){
-searchContentInput.value='';
-clearContentBtn.style.display='none';
-applyAllFilters();
-};
-
-// Tout déplier / Tout replier
-document.getElementById('btnExpandAll').addEventListener('click',function(){
-document.querySelectorAll('.category-content').forEach(function(c){c.classList.add('open');});
-document.querySelectorAll('.article-content').forEach(function(c){c.style.display='block';});
-});
-document.getElementById('btnCollapseAll').addEventListener('click',function(){
-document.querySelectorAll('.category-content').forEach(function(c){c.classList.remove('open');});
-document.querySelectorAll('.article-content').forEach(function(c){c.style.display='none';});
-});
-
-// Afficher/masquer les contrôles CEGEDIM
-var cegedimCheckbox=document.getElementById('showCegedim');
-function toggleCegedim(){
-var show=cegedimCheckbox.checked;
-document.querySelectorAll('.ceg-table').forEach(function(t){
-t.closest('tr').style.display=show?'':'none';
-});
-}
-cegedimCheckbox.addEventListener('change',toggleCegedim);
-toggleCegedim();
-applyAllFilters();
 
 function filterResults(term,contentTerm,errorsOnly,ambigusOnly){
 var categories=document.querySelectorAll('.category');
@@ -2705,6 +2626,90 @@ cat.classList.add('hidden');
 }
 });
 }
+
+function toggleCegedim(){
+var show=cegedimCheckbox.checked;
+document.querySelectorAll('.ceg-table').forEach(function(t){
+t.closest('tr').style.display=show?'':'none';
+});
+}
+
+searchInput.removeEventListener('input',applyAllFilters);
+searchInput.addEventListener('input',applyAllFilters);
+searchContentInput.removeEventListener('input',applyAllFilters);
+searchContentInput.addEventListener('input',applyAllFilters);
+filterErrorsCheckbox.removeEventListener('change',applyAllFilters);
+filterErrorsCheckbox.addEventListener('change',applyAllFilters);
+filterAmbigusCheckbox.removeEventListener('change',applyAllFilters);
+filterAmbigusCheckbox.addEventListener('change',applyAllFilters);
+clearBtn.onclick=function(){
+searchInput.value='';
+clearBtn.style.display='none';
+applyAllFilters();
+};
+clearContentBtn.onclick=function(){
+searchContentInput.value='';
+clearContentBtn.style.display='none';
+applyAllFilters();
+};
+
+// Tout déplier / Tout replier
+document.getElementById('btnExpandAll').onclick=function(){
+document.querySelectorAll('.category-content').forEach(function(c){c.classList.add('open');});
+document.querySelectorAll('.article-content').forEach(function(c){c.style.display='block';});
+};
+document.getElementById('btnCollapseAll').onclick=function(){
+document.querySelectorAll('.category-content').forEach(function(c){c.classList.remove('open');});
+document.querySelectorAll('.article-content').forEach(function(c){c.style.display='none';});
+};
+
+cegedimCheckbox.removeEventListener('change',toggleCegedim);
+cegedimCheckbox.addEventListener('change',toggleCegedim);
+toggleCegedim();
+applyAllFilters();
+}
+
+/* ---- LANCER CONTROLE ---- */
+document.getElementById('btnControle').addEventListener('click',async function(){
+var typeControle=document.getElementById('typeControle').value;
+var pdf=document.getElementById('pdfFile').files[0];
+var rdi=document.getElementById('rdiFile').files[0];
+var cii=document.getElementById('ciiFile').files[0];
+if(typeControle==='xml'&&!pdf){alert('Selectionnez le fichier PDF ou XML');return}
+if(typeControle==='xmlonly'&&!pdf){alert('Selectionnez le fichier PDF');return}
+if(typeControle==='cii'&&!cii){alert('Selectionnez le fichier XML CII');return}
+if(typeControle!=='cii'&&typeControle!=='xmlonly'&&!rdi){alert('Selectionnez le fichier RDI');return}
+document.getElementById('loading').style.display='block';
+document.getElementById('results').style.display='none';
+// Reset de l'aperçu : remplace le node entier par un vide
+var _sumOld=document.getElementById('invoiceSummary');
+if(_sumOld){
+  var _sumNew=document.createElement('div');
+  _sumNew.id='invoiceSummary';_sumNew.className='invoice-summary';_sumNew.style.display='none';
+  _sumOld.parentNode.replaceChild(_sumNew,_sumOld);
+}
+window._lastInvoiceResults=null;
+var fd=new FormData();
+// N'envoyer QUE les fichiers pertinents au type de contrôle actuel — sinon les
+// fichiers d'un test précédent (autre mode) traînent dans le form et polluent la réponse.
+if(typeControle==='cii'){
+  if(cii) fd.append('cii',cii);
+}else if(typeControle==='xmlonly'){
+  if(pdf) fd.append('pdf',pdf);
+}else if(typeControle==='rdi'){
+  if(rdi) fd.append('rdi',rdi);
+}else{ // 'xml' (RDI vs XML)
+  if(pdf) fd.append('pdf',pdf);
+  if(rdi) fd.append('rdi',rdi);
+}
+fd.append('type_formulaire',document.getElementById('typeFormulaire').value);
+fd.append('type_controle',typeControle);
+try{
+var resp=await fetch(BASE+'/controle',{method:'POST',body:fd});
+var data=await resp.json();
+if(data.error){alert('Erreur: '+data.error);return}
+_renderControle(data);
+_initControleFilters();
 
 }catch(e){
 console.error(e);
@@ -4628,6 +4633,7 @@ function openCorrectionPage(id){
       }
       if(loading) loading.style.display='none';
       _renderControle(data);
+      _initControleFilters();
       // Scroll + ouvrir le panneau si &field=BT-xxx est dans l'URL
       var fieldBt=params.get('field');
       if(fieldBt){
