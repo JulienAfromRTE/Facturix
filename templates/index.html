@@ -114,9 +114,9 @@
     <span id="sharedBannerFile" style="font-size:0.82em;color:#4338ca;margin-left:6px"></span>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <a id="sharedBannerDlPdf" href="#" download style="display:none;background:#dc2626;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ PDF</a>
-    <a id="sharedBannerDlXml" href="#" download style="display:none;background:#059669;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ XML</a>
     <span id="sharedBannerMapping" style="background:#667eea;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.02em"></span>
+    <a id="sharedBannerDlXml" href="#" download style="display:none;background:#059669;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ XML</a>
+    <a id="sharedBannerDlPdf" href="#" download style="display:none;background:#dc2626;color:#fff;font-size:0.78em;font-weight:700;padding:5px 12px;border-radius:20px;text-decoration:none;white-space:nowrap;letter-spacing:0.02em">⬇ PDF</a>
   </div>
 </div>
 <div class="invoice-summary" id="invoiceSummary" style="display:none"></div>
@@ -799,6 +799,23 @@ Résultats du lot <span style="font-size:0.78em;color:#94a3b8;font-weight:400" i
 <div style="display:flex;gap:10px;justify-content:flex-end">
 <button class="btn-secondary" id="selectMappingsCancel">Annuler</button>
 <button class="btn" id="selectMappingsConfirm">Continuer →</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL SYNC CATÉGORIE -->
+<div id="syncCategModal" class="modal">
+<div class="modal-content" style="max-width:520px">
+<div class="modal-header">
+<h2>Synchroniser la catégorie ?</h2>
+<span class="modal-close" id="syncCategClose">&times;</span>
+</div>
+<p style="margin-bottom:4px;color:#555;font-size:0.93em">Le champ <strong id="syncCategBt"></strong> existe dans d'autres mappings avec une catégorie différente.</p>
+<p style="margin-bottom:12px;color:#555;font-size:0.93em">Cochez ceux à mettre à jour :</p>
+<div id="syncCategList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:18px"></div>
+<div style="display:flex;gap:10px;justify-content:flex-end">
+<button class="btn-secondary" id="syncCategCancel">Ignorer</button>
+<button class="btn" id="syncCategConfirm">Synchroniser</button>
 </div>
 </div>
 </div>

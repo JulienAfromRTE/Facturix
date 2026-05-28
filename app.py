@@ -3307,6 +3307,60 @@ def api_delete_mapping():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
+
+@app.route('/api/mappings/category-conflicts')
+def category_conflicts_route():
+    balise = request.args.get('balise', '').strip()
+    categorie_bg = request.args.get('categorie_bg', '').strip()
+    categorie_titre = request.args.get('categorie_titre', '').strip()
+    if not balise:
+        return jsonify([])
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            """SELECT mc.mapping_id, m.name, mc.categorie_bg, mc.categorie_titre
+               FROM mapping_champs mc
+               JOIN mappings m ON m.id = mc.mapping_id
+               WHERE mc.balise=? AND (mc.categorie_bg != ? OR mc.categorie_titre != ?)
+               ORDER BY m.name""",
+            (balise, categorie_bg, categorie_titre)
+        ).fetchall()
+        conn.close()
+        return jsonify([{
+            'mapping_id': r['mapping_id'],
+            'name': r['name'],
+            'categorie_bg': r['categorie_bg'],
+            'categorie_titre': r['categorie_titre']
+        } for r in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route('/api/mappings/sync-category', methods=['POST'])
+def sync_category_route():
+    data = request.json or {}
+    balise = data.get('balise', '').strip()
+    categorie_bg = data.get('categorie_bg', '').strip()
+    categorie_titre = data.get('categorie_titre', '').strip()
+    target_ids = data.get('target_mapping_ids', [])
+    if not balise or not target_ids:
+        return jsonify({'success': False, 'error': 'Paramètres manquants'}), 400
+    try:
+        conn = get_db()
+        updated = 0
+        for mid in target_ids:
+            result = conn.execute(
+                "UPDATE mapping_champs SET categorie_bg=?, categorie_titre=? WHERE mapping_id=? AND balise=?",
+                (categorie_bg, categorie_titre, mid, balise)
+            )
+            updated += result.rowcount
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'updated': updated})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/remove-signature', methods=['POST'])
 def api_remove_signature():
     """Supprime les signatures numériques d'un PDF et renvoie le PDF reconstruit."""
@@ -3598,14 +3652,24 @@ def api_stats_file(invoice_id, kind):
         conn.close()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    if not row or not row[col]:
+    archive_norm = os.path.normpath(ARCHIVE_FOLDER)
+    rel = row[col] if row else None
+    full = None
+    if rel:
+        candidate = os.path.normpath(os.path.join(ARCHIVE_FOLDER, rel))
+        if candidate.startswith(archive_norm + os.sep) and os.path.isfile(candidate):
+            full = candidate
+    # Fallback : scanner le dossier si la colonne DB est vide ou le fichier absent
+    if not full:
+        prefix_map = {'pdf': 'pdf__', 'xml': 'xml__', 'cii': 'cii__', 'rdi': 'rdi__'}
+        prefix = prefix_map.get(kind, kind + '__')
+        archive_dir = os.path.join(ARCHIVE_FOLDER, str(invoice_id))
+        if os.path.isdir(archive_dir):
+            matches = sorted(f for f in os.listdir(archive_dir) if f.startswith(prefix))
+            if matches:
+                full = os.path.join(archive_dir, matches[-1])
+    if not full:
         return jsonify({'error': 'fichier indisponible'}), 404
-    rel = row[col]
-    full = os.path.normpath(os.path.join(ARCHIVE_FOLDER, rel))
-    if not full.startswith(os.path.normpath(ARCHIVE_FOLDER) + os.sep):
-        return jsonify({'error': 'chemin invalide'}), 400
-    if not os.path.isfile(full):
-        return jsonify({'error': 'fichier purgé'}), 404
     base = os.path.basename(full)
     download_name = base.split('__', 1)[-1] if '__' in base else base
     return send_file(full, as_attachment=True, download_name=download_name)
@@ -3722,15 +3786,27 @@ def api_invoice_share(invoice_id):
     payload['type_formulaire'] = row['type_formulaire']
     payload['mapping_label'] = _resolve_type_label(row['type_formulaire'])
     payload['mode'] = row['mode']
-    archive_full = os.path.normpath(os.path.join(SCRIPT_DIR, 'archive_files'))
-    def _archive_exists(rel):
+    archive_norm = os.path.normpath(ARCHIVE_FOLDER)
+    def _archive_ok(rel):
         if not rel:
             return False
-        full = os.path.normpath(os.path.join(archive_full, rel))
-        return full.startswith(archive_full + os.sep) and os.path.isfile(full)
-    payload['has_pdf'] = _archive_exists(row['archive_pdf'])
-    payload['has_xml'] = _archive_exists(row['archive_xml']) or _archive_exists(row['archive_cii'])
-    payload['xml_kind'] = 'xml' if _archive_exists(row['archive_xml']) else ('cii' if _archive_exists(row['archive_cii']) else None)
+        full = os.path.normpath(os.path.join(ARCHIVE_FOLDER, rel))
+        return full.startswith(archive_norm + os.sep) and os.path.isfile(full)
+    # Fallback : scanner le dossier d'archive si les colonnes DB sont vides
+    archive_dir = os.path.join(ARCHIVE_FOLDER, str(invoice_id))
+    dir_files = os.listdir(archive_dir) if os.path.isdir(archive_dir) else []
+    has_pdf = _archive_ok(row['archive_pdf']) or any(f.startswith('pdf__') for f in dir_files)
+    has_xml = _archive_ok(row['archive_xml']) or _archive_ok(row['archive_cii']) or \
+              any(f.startswith(('xml__', 'cii__')) for f in dir_files)
+    if _archive_ok(row['archive_xml']) or any(f.startswith('xml__') for f in dir_files):
+        xml_kind = 'xml'
+    elif _archive_ok(row['archive_cii']) or any(f.startswith('cii__') for f in dir_files):
+        xml_kind = 'cii'
+    else:
+        xml_kind = None
+    payload['has_pdf'] = has_pdf
+    payload['has_xml'] = has_xml
+    payload['xml_kind'] = xml_kind
     return jsonify(payload)
 
 

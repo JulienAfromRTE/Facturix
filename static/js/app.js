@@ -1046,17 +1046,16 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx,invoiceId
         var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
         var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
         var errClass=(r.details_erreurs&&r.details_erreurs.length>0)?'col-erreurs':'col-erreurs-hidden';
-        var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-        var dpUid=needsPanel?String(++_dpUidCounter):null;
-        out+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+        var dpUid=String(++_dpUidCounter);
+        var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+        out+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
           '<td class="col-status">'+sIcon+'</td>'+
           '<td class="col-bt"><strong>'+btLbl+'</strong></td>'+
           '<td>'+escHtml(r.libelle)+'</td>'+
           '<td><ul>'; r.regles_testees.forEach(function(rg){out+='<li>'+escHtml(rg)+'</li>';}); out+='</ul></td>'+
           '<td class="col-valeurs">'+valHtml+'</td>';
-        if(needsPanel){out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-        else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){out+='<td class="'+errClass+'"></td></tr>';}else{out+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(e){out+='<li>'+escHtml(e)+'</li>';});out+='</ul></td></tr>';}}
-        if(needsPanel){out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';}
+        out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+        out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';
       });
       out+='</tbody></table>';
     }
@@ -1093,16 +1092,15 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx,invoiceId
           var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
           var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
           var errClass=(r.details_erreurs&&r.details_erreurs.length>0)?'col-erreurs':'col-erreurs-hidden';
-          var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-          var dpUid=needsPanel?String(++_dpUidCounter):null;
-          out+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+          var dpUid=String(++_dpUidCounter);
+          var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+          out+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
             '<td class="col-status">'+sIcon+'</td><td class="col-bt"><strong>'+btLbl+'</strong></td>'+
             '<td>'+escHtml(r.libelle)+'</td><td><ul>';
           r.regles_testees.forEach(function(rg){out+='<li>'+escHtml(rg)+'</li>';});
           out+='</ul></td><td class="col-valeurs">'+valHtml+'</td>';
-          if(needsPanel){out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-          else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){out+='<td class="'+errClass+'"></td></tr>';}else{out+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(e){out+='<li>'+escHtml(e)+'</li>';});out+='</ul></td></tr>';}}
-          if(needsPanel){out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';}
+          out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+          out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';
         });
         out+='</tbody></table></div></div>';
       });
@@ -1144,16 +1142,15 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx,invoiceId
           var btLbl=r.obligatoire==='Oui'?'<span class="bt-oblig">'+escHtml(r.balise)+'</span>':escHtml(r.balise);
           var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
           var errClass=(r.details_erreurs&&r.details_erreurs.length>0)?'col-erreurs':'col-erreurs-hidden';
-          var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-          var dpUid=needsPanel?String(++_dpUidCounter):null;
-          out+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+          var dpUid=String(++_dpUidCounter);
+          var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+          out+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+escHtml(r.balise)+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
             '<td class="col-status">'+sIcon+'</td><td class="col-bt"><strong>'+btLbl+'</strong></td>'+
             '<td>'+escHtml(r.libelle)+'</td><td><ul>';
           r.regles_testees.forEach(function(rg){out+='<li>'+escHtml(rg)+'</li>';});
           out+='</ul></td><td class="col-valeurs">'+valHtml+'</td>';
-          if(needsPanel){out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-          else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){out+='<td class="'+errClass+'"></td></tr>';}else{out+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(e){out+='<li>'+escHtml(e)+'</li>';});out+='</ul></td></tr>';}}
-          if(needsPanel){out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';}
+          out+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+          out+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,invoiceId,typeControle)+'</td></tr>';
         });
         out+='</tbody></table></div></div>';
       });
@@ -2297,18 +2294,17 @@ var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
 var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
 var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
-var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-var dpUid=needsPanel?String(++_dpUidCounter):null;
-html+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+r.balise+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+var dpUid=String(++_dpUidCounter);
+var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+html+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+r.balise+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
 html+='</ul></td><td class="col-valeurs">'+valHtml+'</td>';
-if(needsPanel){html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){html+='<td class="'+errClass+'"></td></tr>';}else{html+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(err){html+='<li>'+err+'</li>'});html+='</ul></td></tr>';}}
-if(needsPanel){html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';}
+html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';
 if(r.controles_cegedim&&r.controles_cegedim.length>0){
 html+='<tr style="display:none"><td colspan="6" style="padding:0 12px 12px 40px;background:#faf8ff">'+
 '<table class="ceg-table">'+
@@ -2387,18 +2383,17 @@ var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
 var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
 var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
-var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-var dpUid=needsPanel?String(++_dpUidCounter):null;
-html+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+r.balise+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+var dpUid=String(++_dpUidCounter);
+var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+html+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+r.balise+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
 html+='</ul></td><td class="col-valeurs">'+valHtml+'</td>';
-if(needsPanel){html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){html+='<td class="'+errClass+'"></td></tr>';}else{html+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(err){html+='<li>'+err+'</li>'});html+='</ul></td></tr>';}}
-if(needsPanel){html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';}
+html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';
 });
 html+='</tbody></table></div></div>';
 });
@@ -2474,18 +2469,17 @@ var btLabel=r.obligatoire==='Oui'?'<span class="bt-oblig">'+r.balise+'</span>':r
 var rowBg=r.status==='ERREUR'?'background:#fff5f5':(r.status==='IGNORE'?'background:#f5f5f5':(r.status==='AMBIGU'?'background:#fffbeb':''));
 var hasErrors=r.details_erreurs&&r.details_erreurs.length>0;
 var errClass=hasErrors?'col-erreurs':'col-erreurs-hidden';
-var needsPanel=(r.status==='ERREUR'||r.status==='AMBIGU');
-var dpUid=needsPanel?String(++_dpUidCounter):null;
-html+='<tr class="data-row"'+(needsPanel?' id="btrow-'+dpUid+'" data-bt="'+r.balise+'"':'')+' data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
+var dpUid=String(++_dpUidCounter);
+var dpBtnCls='btn-dp-toggle'+(r.status==='OK'?' btn-dp-ok':r.status==='IGNORE'?' btn-dp-ignore':'');
+html+='<tr class="data-row" id="btrow-'+dpUid+'" data-bt="'+r.balise+'" data-tooltip="'+tooltipContent.replace(/"/g,'&quot;')+'" style="'+rowBg+'">'+
 '<td class="col-status">'+statusIcon+'</td>'+
 '<td class="col-bt"><strong>'+btLabel+'</strong></td>'+
 '<td>'+r.libelle+'</td>'+
 '<td><ul>';
 r.regles_testees.forEach(function(regle){html+='<li>'+regle+'</li>'});
 html+='</ul></td><td class="col-valeurs">'+valHtml+'</td>';
-if(needsPanel){html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="btn-dp-toggle" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';}
-else{if(r.details_erreurs&&r.details_erreurs.length===1&&r.details_erreurs[0]==='RAS'){html+='<td class="'+errClass+'"></td></tr>';}else{html+='<td class="'+errClass+'"><ul>';(r.details_erreurs||[]).forEach(function(err){html+='<li>'+err+'</li>'});html+='</ul></td></tr>';}}
-if(needsPanel){html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';}
+html+='<td class="col-erreurs" style="text-align:center;vertical-align:middle"><button class="'+dpBtnCls+'" data-uid="'+dpUid+'" onclick="event.stopPropagation();toggleDetailPanel(\''+dpUid+'\')">▶ Détails</button></td></tr>';
+html+='<tr class="detail-panel-row" id="dp-'+dpUid+'" style="display:none"><td colspan="6">'+buildDetailPanelHtml(r,data.invoice_id,data.type_controle)+'</td></tr>';
 });
 html+='</tbody></table></div></div>';
 });
@@ -3214,6 +3208,17 @@ currentMapping.champs[currentIndex]=newChamp;
 await saveMapping();
 var type=document.getElementById('typeFormulaireParam').value;
 await logAudit(type,author,'edit',newChamp.balise,oldChamp,newChamp);
+// Si la catégorie a changé, proposer de la synchroniser aux autres mappings
+if(oldChamp && (oldChamp.categorie_bg||'')!==(newChamp.categorie_bg||'')){
+var cfResp=await fetch(BASE+'/api/mappings/category-conflicts?balise='+encodeURIComponent(newChamp.balise)+'&categorie_bg='+encodeURIComponent(newChamp.categorie_bg||'')+'&categorie_titre='+encodeURIComponent(newChamp.categorie_titre||''));
+var conflicts=await cfResp.json();
+if(conflicts.length>0){
+document.getElementById('editModal').style.display='none';
+loadMappings();
+showSyncCategModal(newChamp,conflicts);
+return;
+}
+}
 }else{
 // Ajout d'un nouveau champ : enregistrer dans tous les mappings sélectionnés
 var currentType=document.getElementById('typeFormulaireParam').value;
@@ -3254,6 +3259,48 @@ headers:{'Content-Type':'application/json'},
 body:JSON.stringify(currentMapping)
 });
 }
+
+// ── Sync catégorie ────────────────────────────────────────────────────────
+var _syncCategChamp=null;
+function showSyncCategModal(champ,conflicts){
+_syncCategChamp=champ;
+document.getElementById('syncCategBt').textContent=champ.balise;
+var list=document.getElementById('syncCategList');
+list.innerHTML='';
+conflicts.forEach(function(c){
+var label=document.createElement('label');
+label.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.93em';
+var oldCat=c.categorie_titre||c.categorie_bg||'Autres';
+label.innerHTML='<input type="checkbox" class="chk-sync-mapping" value="'+c.mapping_id+'" checked style="width:16px;height:16px"> <span><strong>'+escapeHtml(c.name)+'</strong> <span style="color:#999;font-size:0.88em">(actuellement : '+escapeHtml(oldCat)+')</span></span>';
+list.appendChild(label);
+});
+document.getElementById('syncCategModal').style.display='block';
+}
+document.getElementById('syncCategClose').addEventListener('click',function(){
+document.getElementById('syncCategModal').style.display='none';
+_syncCategChamp=null;
+});
+document.getElementById('syncCategCancel').addEventListener('click',function(){
+document.getElementById('syncCategModal').style.display='none';
+_syncCategChamp=null;
+});
+document.getElementById('syncCategConfirm').addEventListener('click',async function(){
+if(!_syncCategChamp)return;
+var ids=Array.from(document.querySelectorAll('.chk-sync-mapping:checked')).map(function(c){return c.value;});
+if(!ids.length){document.getElementById('syncCategModal').style.display='none';_syncCategChamp=null;return;}
+await fetch(BASE+'/api/mappings/sync-category',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({balise:_syncCategChamp.balise,categorie_bg:_syncCategChamp.categorie_bg,categorie_titre:_syncCategChamp.categorie_titre,target_mapping_ids:ids})
+});
+document.getElementById('syncCategModal').style.display='none';
+_syncCategChamp=null;
+});
+window.addEventListener('click',function(e){
+var m=document.getElementById('syncCategModal');
+if(e.target===m){m.style.display='none';_syncCategChamp=null;}
+});
+
 document.getElementById('typeFormulaireParam').addEventListener('change',function(){
     loadMappings();
     updateDeleteButtonVisibility();
@@ -4525,6 +4572,8 @@ function buildDetailPanelHtml(r,invoiceId,typeControle){
     html+='<button class="btn-dp-share" data-iid="'+Number(invoiceId)+'" data-balise="'+safeBalise+'" onclick="shareField(+this.dataset.iid,this.dataset.balise,this)" title="Copier le lien direct vers cette erreur">🔗 Partager ce champ</button>';
   }
   html+='</div>';
+  if(r.status==='OK'){html+='<div class="dp-ok-banner">✅ Contrôle réussi — les valeurs RDI et XML correspondent</div>';}
+  else if(r.status==='IGNORE'){html+='<div class="dp-ignore-banner">⏸ Champ ignoré — non pris en compte dans le contrôle</div>';}
   var nonSchErr=(r.details_erreurs||[]).filter(function(e){return !/^\[BR-/.test(e)&&e!=='RAS';});
   if(hasRdi||hasXml){
     html+='<div class="dp-section dp-section-values"><div class="dp-section-title">Valeurs</div><div class="dp-values">';
