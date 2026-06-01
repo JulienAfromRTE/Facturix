@@ -706,45 +706,96 @@ def _attach_brco_details(results, rows_by_balise, _parse_amount):
 
     # ── BR-CO-17 : BT-117 = BT-116 × BT-119 / 100 (par ventilation) ───
     try:
-        _, lines116 = _sum_multi('BT-116')
-        _, lines117 = _sum_multi('BT-117')
-        _, lines119 = _sum_multi('BT-119')
-        _, lines118 = _sum_multi('BT-118')
-        n = max(len(lines116), len(lines117), len(lines119))
-        if n > 0:
-            dl = [
-                '🔎 BR-CO-17 — BT-117 doit être = BT-116 × BT-119 / 100 (par ventilation)',
-                '   Formule : TVA ventilation = Base imposable × Taux / 100, arrondi à 2 décimales',
-                SEP,
-                '📋 Vérification par ventilation TVA :',
-            ]
-            any_data = False
-            for i in range(n):
-                cat    = lines118[i][1] if i < len(lines118) else '?'
-                base_s = lines116[i][1] if i < len(lines116) else '?'
-                vat_s  = lines117[i][1] if i < len(lines117) else '?'
-                rate_s = lines119[i][1] if i < len(lines119) else '?'
-                dl.append(f'  Ventilation #{i + 1} (BT-118 = {cat}) :')
-                dl.append(f'    BT-116 (base imposable) = {base_s}')
-                dl.append(f'    BT-119 (taux TVA)       = {rate_s}%')
+        def _bg23_sorted(balise):
+            return sorted(
+                [r for r in rows_by_balise.get(balise, []) if r.get('bg23_index') is not None],
+                key=lambda x: x.get('bg23_index', 0)
+            )
+
+        bg23_bt117 = _bg23_sorted('BT-117')
+
+        if bg23_bt117:
+            # Blocs BG-23 répétitifs : calculer un detail indépendant par bloc
+            bg23_bt116 = _bg23_sorted('BT-116')
+            bg23_bt118 = _bg23_sorted('BT-118')
+            bg23_bt119 = _bg23_sorted('BT-119')
+
+            def _val(lst, i):
+                if i >= len(lst):
+                    return '?'
+                r = lst[i]
+                return (r.get('rdi') or r.get('xml') or '').strip() or '?'
+
+            for i, bt117_obj in enumerate(bg23_bt117):
+                cat    = _val(bg23_bt118, i)
+                base_s = _val(bg23_bt116, i)
+                vat_s  = _val([bt117_obj], 0)
+                rate_s = _val(bg23_bt119, i)
+                dl = [
+                    '🔎 BR-CO-17 — BT-117 doit être = BT-116 × BT-119 / 100',
+                    '   Formule : TVA ventilation = Base imposable × Taux / 100, arrondi à 2 décimales',
+                    SEP,
+                    f'📋 Ventilation TVA (BT-118 = {cat}) :',
+                    f'  BT-116 (base imposable) = {base_s}',
+                    f'  BT-119 (taux TVA)       = {rate_s}%',
+                ]
                 try:
                     base_f = _parse_amount(base_s)
                     rate_f = _parse_amount(rate_s)
                     expected_vat = round(base_f * rate_f / 100, 2)
-                    dl.append(f'    → BT-117 attendu        = {base_s} × {rate_s} / 100 = {expected_vat}')
+                    dl.append(f'  → BT-117 attendu        = {base_s} × {rate_s} / 100 = {expected_vat}')
                     try:
                         vat_f = _parse_amount(vat_s)
                         ecart = abs(vat_f - expected_vat)
-                        dl.append(f'    BT-117 (déclaré)        = {vat_s}')
-                        dl.append(f'    Écart                   = {ecart:.4f} {_ok(ecart)}')
+                        dl.append(f'  BT-117 (déclaré)        = {vat_s}')
+                        dl.append(f'  Écart                   = {ecart:.4f} {_ok(ecart)}')
+                    except Exception:
+                        dl.append(f'  BT-117 (déclaré)        = {vat_s}')
+                except Exception:
+                    dl.append(f'  BT-117 (déclaré)        = {vat_s}')
+                    dl.append(f'  (calcul impossible — valeurs non numériques)')
+                bt117_obj.setdefault('rule_details', {})['Détail calcul BR-CO-17'] = dl
+        else:
+            # Ancien format (xml_all ou ventilation unique) : traitement global
+            _, lines116 = _sum_multi('BT-116')
+            _, lines117 = _sum_multi('BT-117')
+            _, lines119 = _sum_multi('BT-119')
+            _, lines118 = _sum_multi('BT-118')
+            n = max(len(lines116), len(lines117), len(lines119))
+            if n > 0:
+                dl = [
+                    '🔎 BR-CO-17 — BT-117 doit être = BT-116 × BT-119 / 100 (par ventilation)',
+                    '   Formule : TVA ventilation = Base imposable × Taux / 100, arrondi à 2 décimales',
+                    SEP,
+                    '📋 Vérification par ventilation TVA :',
+                ]
+                any_data = False
+                for i in range(n):
+                    cat    = lines118[i][1] if i < len(lines118) else '?'
+                    base_s = lines116[i][1] if i < len(lines116) else '?'
+                    vat_s  = lines117[i][1] if i < len(lines117) else '?'
+                    rate_s = lines119[i][1] if i < len(lines119) else '?'
+                    dl.append(f'  Ventilation #{i + 1} (BT-118 = {cat}) :')
+                    dl.append(f'    BT-116 (base imposable) = {base_s}')
+                    dl.append(f'    BT-119 (taux TVA)       = {rate_s}%')
+                    try:
+                        base_f = _parse_amount(base_s)
+                        rate_f = _parse_amount(rate_s)
+                        expected_vat = round(base_f * rate_f / 100, 2)
+                        dl.append(f'    → BT-117 attendu        = {base_s} × {rate_s} / 100 = {expected_vat}')
+                        try:
+                            vat_f = _parse_amount(vat_s)
+                            ecart = abs(vat_f - expected_vat)
+                            dl.append(f'    BT-117 (déclaré)        = {vat_s}')
+                            dl.append(f'    Écart                   = {ecart:.4f} {_ok(ecart)}')
+                        except Exception:
+                            dl.append(f'    BT-117 (déclaré)        = {vat_s}')
+                        any_data = True
                     except Exception:
                         dl.append(f'    BT-117 (déclaré)        = {vat_s}')
-                    any_data = True
-                except Exception:
-                    dl.append(f'    BT-117 (déclaré)        = {vat_s}')
-                    dl.append(f'    (calcul impossible — valeurs non numériques)')
-            if any_data:
-                _attach('BT-117', 'Détail calcul BR-CO-17', dl)
+                        dl.append(f'    (calcul impossible — valeurs non numériques)')
+                if any_data:
+                    _attach('BT-117', 'Détail calcul BR-CO-17', dl)
     except Exception:
         pass
 
@@ -1147,11 +1198,17 @@ def apply_business_rules(results, type_formulaire='simple'):
                 pass
 
         elif action_type == 'vat_breakdown_detail':
-            # BR-S-08 : explicite le calcul de la cohérence TVA par ventilation.
-            # Affiche, par taux : la base déclarée (BT-116) vs la somme des
-            # BT-131 des lignes 'Standard rated' au même taux.
+            # BR-X-08 : cohérence TVA par ventilation.
+            # Calcule les détails SÉPARÉMENT pour chaque bloc BG-23 (une catégorie par bloc).
             try:
                 def _xml_all_of(balise):
+                    # Collecte les valeurs de TOUS les blocs BG-23 triés par bg23_index
+                    bg23_objs = [r for r in results
+                                 if r.get('balise') == balise and r.get('bg23_index') is not None]
+                    if bg23_objs:
+                        bg23_objs.sort(key=lambda x: x.get('bg23_index', 0))
+                        return [(r.get('xml') or r.get('rdi') or '').strip() for r in bg23_objs]
+                    # Fallback champ d'en-tête avec xml_all (ancien format sans blocs répétitifs)
                     obj = next((r for r in results if r.get('balise') == balise), None)
                     if not obj:
                         return []
@@ -1166,8 +1223,7 @@ def apply_business_rules(results, type_formulaire='simple'):
                 bt116_all = _xml_all_of('BT-116')
                 bt117_all = _xml_all_of('BT-117')
 
-                # Regroupe les champs par article_index : line_id, name,
-                # BT-131 (montant), BT-151 (catégorie TVA), BT-152 (taux).
+                # Regroupe les lignes d'article : line_id, BT-131, BT-151, BT-152
                 articles_data = {}
                 for r in results:
                     ai = r.get('article_index')
@@ -1188,132 +1244,129 @@ def apply_business_rules(results, type_formulaire='simple'):
                         entry['bt152'] = val
 
                 def _norm_rate(s):
-                    """Normalise un taux pour comparaison (ex: '20', '20.00', ' 20 ' → '20.0')."""
                     s = (s or '').strip().replace(',', '.')
                     try:
                         return f'{float(s):g}'
                     except:
                         return s
 
-                detail_lines = []
-                detail_lines.append('🔎 BR-S-08 — Cohérence ventilation TVA "Standard rated"')
-                detail_lines.append('Pour chaque taux TVA, BT-116 (base imposable) doit égaler')
-                detail_lines.append('Σ BT-131 (lignes "S" au même taux) + Σ BT-99 − Σ BT-92.')
-                detail_lines.append('═══════════════════════════════════════')
+                def _build_detail_lines(current_cat):
+                    """Construit les lignes de détail pour la catégorie TVA donnée."""
+                    cat_label = current_cat or '?'
+                    dl = []
+                    dl.append(f'🔎 BR-{cat_label}-08 — Cohérence ventilation TVA (Cat="{cat_label}")')
+                    dl.append(f'BT-116 (base imposable Cat={cat_label}) doit égaler')
+                    dl.append(f'Σ BT-131 (lignes BT-151="{cat_label}" au même taux) + Σ BT-99 − Σ BT-92.')
+                    dl.append('═══════════════════════════════════════')
 
-                # 1. Ventilations TVA déclarées en en-tête
-                detail_lines.append('📋 Ventilations TVA déclarées (en-tête) :')
-                n_breakdowns = max(len(bt118_all), len(bt119_all), len(bt116_all), len(bt117_all))
-                breakdowns_s = []  # liste de (rate_norm, base_float, vat_float)
-                if n_breakdowns == 0:
-                    detail_lines.append('  (aucune)')
-                for i in range(n_breakdowns):
-                    cat = (bt118_all[i] if i < len(bt118_all) else '').strip()
-                    rate = (bt119_all[i] if i < len(bt119_all) else '').strip()
-                    base = (bt116_all[i] if i < len(bt116_all) else '').strip()
-                    vat = (bt117_all[i] if i < len(bt117_all) else '').strip()
-                    is_s = cat.upper() == 'S'
-                    marker = ' ◀ Standard rated' if is_s else ''
-                    detail_lines.append(
-                        f'  #{i + 1} : Cat={cat or "?"} | Taux={rate or "?"}% | '
-                        f'Base BT-116={base or "?"} | TVA BT-117={vat or "?"}{marker}'
-                    )
-                    if is_s:
-                        try:
-                            base_f = _parse_amount(base)
-                        except:
-                            base_f = 0.0
-                        try:
-                            vat_f = _parse_amount(vat)
-                        except:
-                            vat_f = 0.0
-                        breakdowns_s.append((_norm_rate(rate), base_f, vat_f))
+                    # 1. Toutes les ventilations en-tête
+                    dl.append('📋 Ventilations TVA déclarées (en-tête) :')
+                    n = max(len(bt118_all), len(bt119_all), len(bt116_all), len(bt117_all))
+                    breakdowns_cat = []
+                    if n == 0:
+                        dl.append('  (aucune)')
+                    for i in range(n):
+                        cat  = (bt118_all[i] if i < len(bt118_all) else '').strip()
+                        rate = (bt119_all[i] if i < len(bt119_all) else '').strip()
+                        base = (bt116_all[i] if i < len(bt116_all) else '').strip()
+                        vat  = (bt117_all[i] if i < len(bt117_all) else '').strip()
+                        is_cur = cat.upper() == current_cat
+                        marker = f' ◀ Cat={cat_label}' if is_cur else ''
+                        dl.append(
+                            f'  #{i + 1} : Cat={cat or "?"} | Taux={rate or "?"}% | '
+                            f'Base BT-116={base or "?"} | TVA BT-117={vat or "?"}{marker}'
+                        )
+                        if is_cur:
+                            try:
+                                base_f = _parse_amount(base)
+                            except:
+                                base_f = 0.0
+                            try:
+                                vat_f = _parse_amount(vat)
+                            except:
+                                vat_f = 0.0
+                            breakdowns_cat.append((_norm_rate(rate), base_f, vat_f))
 
-                # 2. Lignes "Standard rated"
-                detail_lines.append('───────────────────────────────────────')
-                detail_lines.append('📦 Lignes de facture "Standard rated" (BT-151 = "S") :')
-                s_lines = []
-                for ai in sorted(articles_data.keys()):
-                    a = articles_data[ai]
-                    if a['bt151'].upper() == 'S' and a['bt131']:
-                        s_lines.append((a['line_id'], a['name'], a['bt131'], a['bt152']))
-                if not s_lines:
-                    detail_lines.append('  (aucune)')
-                bt131_total = 0.0
-                has_bt152 = False
-                for lid, name, amt, rate in s_lines:
-                    label = f'Ligne {lid}' if lid else 'Ligne ?'
-                    if name:
-                        label += f' ({name})'
-                    rate_part = f' | Taux BT-152={rate}%' if rate else ''
-                    if rate:
-                        has_bt152 = True
-                    detail_lines.append(f'  {label}{rate_part} : BT-131 = {amt}')
-                    try:
-                        bt131_total += _parse_amount(amt)
-                    except:
-                        pass
-                detail_lines.append('  ───────────────')
-                detail_lines.append(f'  Σ BT-131 (lignes "S") = {round(bt131_total, 2)}')
-
-                # 3. Comparaison
-                detail_lines.append('───────────────────────────────────────')
-                detail_lines.append('🧮 Vérification :')
-                detail_lines.append('  (BT-99 charges et BT-92 remises au niveau document')
-                detail_lines.append('   ne sont pas dans le mapping — supposés = 0)')
-                if has_bt152:
-                    sum_by_rate = {}
-                    lines_by_rate = {}
-                    for _, _, amt, rate in s_lines:
-                        key = _norm_rate(rate)
+                    # 2. Lignes de la catégorie courante
+                    dl.append('───────────────────────────────────────')
+                    dl.append(f'📦 Lignes de facture Cat="{cat_label}" (BT-151 = "{cat_label}") :')
+                    cat_lines = []
+                    for ai in sorted(articles_data.keys()):
+                        a = articles_data[ai]
+                        if a['bt151'].upper() == current_cat and a['bt131']:
+                            cat_lines.append((a['line_id'], a['name'], a['bt131'], a['bt152']))
+                    if not cat_lines:
+                        dl.append('  (aucune)')
+                    bt131_total = 0.0
+                    has_bt152 = False
+                    for lid, name, amt, rate in cat_lines:
+                        lbl = f'Ligne {lid}' if lid else 'Ligne ?'
+                        if name:
+                            lbl += f' ({name})'
+                        rate_part = f' | Taux BT-152={rate}%' if rate else ''
+                        if rate:
+                            has_bt152 = True
+                        dl.append(f'  {lbl}{rate_part} : BT-131 = {amt}')
                         try:
-                            sum_by_rate[key] = sum_by_rate.get(key, 0.0) + _parse_amount(amt)
+                            bt131_total += _parse_amount(amt)
                         except:
                             pass
-                        lines_by_rate.setdefault(key, []).append(amt)
-                    for rate_key, base_val, vat_val in breakdowns_s:
-                        lines_total = round(sum_by_rate.get(rate_key, 0.0), 2)
-                        ecart = abs(lines_total - base_val)
+                    dl.append('  ───────────────')
+                    dl.append(f'  Σ BT-131 (lignes "{cat_label}") = {round(bt131_total, 2)}')
+
+                    # 3. Comparaison
+                    dl.append('───────────────────────────────────────')
+                    dl.append('🧮 Vérification :')
+                    dl.append('  (BT-99 charges et BT-92 remises au niveau document')
+                    dl.append('   ne sont pas dans le mapping — supposés = 0)')
+                    if has_bt152:
+                        sum_by_rate = {}
+                        for _, _, amt, rate in cat_lines:
+                            key = _norm_rate(rate)
+                            try:
+                                sum_by_rate[key] = sum_by_rate.get(key, 0.0) + _parse_amount(amt)
+                            except:
+                                pass
+                        for rate_key, base_val, _ in breakdowns_cat:
+                            lines_total = round(sum_by_rate.get(rate_key, 0.0), 2)
+                            ecart = abs(lines_total - base_val)
+                            status = '✓' if ecart <= 0.01 else '✗'
+                            dl.append(
+                                f'  Taux {rate_key}% : Σ BT-131({cat_label}) = {lines_total} '
+                                f'vs BT-116 = {round(base_val, 2)} → écart {ecart:.2f} {status}'
+                            )
+                        orphan = set(sum_by_rate) - {r for r, _, _ in breakdowns_cat}
+                        for r in sorted(orphan):
+                            dl.append(
+                                f'  ⚠️ Taux {r}% présent en ligne mais absent de la ventilation : '
+                                f'Σ BT-131 = {round(sum_by_rate[r], 2)}'
+                            )
+                    else:
+                        base_cat_total = round(sum(b for _, b, _ in breakdowns_cat), 2)
+                        ecart = abs(bt131_total - base_cat_total)
                         status = '✓' if ecart <= 0.01 else '✗'
-                        detail_lines.append(
-                            f'  Taux {rate_key}% : '
-                            f'Σ BT-131(S) = {lines_total} '
-                            f'vs BT-116 = {round(base_val, 2)} '
+                        dl.append('  (BT-152 absent du mapping — vérification globale)')
+                        dl.append(
+                            f'  Σ BT-131 ("{cat_label}") = {round(bt131_total, 2)} '
+                            f'vs Σ BT-116 (Cat={cat_label}) = {base_cat_total} '
                             f'→ écart {ecart:.2f} {status}'
                         )
-                    rates_in_lines = set(sum_by_rate.keys())
-                    rates_in_header = {r for r, _, _ in breakdowns_s}
-                    orphan = rates_in_lines - rates_in_header
-                    for r in sorted(orphan):
-                        detail_lines.append(
-                            f'  ⚠️ Taux {r}% présent en ligne mais absent de la ventilation : '
-                            f'Σ BT-131 = {round(sum_by_rate[r], 2)}'
-                        )
-                else:
-                    base_s_total = round(sum(b for _, b, _ in breakdowns_s), 2)
-                    ecart = abs(bt131_total - base_s_total)
-                    status = '✓' if ecart <= 0.01 else '✗'
-                    detail_lines.append('  (BT-152 absent du mapping — vérification globale)')
-                    detail_lines.append(
-                        f'  Σ BT-131 (S) = {round(bt131_total, 2)} '
-                        f'vs Σ BT-116 (Cat=S) = {base_s_total} '
-                        f'→ écart {ecart:.2f} {status}'
-                    )
+                    return dl
 
                 regle_label = 'Détail ventilation TVA (BR-S-08)'
-                if regle_label not in target['regles_testees']:
-                    target['regles_testees'].append(regle_label)
-                if 'rule_details' not in target:
-                    target['rule_details'] = {}
-                target['rule_details'][rule_name] = detail_lines
 
-                # Attache aussi le détail de calcul sur BT-116 (tous ses objets résultat)
-                for bt116_obj in rows_by_balise.get('BT-116', []):
-                    if 'rule_details' not in bt116_obj:
-                        bt116_obj['rule_details'] = {}
-                    bt116_obj['rule_details'][rule_name] = detail_lines
-                    if regle_label not in bt116_obj.get('regles_testees', []):
-                        bt116_obj.setdefault('regles_testees', []).append(regle_label)
+                # Écrire les détails sur chaque BT-116 BG-23 avec la catégorie de SON bloc
+                bg23_bt116_objs = sorted(
+                    [r for r in rows_by_balise.get('BT-116', []) if r.get('bg23_index') is not None],
+                    key=lambda x: x.get('bg23_index', 0)
+                )
+                write_targets = bg23_bt116_objs if bg23_bt116_objs else [target]
+                for write_obj in write_targets:
+                    current_cat = (write_obj.get('bg23_vat_code') or '').strip().upper()
+                    dl = _build_detail_lines(current_cat)
+                    write_obj.setdefault('rule_details', {})[rule_name] = dl
+                    if regle_label not in write_obj.get('regles_testees', []):
+                        write_obj.setdefault('regles_testees', []).append(regle_label)
             except Exception:
                 pass
 
@@ -1755,7 +1808,7 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
             code = xb.get('BT-118', '').strip()
             xml_by_code.setdefault(code, []).append((xi, xb))
 
-        for rdi_block in rdi_bg23_blocks:
+        for rdi_idx, rdi_block in enumerate(rdi_bg23_blocks):
             rdi_code = get_rdi_bg23_vat_code(rdi_block)
             xml_block = {}
             xml_index = None
@@ -1766,6 +1819,10 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
                         xml_used.add(xi)
                         xml_index = xi
                         break
+            if xml_index is None:
+                # Pas de bloc XML réel → la position dans le XML synthétique
+                # (build_cii_xml) suit l'ordre de rdi_bg23_blocks.
+                xml_index = rdi_idx
             matched.append((rdi_block, xml_block, rdi_code, xml_index))
 
         # Blocs XML sans correspondance RDI
