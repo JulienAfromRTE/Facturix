@@ -79,9 +79,13 @@ def parse_rdi(rdi_path):
         # Gestion des blocs BG-23 répétitifs (détail TVA en-tête)
         elif tag.startswith(BG23_PREFIX) or tag.upper().startswith(BG23_PREFIX.upper()):
             tag_up = tag.upper()
-            # BT118_TVA_CODE_TYPE (BT-118, code catégorie "S", "E", "G"...) déclenche un nouveau bloc.
-            # BT118_0 (type "VAT") ne déclenche PAS un nouveau bloc.
-            if 'BT118' in tag_up and 'BT118_0' not in tag_up:
+            # BT116 est le premier champ d'un nouveau bloc BG-23 dans le RDI → ouvre le bloc.
+            # Fallback : si BT116 absent (ancien format sans base imposable), ouvrir sur BT118.
+            # BT118_0 (qualifiant "VAT") ne déclenche PAS un nouveau bloc.
+            if 'BT116' in tag_up:
+                current_bg23 = {}
+                bg23_blocks.append(current_bg23)
+            elif 'BT118' in tag_up and 'BT118_0' not in tag_up and current_bg23 is None:
                 current_bg23 = {}
                 bg23_blocks.append(current_bg23)
             if current_bg23 is not None:
