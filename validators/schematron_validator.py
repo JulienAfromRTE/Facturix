@@ -115,6 +115,7 @@ def _parse_svrl(svrl_str):
 # Le `[\d+]` final est le numéro de ligne (1-based). On match le marker puis le
 # premier prédicat numérique de la même étape (pas après le `/` suivant).
 _LINE_ITEM_RE = re.compile(r'IncludedSupplyChainTradeLineItem[^/]*?\[(\d+)\]')
+_APPLICABLE_TRADE_TAX_RE = re.compile(r'ApplicableTradeTax[^/]*?\[(\d+)\]')
 
 
 def line_index_from_location(location):
@@ -122,6 +123,14 @@ def line_index_from_location(location):
     if not location:
         return None
     match = _LINE_ITEM_RE.search(location)
+    return int(match.group(1)) - 1 if match else None
+
+
+def bg23_index_from_location(location):
+    """Renvoie l'index 0-based de l'ApplicableTradeTax cité dans la location schématron, ou None."""
+    if not location:
+        return None
+    match = _APPLICABLE_TRADE_TAX_RE.search(location)
     return int(match.group(1)) - 1 if match else None
 
 

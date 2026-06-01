@@ -11,6 +11,7 @@ from validators.schematron_validator import (
     validate_xml as schematron_validate_xml,
     candidates_for_balise,
     line_index_from_location,
+    bg23_index_from_location,
     index_errors_by_bt,
 )
 from validators.cii_builder import build_cii_xml
@@ -324,6 +325,7 @@ def apply_schematron(xml_content, results):
         if not candidates:
             return
         seen = set()
+        xml_bg23_idx = result.get('xml_bg23_index')  # position XML du bloc BG-23, None sinon
         for cand in candidates:
             for err in by_bt.get(cand, []):
                 err_line = line_index_from_location(err.get('location', ''))
@@ -335,6 +337,11 @@ def apply_schematron(xml_content, results):
                     # Champ d'en-tête : on exclut les erreurs scopées à une ligne précise
                     if err_line is not None:
                         continue
+                    # Bloc BG-23 : on ne prend que les erreurs du même ApplicableTradeTax
+                    if xml_bg23_idx is not None:
+                        err_bg23 = bg23_index_from_location(err.get('location', ''))
+                        if err_bg23 is not None and err_bg23 != xml_bg23_idx:
+                            continue
                 key = (err['rule_id'], err.get('location', ''), err.get('message', ''))
                 if key in seen:
                     continue
@@ -1751,24 +1758,26 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
         for rdi_block in rdi_bg23_blocks:
             rdi_code = get_rdi_bg23_vat_code(rdi_block)
             xml_block = {}
+            xml_index = None
             if rdi_code in xml_by_code:
                 for xi, xb in xml_by_code[rdi_code]:
                     if xi not in xml_used:
                         xml_block = xb
                         xml_used.add(xi)
+                        xml_index = xi
                         break
-            matched.append((rdi_block, xml_block, rdi_code))
+            matched.append((rdi_block, xml_block, rdi_code, xml_index))
 
         # Blocs XML sans correspondance RDI
         for xi, xb in enumerate(xml_bg23_blocks):
             if xi not in xml_used:
-                matched.append(({}, xb, xb.get('BT-118', '').strip()))
+                matched.append(({}, xb, xb.get('BT-118', '').strip(), xi))
 
     elif xml_bg23_blocks:
         # Ancien format RDI (pas de blocs) + XML disponible → un bloc par nœud XML,
         # valeurs RDI issues de rdi_data (tags génériques comme MAP_HT, GT_TVA-TAUX…)
         for xi, xb in enumerate(xml_bg23_blocks):
-            matched.append(({}, xb, xb.get('BT-118', '').strip()))
+            matched.append(({}, xb, xb.get('BT-118', '').strip(), xi))
 
     else:
         # Aucun bloc XML et aucun bloc RDI répétitif → mode RDI seul (ou XML sans TVA)
@@ -1787,7 +1796,7 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
 
         if bt118_from_data:
             # Code TVA connu depuis rdi_data → un seul groupe
-            matched.append(({}, {}, bt118_from_data))
+            matched.append(({}, {}, bt118_from_data, None))
         elif rdi_articles:
             # Essai 2 : codes distincts depuis BT-151 des articles
             bt151_codes = []
@@ -1801,14 +1810,14 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
                             bt151_codes.append(code)
             if bt151_codes:
                 for code in bt151_codes:
-                    matched.append(({}, {}, code))
+                    matched.append(({}, {}, code, None))
             else:
-                matched.append(({}, {}, ''))
+                matched.append(({}, {}, '', None))
         else:
-            matched.append(({}, {}, ''))
+            matched.append(({}, {}, '', None))
 
     bg23_results = []
-    for bg23_idx, (rdi_block, xml_block, vat_code) in enumerate(matched):
+    for bg23_idx, (rdi_block, xml_block, vat_code, xml_index) in enumerate(matched):
         for field in bg23_fields:
             rdi_field_name = field.get('rdi', '')
             rdi_value = ''
@@ -1851,6 +1860,7 @@ def _process_bg23(rdi_bg23_blocks, xml_bg23_blocks, bg23_fields, rdi_data,
                 'obligatoire': field.get('obligatoire', 'Non'),
                 'order_index': start_order_index + bg23_idx * 100 + bg23_fields.index(field),
                 'bg23_index': bg23_idx,
+                'xml_bg23_index': xml_index,
                 'bg23_vat_code': vat_code or ('Groupe ' + str(bg23_idx + 1)),
             })
     return bg23_results
