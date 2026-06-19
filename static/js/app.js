@@ -503,6 +503,11 @@ function statsHistFilteredItems(){
   if(typeVal){
     items = items.filter(function(x){ return (x.type_formulaire||'') === typeVal; });
   }
+  var invEl = document.getElementById('statsHistInvoice');
+  var invVal = invEl ? invEl.value.trim().toLowerCase() : '';
+  if(invVal){
+    items = items.filter(function(x){ return String(x.invoice_number||'').toLowerCase().indexOf(invVal) !== -1; });
+  }
   var maxErr = maxErrEl && maxErrEl.value !== '' ? parseInt(maxErrEl.value, 10) : null;
   if(maxErr !== null && !isNaN(maxErr)){
     items = items.filter(function(x){ return (x.erreur||0) <= maxErr; });
@@ -628,6 +633,8 @@ document.getElementById('btnStatsReset').addEventListener('click', function(){
   if(maxErrEl) maxErrEl.value = '';
   var typeEl = document.getElementById('statsHistType');
   if(typeEl) typeEl.value = '';
+  var invEl = document.getElementById('statsHistInvoice');
+  if(invEl) invEl.value = '';
   statsLoadAll();
 });
 document.getElementById('btnStatsExportCsv').addEventListener('click', statsExportCsv);
@@ -635,9 +642,11 @@ document.getElementById('btnStatsExportCsv').addEventListener('click', statsExpo
   var typeEl = document.getElementById('statsHistType');
   var sortEl = document.getElementById('statsHistSort');
   var maxErrEl = document.getElementById('statsHistMaxErr');
+  var invEl = document.getElementById('statsHistInvoice');
   if(typeEl) typeEl.addEventListener('change', statsRenderHistory);
   if(sortEl) sortEl.addEventListener('change', statsRenderHistory);
   if(maxErrEl) maxErrEl.addEventListener('input', statsRenderHistory);
+  if(invEl) invEl.addEventListener('input', statsRenderHistory);
 })();
 window.addEventListener('resize', function(){
   if(document.getElementById('contentStats').classList.contains('active') && statsState.lastTrend){

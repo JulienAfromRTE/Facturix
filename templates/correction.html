@@ -46,6 +46,12 @@ tr:hover td{background:#f8fafc}
 .correction-input.modified{border-color:#f59e0b;background:#fffbeb;font-weight:600}
 .correction-input.modified:focus{border-color:#d97706}
 .correction-input:placeholder-shown{color:#94a3b8}
+.correction-input.to-delete{border-color:#dc2626;background:#fef2f2;color:#b91c1c;text-decoration:line-through;font-weight:600}
+
+.correction-cell{display:flex;align-items:center;gap:6px}
+.btn-del-field{flex:none;background:#fff;border:1px solid #cbd5e1;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:0.95em;line-height:1;transition:background 0.15s,border-color 0.15s}
+.btn-del-field:hover{background:#fef2f2;border-color:#dc2626}
+.btn-del-field.active{background:#dc2626;border-color:#dc2626}
 
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e2e8f0;padding:12px 24px;display:flex;align-items:center;justify-content:flex-end;gap:16px;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
 .mod-count{color:#64748b;font-size:0.85em}
@@ -68,6 +74,7 @@ tr:hover td{background:#f8fafc}
 <div class="info-banner">
   Modifiez les valeurs dans la colonne <strong>Correction</strong> — seuls les champs modifiés seront patchés.
   Les champs sans valeur XML correspondent à des balises absentes du document : la valeur saisie sera insérée.
+  Le bouton <strong>🗑</strong> supprime entièrement le champ du XML (cliquez à nouveau pour annuler).
 </div>
 
 {% for bg_id in sorted_cat_ids %}
@@ -112,14 +119,20 @@ tr:hover td{background:#f8fafc}
         {% else %}<span class="xml-absent">(absent)</span>{% endif %}
       </td>
       <td>
-        <input type="text"
-               class="correction-input"
-               data-balise="{{ field.balise }}"
-               data-article-index="{{ field.article_index if field.article_index is not none else '' }}"
-               value="{{ field.xml or '' }}"
-               data-original="{{ field.xml or '' }}"
-               placeholder="{{ '(absent du XML)' if not field.xml else '' }}"
-               oninput="onFieldChange(this)">
+        <div class="correction-cell">
+          <input type="text"
+                 class="correction-input"
+                 data-balise="{{ field.balise }}"
+                 data-article-index="{{ field.article_index if field.article_index is not none else '' }}"
+                 value="{{ field.xml or '' }}"
+                 data-original="{{ field.xml or '' }}"
+                 data-delete="0"
+                 placeholder="{{ '(absent du XML)' if not field.xml else '' }}"
+                 oninput="onFieldChange(this)">
+          {% if field.xml %}
+          <button type="button" class="btn-del-field" title="Supprimer ce champ du XML" onclick="toggleDelete(this)">🗑</button>
+          {% endif %}
+        </div>
       </td>
     </tr>
     {% endfor %}
@@ -147,8 +160,27 @@ function onFieldChange(inp) {
   updateButtons();
 }
 
+function toggleDelete(btn) {
+  var cell = btn.closest('.correction-cell');
+  var inp = cell.querySelector('.correction-input');
+  var on = inp.dataset.delete !== '1';
+  inp.dataset.delete = on ? '1' : '0';
+  inp.disabled = on;
+  inp.classList.toggle('to-delete', on);
+  btn.classList.toggle('active', on);
+  btn.title = on ? 'Annuler la suppression' : 'Supprimer ce champ du XML';
+  if (on) {
+    // une suppression et une modification de valeur sont exclusives
+    inp.classList.remove('modified');
+  } else {
+    inp.classList.toggle('modified', inp.value !== inp.dataset.original);
+  }
+  updateButtons();
+}
+
 function updateButtons() {
-  var n = document.querySelectorAll('.correction-input.modified').length;
+  var n = document.querySelectorAll('.correction-input.modified').length
+        + document.querySelectorAll('.correction-input[data-delete="1"]').length;
   var txt = '📥 Télécharger le ' + DL_LABEL + ' corrigé (' + n + ' modification' + (n > 1 ? 's' : '') + ')';
   ['btnDlTop', 'btnDlBottom'].forEach(function(id) {
     var b = document.getElementById(id);
@@ -162,9 +194,13 @@ function updateButtons() {
 
 async function downloadCorrected() {
   var patches = [];
-  document.querySelectorAll('.correction-input.modified').forEach(function(inp) {
+  document.querySelectorAll('.correction-input').forEach(function(inp) {
     var artIdx = inp.dataset.articleIndex !== '' ? parseInt(inp.dataset.articleIndex, 10) : null;
-    patches.push({ balise: inp.dataset.balise, value: inp.value, article_index: artIdx });
+    if (inp.dataset.delete === '1') {
+      patches.push({ balise: inp.dataset.balise, article_index: artIdx, delete: true });
+    } else if (inp.classList.contains('modified')) {
+      patches.push({ balise: inp.dataset.balise, value: inp.value, article_index: artIdx });
+    }
   });
   if (!patches.length) { alert('Aucune modification à appliquer.'); return; }
   ['btnDlTop', 'btnDlBottom'].forEach(function(id) {

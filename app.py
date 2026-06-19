@@ -3269,6 +3269,7 @@ def api_patch_xml():
         balise = patch.get('balise')
         value = patch.get('value', '')
         article_index = patch.get('article_index')
+        delete = bool(patch.get('delete'))
         field = field_map.get(balise)
         if not field:
             warnings.append(f'Balise {balise} introuvable dans le mapping')
@@ -3286,7 +3287,10 @@ def api_patch_xml():
             warnings.append(f'XPath invalide pour {balise} : {e}')
             continue
         if not results:
-            if xpath_raw.startswith('/'):
+            if delete:
+                # Rien à supprimer : déjà absent du XML
+                print(f'[PATCH-XML] {balise} déjà absent du XML — suppression sans effet')
+            elif xpath_raw.startswith('/'):
                 _ensure_and_set(xml_doc, xpath_raw, namespaces, value, attribute or None, field_map=field_map)
                 print(f'[PATCH-XML] {balise} absent du XML — nœud créé ({xpath_raw})')
             else:
@@ -3298,6 +3302,22 @@ def api_patch_xml():
             elem = results[0]
         if not isinstance(elem, etree._Element):
             warnings.append(f'Résultat XPath non-élément pour {balise}')
+            continue
+        if delete:
+            if attribute:
+                # Champ porté par un attribut : on retire l'attribut, pas l'élément
+                if elem.get(attribute) is not None:
+                    del elem.attrib[attribute]
+                    print(f'[PATCH-XML] {balise} — attribut @{attribute} supprimé')
+                else:
+                    print(f'[PATCH-XML] {balise} — attribut @{attribute} déjà absent')
+            else:
+                parent = elem.getparent()
+                if parent is None:
+                    warnings.append(f'Impossible de supprimer {balise} (élément racine)')
+                else:
+                    parent.remove(elem)
+                    print(f'[PATCH-XML] {balise} — élément supprimé du XML')
             continue
         if attribute:
             elem.set(attribute, value)
