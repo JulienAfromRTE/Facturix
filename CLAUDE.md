@@ -6,6 +6,11 @@ Outil interne de controle de factures electroniques (Factur-X / CII). Il compare
 - le **RDI** (fichier texte en sortie de SAP, format colonnes fixes, encodage cp1252)
 - le **XML** embarque dans le PDF (norme CrossIndustryInvoice / Factur-X)
 
+L'outil SAP qui convertit le RDI en XML Factur-X s'appelle **Eas'Invoice**. Facturix doit
+reproduire son comportement pour que la comparaison RDI vs XML soit fiable — notamment la
+concatenation des textes longs decoupes en plusieurs balises RDI consecutives (cf. section
+"Champs texte 'stream'").
+
 Stack : Python 3 / Flask, front-end decoupage en `templates/index.html` + `static/js/app.js` + `static/css/styles.css`, deploiement via Gunicorn derriere nginx.
 
 ## Architecture
@@ -66,6 +71,43 @@ Fichier texte a colonnes fixes (encodage cp1252) :
 - Positions 172-175 : longueur de la valeur (3 chiffres)
 - Position 175+ : valeur du champ
 
+## Champs texte "stream" (textes longs decoupes)
+
+Eas'Invoice decoupe les textes longs en **plusieurs balises RDI consecutives** de longueur
+limitee, puis les **concatene** (separateur espace) pour produire un seul element XML.
+Facturix doit faire de meme, sinon seule la 1re portion est comparee et le controle echoue
+a tort (ex. BT-33 affichait uniquement "RTE Reseau de transport d'electricite...").
+
+`parse_rdi()` (dans `parsers.py`, "Passe 3") reconstitue ces champs en concatenant toutes
+les occurrences d'un meme tag, pour les tags listes dans `STREAM_TEXT_TAGS` :
+- `MENTION_LEGALE-TEXT` → **BT-33** (forme juridique et capital social du vendeur)
+- `PENALITE-TEXT` → mention de penalites (egalement referencee par BT-22-PMD)
+
+Dans le RDI, ces blocs sont encadres par des marqueurs `CRDI-CONTROL %%LINES-BEGIN/END`
+(ex. `ZGRT_CART_STREAM`, `CART_STREAM_PENALITE`). Pour ajouter un nouveau champ stream,
+ajouter son tag RDI a `STREAM_TEXT_TAGS`.
+
+### Cas special PENAL_TEXT (PMD + PMT dans un seul stream) — "Passe 4"
+
+Sur certains flux CART Groupee, **BT-22-PMD** (penalites de retard) et **BT-22-PMT**
+(indemnite forfaitaire 40 euros) referencent **le meme** bloc `PENAL_TEXT` (underscore).
+Le texte reel est dans le stream **`PENAL-TEXT`** (tiret), qui colle les deux paragraphes
+separes par le marqueur SAP **`|V| ... |/V|`**. Eas'Invoice coupe sur ce marqueur :
+- segment **avant** `|V|...|/V|` → **BT-22-PMD** (penalites de retard)
+- segment **apres** → **BT-22-PMT** (indemnite 40 euros)
+
+`parse_rdi()` (Passe 4) reproduit ce decoupage (regex `\|V\|.*?\|/V\|`) uniquement quand
+les BT-22-PMD/PMT valent exactement `PENAL_TEXT`, pour ne pas casser les flux ou ils
+referencent des streams distincts (`TTAUX-TEXT`, `PENALITE-TEXT`). C'est le contournement
+en attendant le correctif RDI cote SAP (fiche **S4U-738** : creer des RDI dedies PMD/PMT).
+Reference test : `exemples/rdi__rdi__4200058168_RDI.txt` + `pdf__pdf__4200058168_FacturX.pdf`
+(NB : sur cet exemple PMT reste KO a cause d'une vraie divergence source "L. 441-6" RDI vs
+"L. 441-10" XML, hors perimetre concatenation).
+
+> Note : `normalize_value()` supprime tous les espaces des qu'une valeur contient un chiffre,
+> mais ne normalise pas tiret `-` vs tiret demi-cadratin `–`. Si Eas'Invoice substitue un
+> `–` dans le XML, le controle peut rester rouge malgre une concatenation correcte.
+
 ## Champs BT-21 / BT-22 (notes de facture)
 
 Les champs BT-21 (code de note) et BT-22 (mention de note) apparaissent en **paires multiples** dans le RDI et le XML. Chaque paire a un suffixe base sur la valeur de BT-21 :
@@ -86,7 +128,7 @@ Les XPaths utilisent des predicats : `ram:IncludedNote[ram:SubjectCode='BAR']/ra
 
 Toutes seedees via `_DEFAULT_RULES` au premier lancement, et migrees automatiquement par id sur les installations existantes :
 
-- **rule_1** BT-22 = B2G (Chorus) : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
+- **rule_1** BT-22-ADN = B2G (Chorus) : rend obligatoires BT-10, BT-13, BT-29, BT-29-1
 - **rule_2** BT-3 = 381 (avoir) : rend obligatoires BT-25, BT-26
 - **rule_3** BT-8 doit valoir "5"
 - **rule_4** BT-48 ne commence pas par FR : rend obligatoire BT-58
@@ -128,6 +170,30 @@ Construits dynamiquement par `build_xml_namespaces(xml_doc)` :
 2. Superpose toutes les declarations `xmlns:prefix=...` trouvees dans le XML (root + descendants), en ignorant le namespace par defaut (cle `None`, non utilisable en XPath 1.0)
 
 Tout prefixe declare dans le XML est donc reconnu automatiquement, meme si un mapping introduit un prefixe inattendu. Les deux orchestrateurs (`/controle` et `/batch_controle`) utilisent ce helper.
+
+## Validation Schematron par profil (BT-24)
+
+`validators/schematron_validator.py` n'applique pas un schematron unique : il **aiguille
+selon le profil declare dans BT-24** (`ExchangedDocumentContext/GuidelineSpecifiedDocumentContextParameter/ram:ID`).
+
+- `detect_profile(xml)` lit l'URI BT-24 (recherche namespace-agnostique `local-name()`).
+- `classify_profile(uri)` la classe en `minimum` / `basicwl` / `basic` / `en16931` / `extended` / `extended-ctc-fr` / `unknown` (ordre des tests important : `extended-ctc-fr` avant `extended`, `basicwl` avant `basic`).
+- `rulesets_for_profile(classe)` renvoie le tuple de jeux de regles a appliquer :
+
+| Profil | Jeu(x) de regles | Pourquoi |
+|--------|------------------|----------|
+| `minimum`, `basicwl` | *(aucun)* | non conformes EN16931 → le schematron EN16931 produirait des faux positifs (pas de lignes/ventilation TVA). `apply_schematron` renvoie `skipped=True` avec motif |
+| `basic`, `en16931`, `extended`, `unknown` | `en16931` | cœur EN16931 (comportement historique) |
+| `extended-ctc-fr` | `extended-ctc-fr` **+** `br-fr-flux2` | etape 2 (regles EN16931 adaptees au profil FR) + etape 3 (overlay France CTC, **toutes en `warning`**) |
+
+Le registre `RULESETS` (xslt compile + .sch source + libelle) liste les 3 jeux. `validate_xml(xml, rulesets=...)`
+execute chaque jeu via Saxon et tague chaque erreur avec `ruleset` / `ruleset_label`. `apply_schematron(xml, results, synthetic=False)`
+detecte le profil, aiguille, et expose `profile_uri` / `profile_class` / `rulesets` dans la synthese (affiches dans le panneau Schematron de l'UI).
+En mode RDI seul (XML reconstruit, `synthetic=True`), on force `en16931` (les regles FR strictes feraient trop de faux positifs sur l'ebauche).
+
+Schematrons FR : telecharges depuis le paquet FNFE-MPE (norme XP Z12-012). Provenance, versions et
+correspondance des fichiers dans `schematron/PROVENANCE-fr-ctc.md`. Non integres pour l'instant : UBL,
+XSD CII D22B (etape 1), CDAR (cycle de vie), profils Factur-X 1.08 dedies, regles B2G `BR-FR-CPRO`.
 
 ## Commandes
 

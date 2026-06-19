@@ -1,4 +1,5 @@
 """Parsing RDI (texte colonnes fixes cp1252) et extraction du XML Factur-X embarque dans le PDF."""
+import re
 import PyPDF2
 import io
 import pikepdf
@@ -18,6 +19,9 @@ def parse_rdi(rdi_path):
     current_article = None
     current_bg23 = None
     last_bt21_value = None  # Pour suivre les paires BT21/BT22
+    # Type d'enregistrement (DHEADER/DMAIN) de chaque cle BT21/BT22 suffixee
+    # reconstruite, pour pouvoir les exposer dans data_multi (cf. sync final).
+    bt2122_rectype = {}
 
     # Tags qui appartiennent aux blocs articles (lignes de facture)
     ARTICLE_TAG_PREFIXES = ('GS_FECT_EINV-BG25-', 'GS_FECT_EINV-BG26-',
@@ -68,9 +72,11 @@ def parse_rdi(rdi_path):
             last_bt21_value = suffix
             suffixed_tag = f'{tag}-{suffix}'
             data[suffixed_tag] = value
+            bt2122_rectype[suffixed_tag] = record_type
         elif tag == 'GS_FECT_EINV-BG1-BT22' and last_bt21_value:
             suffixed_tag = f'{tag}-{last_bt21_value}'
             data[suffixed_tag] = value
+            bt2122_rectype[suffixed_tag] = record_type
             last_bt21_value = None
             # Détecter si la valeur est une référence vers un bloc de texte
             val_stripped = value.strip()
@@ -118,6 +124,54 @@ def parse_rdi(rdi_path):
                 val = data[key].strip()
                 if val in text_blocks:
                     data[key] = ' '.join(text_blocks[val])
+
+    # Passe 3 : concaténer les champs texte "stream" découpés par Eas'Invoice.
+    # Eas'Invoice (l'outil SAP qui convertit le RDI en XML Factur-X) scinde les
+    # textes longs en plusieurs balises RDI consécutives de longueur limitée.
+    # Pour comparer avec le XML, on reconstitue la valeur complète en concaténant
+    # toutes les occurrences (séparées par un espace, comme dans le XML généré).
+    # - MENTION_LEGALE-TEXT : BT-33 (forme juridique et capital social)
+    # - PENALITE-TEXT       : mention de pénalités (BT-22-PMD si non référencée)
+    STREAM_TEXT_TAGS = ('MENTION_LEGALE-TEXT', 'PENALITE-TEXT')
+    for stream_tag in STREAM_TEXT_TAGS:
+        occurrences = data_multi.get(stream_tag.upper())
+        if occurrences and len(occurrences) > 1:
+            data[stream_tag] = ' '.join(v for _, v in occurrences if v)
+
+    # Passe 4 : cas special CART Groupee ou BT-22-PMD ET BT-22-PMT referencent
+    # un meme bloc PENAL_TEXT. Le texte reel est dans le stream "PENAL-TEXT"
+    # (tiret, alors que la reference porte un underscore), qui colle les deux
+    # paragraphes separes par le marqueur SAP "|V| ... |/V|". Eas'Invoice coupe
+    # sur ce marqueur et range le 1er paragraphe dans PMD (penalites de retard)
+    # et le 2e dans PMT (indemnite 40 euros). On reproduit ce comportement.
+    PMD_KEY = 'GS_FECT_EINV-BG1-BT22-PMD'
+    PMT_KEY = 'GS_FECT_EINV-BG1-BT22-PMT'
+    PENAL_REF = 'PENAL_TEXT'      # valeur de reference dans les BT-22 (underscore)
+    PENAL_STREAM_TAG = 'PENAL-TEXT'  # tag reel du stream texte (tiret)
+    pmd_is_ref = (data.get(PMD_KEY) or '').strip() == PENAL_REF
+    pmt_is_ref = (data.get(PMT_KEY) or '').strip() == PENAL_REF
+    if pmd_is_ref or pmt_is_ref:
+        penal_chunks = [v for _, v in data_multi.get(PENAL_STREAM_TAG.upper(), []) if v]
+        if penal_chunks:
+            full_text = ' '.join(penal_chunks)
+            # Decoupe sur le marqueur |V| ... |/V| (tolerant au contenu interne).
+            segments = [s.strip() for s in re.split(r'\|V\|.*?\|/V\|', full_text) if s.strip()]
+            if len(segments) >= 2:
+                if pmd_is_ref:
+                    data[PMD_KEY] = segments[0]              # avant le marqueur -> PMD
+                if pmt_is_ref:
+                    data[PMT_KEY] = ' '.join(segments[1:])   # apres le marqueur -> PMT
+
+    # Passe 5 : exposer les cles BT21/BT22 suffixees (reconstruites) dans data_multi.
+    # Les lignes RDI brutes portent le tag NON suffixe (GS_FECT_EINV-BG1-BT22), donc
+    # data_multi ne contient au depart que ces cles non suffixees. Les orchestrateurs
+    # qui filtrent par type_enregistrement lisent data_multi : sans cette synchro, un
+    # champ mappe sur la cle suffixee (ex. ...-BT22-ADN) avec type_enregistrement
+    # renseigne ne trouverait aucune occurrence et ressortirait vide. On y range la
+    # valeur FINALE (apres reconstruction/concatenation des passes precedentes).
+    for suffixed_tag, rectype in bt2122_rectype.items():
+        if suffixed_tag in data:
+            data_multi[suffixed_tag.upper()] = [(rectype, data[suffixed_tag])]
 
     return data, articles, data_multi, bg23_blocks
 

@@ -69,6 +69,7 @@ body{font-family:'Outfit',Arial,sans-serif;background:#3a5282;min-height:100vh;d
 .invoice-summary-dest.b2b{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-color:#93c5fd}
 .invoice-summary-dest.b2g{background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#5b21b6;border-color:#c4b5fd}
 .invoice-summary-dest.b2bint{background:linear-gradient(135deg,#ffedd5,#fed7aa);color:#9a3412;border-color:#fdba74}
+.invoice-summary-chorus{font-size:0.72em;font-weight:700;letter-spacing:0.02em;padding:3px 11px;border-radius:999px;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #fbbf24;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(146,64,14,0.12)}
 .invoice-summary-num{font-size:0.78em;color:#64748b;margin-left:auto}
 .invoice-summary-num strong{color:#1e293b;font-weight:700;font-family:'SF Mono',Menlo,monospace;background:#f8fafc;padding:2px 9px;border-radius:6px;border:1px solid #e2e8f0;margin-left:4px}
 .invoice-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}

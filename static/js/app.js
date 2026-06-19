@@ -485,6 +485,7 @@ async function statsReanalyse(id){
     document.getElementById('tabControle').click();
     _renderControle(data);
     _initControleFilters();
+    _renderDownloadBanner(data,'Analyse relancée');
     statsLoadHistory();
   }catch(e){
     alert('Erreur réseau : '+e.message);
@@ -1123,10 +1124,13 @@ function batchBuildCategoriesHTML(categoriesResults,typeControle,idPfx,invoiceId
         var aVatRate=aVat152?(aVat152.xml||aVat152.rdi||''):'';
         var aVatBadge=aVatCode?'<span style="display:inline-block;font-size:11px;font-weight:600;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:1px 8px;margin-left:10px;white-space:nowrap;vertical-align:middle">TVA : '+escHtml(aVatCode)+(aVatRate?' · '+escHtml(aVatRate)+'%':'')+'</span>':'';
         var aVatTitle=aVatCode?vatCodeLabel(aVatCode)+(aVatRate?' — '+aVatRate+'%':''):'';
+        var aAmt131=ac.find(function(r){return r.balise==='BT-131';});
+        var aAmtVal=aAmt131?(aAmt131.xml||aAmt131.rdi||''):'';
+        var aAmtBadge=aAmtVal?'<span style="display:inline-block;font-size:11px;font-weight:600;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:1px 8px;margin-left:8px;white-space:nowrap;vertical-align:middle" title="BT-131 — Montant net de la ligne">'+escHtml(_summFmtAmount(aAmtVal))+'</span>':'';
         out+='<div class="article-block" style="margin:4px 0;border:1px solid #444;border-radius:6px;overflow:hidden">'+
           '<div class="article-header" data-art="'+artContentId+'" style="'+aHdrBg+';padding:8px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px"'+
           (aVatTitle?' title="TVA : '+escHtml(aVatTitle)+'"':'')+'>'+
-          '<div style="display:flex;align-items:center"><strong>📦 Ligne '+escHtml(aLid)+'</strong>'+(aName?'&nbsp;— '+escHtml(aName):'')+aVatBadge+'</div>'+
+          '<div style="display:flex;align-items:center"><strong>📦 Ligne '+escHtml(aLid)+'</strong>'+(aName?'&nbsp;— '+escHtml(aName):'')+aVatBadge+aAmtBadge+'</div>'+
           '<div style="white-space:nowrap">'+ac.length+' champs | ✅ '+aOk+' | ❌ '+aErr+'</div></div>'+
           '<div class="article-content" id="'+artContentId+'" style="display:none">'+
           '<table class="main-table"><thead><tr><th class="col-status"></th><th class="col-bt">BT</th><th class="col-libelle">Libellé</th><th class="col-regles">Règles</th><th class="col-valeurs">Valeurs</th><th class="col-erreurs">Erreurs</th></tr></thead><tbody>';
@@ -1346,6 +1350,11 @@ function buildInvoiceSummary(results){
   var typeBadge=typeInfo?('<span class="invoice-summary-type '+typeInfo.cls+'">'+escHtml(typeInfo.label)+'</span>'):'';
   var destInfo=_summDestination(get('BT-22-BAR'));
   var destBadge=destInfo?('<span class="invoice-summary-dest '+destInfo.cls+'">'+destInfo.label+'</span>'):'';
+  // Chip "Chorus" : facture gouvernementale (B2G). Détectée via BT-22-ADN = "B2G"
+  // (cas le plus courant, BT-22-BAR pouvant rester B2B) ou BT-22-BAR = "B2G".
+  // On évite le doublon si le badge destination affiche déjà Chorus (BT-22-BAR=B2G).
+  var isChorus=((get('BT-22-ADN')||'').trim().toUpperCase()==='B2G')||((get('BT-22-BAR')||'').trim().toUpperCase()==='B2G');
+  var chorusBadge=(isChorus&&(!destInfo||destInfo.cls!=='b2g'))?'<span class="invoice-summary-chorus" title="Facture gouvernementale (B2G / Chorus) — BT-22-ADN = B2G">🏛️ Chorus (B2G)</span>':'';
   var numHtml=bt1?('<span class="invoice-summary-num">N° <strong>'+escHtml(bt1)+'</strong></span>'):'';
 
   // Bloc Montants
@@ -1394,6 +1403,7 @@ function buildInvoiceSummary(results){
       '<div class="invoice-summary-title">Aperçu de la facture</div>'+
       typeBadge+
       destBadge+
+      chorusBadge+
       numHtml+
     '</div>'+
     (blocks?'<div class="invoice-summary-grid">'+blocks+'</div>':'')+
@@ -1411,11 +1421,13 @@ function appendSchematronPanel(containerEl, sch, uidSuffix){
   panel.className='schematron-panel';
   var headerCls,headerTxt;
   var synthSuffix=sch.synthetic?' — XML reconstruit depuis le RDI':'';
-  if(sch.skipped){headerCls='warn';headerTxt='ℹ️ Schematron EN16931 (CII) — non exécuté';}
-  else if(sch.error){headerCls='warn';headerTxt='⚠️ Schematron EN16931 — erreur de validation';}
-  else if(sch.fatal>0){headerCls='err';headerTxt='❌ Schematron EN16931 (CII) — '+sch.fatal+' erreur'+(sch.fatal>1?'s':'')+synthSuffix;}
-  else if(sch.total>0){headerCls='warn';headerTxt='⚠️ Schematron EN16931 (CII) — '+sch.total+' avertissement'+(sch.total>1?'s':'')+synthSuffix;}
-  else{headerCls='ok';headerTxt='✅ Schematron EN16931 (CII) — conforme'+synthSuffix;}
+  // Le titre reflète le profil détecté (BT-24) : EXTENDED-CTC-FR ou EN16931.
+  var scope=(sch.profile_class==='extended-ctc-fr')?'EXTENDED-CTC-FR (CII)':'EN16931 (CII)';
+  if(sch.skipped){headerCls='warn';headerTxt='ℹ️ Schematron '+scope+' — non exécuté';}
+  else if(sch.error){headerCls='warn';headerTxt='⚠️ Schematron '+scope+' — erreur de validation';}
+  else if(sch.fatal>0){headerCls='err';headerTxt='❌ Schematron '+scope+' — '+sch.fatal+' erreur'+(sch.fatal>1?'s':'')+synthSuffix;}
+  else if(sch.total>0){headerCls='warn';headerTxt='⚠️ Schematron '+scope+' — '+sch.total+' avertissement'+(sch.total>1?'s':'')+synthSuffix;}
+  else{headerCls='ok';headerTxt='✅ Schematron '+scope+' — conforme'+synthSuffix;}
   var badges='';
   if(!sch.error&&!sch.skipped){
     badges='<span class="badge">'+(sch.total||0)+' total</span>'+
@@ -1431,7 +1443,16 @@ function appendSchematronPanel(containerEl, sch, uidSuffix){
   var hId='schematronHeader'+sfx, bId='schematronBody'+sfx;
   var hHtml='<div class="schematron-header '+headerCls+'" id="'+hId+'">'+
     '<div>'+headerTxt+'</div><div class="badges">'+badges+'</div></div>';
-  var bHtml='<div class="schematron-body" id="'+bId+'"><div class="intro">Validation contre le schematron officiel <code>EN16931-CII v1.3.16</code> de ConnectingEurope. Les erreurs liées à un BT du mapping sont aussi affichées dans le tableau ci-dessous, à côté du champ concerné.</div>';
+  // Intro dynamique : profil détecté (BT-24) + jeu(x) de règles réellement appliqués.
+  var rsLabels=(sch.rulesets||[]).map(function(r){return '<code>'+escHtml(r.label)+'</code>';});
+  var rsTxt=rsLabels.length?rsLabels.join(' + '):'<code>EN16931-CII v1.3.16</code>';
+  var profTxt='';
+  if(sch.profile_uri||sch.profile_class){
+    profTxt='<div class="intro">Profil détecté (BT-24) : <code>'+escHtml(sch.profile_uri||'—')+'</code>'+
+      (sch.profile_class?' → <strong>'+escHtml(sch.profile_class)+'</strong>':'')+'</div>';
+  }
+  var bHtml='<div class="schematron-body" id="'+bId+'">'+profTxt+
+    '<div class="intro">Validation contre '+rsTxt+'. Les erreurs liées à un BT du mapping sont aussi affichées dans le tableau ci-dessous, à côté du champ concerné.</div>';
   if(sch.synthetic&&sch.note){bHtml+='<div class="intro" style="background:#fef3c7;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:4px;color:#78350f;margin-bottom:8px"><strong>ℹ️ XML synthétique :</strong> '+escHtml(sch.note)+'</div>';}
   if(sch.skipped){
     bHtml+='<div class="empty" style="color:#b45309">'+escHtml(sch.reason||'Schematron non exécuté.')+'</div>';
@@ -1702,7 +1723,7 @@ var SCHEMATRON_LABELS = {
   'BR-52': 'Chaque ligne de facture doit avoir un prix unitaire brut (BT-148) si une remise de prix est indiquée.',
   'BR-53': 'Si un prix unitaire brut (BT-148) est indiqué, une remise de prix (BT-147) peut être présente.',
   'BR-54': 'La remise de prix (BT-147) ne peut être supérieure au prix brut (BT-148).',
-  'BR-55': 'Le prix unitaire net (BT-146) doit être = prix brut (BT-148) − remise prix (BT-147) si remise présente.',
+  'BR-55': 'Chaque référence à une facture antérieure (BG-3) doit comporter une référence de facture (BT-25).',
   'BR-56': 'Chaque ligne doit avoir une quantité non nulle ou un prix non nul.',
   'BR-57': 'La date d\'échéance (BT-9) doit être après la date de facture (BT-2).',
   'BR-61': 'Si BT-84 (IBAN) est renseigné, BT-86 (BIC/SWIFT) peut l\'accompagner.',
@@ -1745,6 +1766,11 @@ function buildRuleDetailHtml(ruleName, lines){
       out+='<div style="'+pad+'color:#93c5fd;font-weight:700;margin:5px 0 2px">'+escHtml(text)+'</div>';
       return;
     }
+    // Ligne d'un article non pris en compte (écart) → gras + orange
+    if(text.indexOf('NON PRIS EN COMPTE')!==-1){
+      out+='<div style="'+pad+'color:#fdba74;font-weight:700">'+escHtml(text)+'</div>';
+      return;
+    }
     // Ligne résultat OK (contient ✓)
     if(text.indexOf('✓')!==-1){
       out+='<div style="'+pad+'color:#86efac">'+escHtml(text)+'</div>';
@@ -1783,7 +1809,7 @@ function buildRuleDetailHtml(ruleName, lines){
 function buildSchematronTooltip(r){
   if(!r||!r.schematron_errors||r.schematron_errors.length===0)return '';
   var html='<hr style="margin:6px 0;border-color:#7c3aed">'+
-    '<strong style="color:#c4b5fd">📜 Schematron officiel EN16931 (CII)</strong>'+
+    '<strong style="color:#c4b5fd">📜 Schematron officiel (EN16931 / France CTC)</strong>'+
     '<div style="font-size:0.85em;color:#cbd5e1;margin:2px 0 4px">'+
       r.schematron_errors.length+' règle(s) du standard non respectée(s)</div>';
   r.schematron_errors.forEach(function(e){
@@ -2422,10 +2448,13 @@ var artVatCode=artVat151?(artVat151.xml||artVat151.rdi||''):'';
 var artVatRate=artVat152?(artVat152.xml||artVat152.rdi||''):'';
 var artVatBadge=artVatCode?'<span style="display:inline-block;font-size:11px;font-weight:600;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:1px 8px;margin-left:10px;white-space:nowrap;vertical-align:middle">TVA : '+artVatCode+(artVatRate?' · '+artVatRate+'%':'')+'</span>':'';
 var artVatTitle=artVatCode?vatCodeLabel(artVatCode)+(artVatRate?' — '+artVatRate+'%':''):'';
+var artAmt131=artChamps.find(function(r){return r.balise==='BT-131';});
+var artAmtVal=artAmt131?(artAmt131.xml||artAmt131.rdi||''):'';
+var artAmtBadge=artAmtVal?'<span style="display:inline-block;font-size:11px;font-weight:600;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:1px 8px;margin-left:8px;white-space:nowrap;vertical-align:middle" title="BT-131 — Montant net de la ligne">'+escHtml(_summFmtAmount(artAmtVal))+'</span>':'';
 html+='<div class="article-block" style="margin:4px 0;border:1px solid #444;border-radius:6px;overflow:hidden">'+
 '<div class="article-header" data-art="art-'+artIdx+'" style="'+artHeaderBg+';padding:8px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px"'+
 (artVatTitle?' title="TVA : '+artVatTitle+'"':'')+'>'+
-'<div style="display:flex;align-items:center"><strong>📦 Ligne '+artLineId+'</strong>'+(artName?'&nbsp;— '+artName:'')+artVatBadge+'</div>'+
+'<div style="display:flex;align-items:center"><strong>📦 Ligne '+artLineId+'</strong>'+(artName?'&nbsp;— '+artName:'')+artVatBadge+artAmtBadge+'</div>'+
 '<div style="white-space:nowrap">'+artChamps.length+' champs | ✅ '+artOkCount+' | ❌ '+artErrCount+'</div></div>'+
 '<div class="article-content" id="art-'+artIdx+'" style="display:none">';
 html+='<table class="main-table"><thead><tr>'+
@@ -2511,6 +2540,10 @@ if(rowId&&rowId.indexOf('btrow-')===0){
 cont.appendChild(div);
 }
 document.getElementById('results').style.display='block';
+// Masquer par défaut la bannière de téléchargement (ré-affichée par
+// _renderDownloadBanner pour les vues partagées / relancées uniquement)
+var _dlBanner=document.getElementById('sharedBanner');
+if(_dlBanner) _dlBanner.style.display='none';
 // Afficher/masquer le bouton de partage
 var _sb=document.getElementById('shareBtnControle');
 if(_sb){
@@ -4392,8 +4425,53 @@ function closeInvoiceDetails(){
    PARTAGE D'ANALYSE — lien ?share=<invoice_id>
    ============================================================ */
 
+/* Affiche la bannière d'infos + boutons de téléchargement (RDI/XML/PDF) sous
+   les onglets. `data` doit porter invoice_id, filename, invoice_number,
+   mapping_label/type_formulaire, has_rdi/has_pdf/has_xml, xml_kind.
+   `title` : libellé du titre (ex. "Analyse partagée", "Analyse relancée"). */
+function _renderDownloadBanner(data,title){
+  var banner=document.getElementById('sharedBanner');
+  if(!banner) return;
+  var fname=data.filename||'';
+  var num=data.invoice_number?'N° '+data.invoice_number:'';
+  var titleEl=document.getElementById('sharedBannerTitle');
+  var fileEl=document.getElementById('sharedBannerFile');
+  var mappingEl=document.getElementById('sharedBannerMapping');
+  if(titleEl) titleEl.textContent=(title||'Analyse')+(num?' : '+num:'');
+  if(fileEl) fileEl.textContent=fname?'— '+fname:'';
+  if(mappingEl) mappingEl.textContent=data.mapping_label||data.type_formulaire||'';
+  var iid=data.invoice_id;
+  function _dl(elId,ok,kind){
+    var el=document.getElementById(elId);
+    if(!el) return;
+    if(ok&&iid&&kind){el.href=BASE+'/api/stats/file/'+iid+'/'+kind;el.style.display='';}
+    else{el.style.display='none';}
+  }
+  _dl('sharedBannerDlRdi',data.has_rdi,'rdi');
+  _dl('sharedBannerDlPdf',data.has_pdf,'pdf');
+  _dl('sharedBannerDlXml',data.has_xml,data.xml_kind);
+  banner.style.display='flex';
+}
+
+/* Rend le logo + titre Facturix cliquables pour revenir à l'écran d'accueil.
+   Idempotent : peut être appelé plusieurs fois sans empiler les handlers. */
+function _wireHomeLogo(){
+  function _goHome(){window.location.href=window.location.href.split('?')[0];}
+  ['headerLogo','headerTitleFacturix'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el||el._homeWired) return;
+    el._homeWired=true;
+    el.style.cursor='pointer';
+    el.title='Revenir à l\'écran normal';
+    el.addEventListener('click',_goHome);
+  });
+}
+
 function shareControle(iid){
   var url=window.location.href.split('?')[0]+'?share='+iid;
+  // Refléter le lien de partage dans la barre d'adresse + activer le retour accueil
+  try{window.history.pushState({share:iid},'',url);}catch(e){}
+  _wireHomeLogo();
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(function(){
       _flashShareBtn('✅ Lien copié !');
@@ -4598,7 +4676,7 @@ function buildDetailPanelHtml(r,invoiceId,typeControle){
   }
   // Schematron
   if(r.schematron_errors&&r.schematron_errors.length>0){
-    html+='<div class="dp-section dp-schematron"><div class="dp-section-title">📜 Schematron EN16931 — '+r.schematron_errors.length+' règle(s) non respectée(s)</div>';
+    html+='<div class="dp-section dp-schematron"><div class="dp-section-title">📜 Schematron (EN16931 / France CTC) — '+r.schematron_errors.length+' règle(s) non respectée(s)</div>';
     r.schematron_errors.forEach(function(e){
       var label=SCHEMATRON_LABELS[e.rule_id||''];
       var sevCls=(e.flag==='fatal')?'dp-fatal':'dp-warning';
@@ -4659,14 +4737,7 @@ function openCorrectionPage(id){
   if(sConf) sConf.style.display='none';
   if(sFich) sFich.style.display='none';
   // Rendre le logo + titre Facturix cliquables pour revenir à l'accueil
-  function _goHome(){window.location.href=window.location.href.split('?')[0];}
-  ['headerLogo','headerTitleFacturix'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(!el) return;
-    el.style.cursor='pointer';
-    el.title='Revenir à l\'écran normal';
-    el.addEventListener('click',_goHome);
-  });
+  _wireHomeLogo();
   // Afficher un message de chargement
   var loading=document.getElementById('loading');
   var results=document.getElementById('results');
@@ -4719,37 +4790,7 @@ function openCorrectionPage(id){
           },50);
         },400);
       }
-      var sharedBanner=document.getElementById('sharedBanner');
-      if(sharedBanner){
-        var fname=data.filename||'';
-        var num=data.invoice_number?'N° '+data.invoice_number:'';
-        var titleEl=document.getElementById('sharedBannerTitle');
-        var fileEl=document.getElementById('sharedBannerFile');
-        var mappingEl=document.getElementById('sharedBannerMapping');
-        if(titleEl) titleEl.textContent='Analyse partagée'+(num?' : '+num:'');
-        if(fileEl) fileEl.textContent=fname?'— '+fname:'';
-        if(mappingEl) mappingEl.textContent=data.mapping_label||data.type_formulaire||'';
-        var iid=data.invoice_id;
-        var dlPdf=document.getElementById('sharedBannerDlPdf');
-        var dlXml=document.getElementById('sharedBannerDlXml');
-        if(dlPdf){
-          if(data.has_pdf&&iid){
-            dlPdf.href=BASE+'/api/stats/file/'+iid+'/pdf';
-            dlPdf.style.display='';
-          } else {
-            dlPdf.style.display='none';
-          }
-        }
-        if(dlXml){
-          if(data.has_xml&&iid&&data.xml_kind){
-            dlXml.href=BASE+'/api/stats/file/'+iid+'/'+data.xml_kind;
-            dlXml.style.display='';
-          } else {
-            dlXml.style.display='none';
-          }
-        }
-        sharedBanner.style.display='flex';
-      }
+      _renderDownloadBanner(data,'Analyse partagée');
     })
     .catch(function(e){
       if(loading) loading.style.display='none';

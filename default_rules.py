@@ -47,7 +47,7 @@ _DEFAULT_RULES = {
             "name": "Facture B2G Chorus",
             "category": "B2G / Chorus",
             "enabled": True,
-            "conditions": [{"field": "BT-22", "operator": "equals", "value": "B2G"}],
+            "conditions": [{"field": "BT-22-ADN", "operator": "equals", "value": "B2G"}],
             "actions": [
                 {"type": "make_mandatory", "field": "BT-10"},
                 {"type": "make_mandatory", "field": "BT-13"},

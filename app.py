@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Factur-X V12.0 - Enhanced Mapping Management"""
 from flask import Flask, Request as FlaskRequest, request, jsonify, send_file, render_template
-import os, json, re, sqlite3, PyPDF2, io
+import os, json, re, sqlite3, PyPDF2, io, itertools
 import pikepdf
 import logging
 from lxml import etree
@@ -13,6 +13,10 @@ from validators.schematron_validator import (
     line_index_from_location,
     bg23_index_from_location,
     index_errors_by_bt,
+    detect_profile,
+    classify_profile,
+    rulesets_for_profile,
+    RULESETS as SCHEMATRON_RULESETS,
 )
 from validators.cii_builder import build_cii_xml
 
@@ -258,21 +262,54 @@ def _index_business_rules_by_schematron_id():
     return out
 
 
-def apply_schematron(xml_content, results):
-    """Applique le schematron officiel EN16931 et fusionne ses erreurs dans les résultats.
+def apply_schematron(xml_content, results, synthetic=False):
+    """Applique le(s) schematron(s) adapté(s) au profil (BT-24) et fusionne les erreurs.
 
-    Renvoie un dict de synthèse (compteurs + erreurs orphelines) à exposer à l'UI.
+    Le jeu de règles dépend du profil déclaré dans
+    ``GuidelineSpecifiedDocumentContextParameter/ram:ID`` :
+      - MINIMUM / BASIC WL  → aucun (non conformes EN16931 : on évite les faux positifs) ;
+      - EXTENDED-CTC-FR     → schematron EXTENDED-CTC-FR + overlay France CTC (BR-FR flux 2) ;
+      - BASIC / EN16931 / EXTENDED / inconnu → schematron EN16931 standard.
+
+    ``synthetic=True`` (XML reconstruit depuis le RDI) force le cœur EN16931 :
+    les règles strictes FR produiraient trop de faux positifs sur cette ébauche.
+
+    Renvoie un dict de synthèse (compteurs + erreurs orphelines + profil) à exposer à l'UI.
     En cas d'échec de validation, retourne un dict avec 'error'.
     """
     if not xml_content:
         return None
 
+    # Profil déclaré (BT-24) → aiguillage du/des jeu(x) de règles.
+    profile_uri = detect_profile(xml_content)
+    profile_class = classify_profile(profile_uri)
+    rulesets = ('en16931',) if synthetic else rulesets_for_profile(profile_class)
+    profile_info = {
+        'profile_uri': profile_uri,
+        'profile_class': profile_class,
+        'rulesets': [{'key': k, 'label': SCHEMATRON_RULESETS[k]['label']} for k in rulesets],
+    }
+
+    if not rulesets:
+        return {
+            'skipped': True,
+            'reason': (
+                f"Profil « {profile_uri or '—'} » : non conforme EN16931. "
+                f"Les profils MINIMUM et BASIC WL ne portent ni les lignes ni la "
+                f"ventilation de TVA exigées par EN16931 — la validation n'est pas "
+                f"appliquée pour éviter les faux positifs."
+            ),
+            'total': 0, 'fatal': 0, 'warning': 0, 'matched': 0,
+            'rules': [], 'errors': [], 'orphans': [],
+            **profile_info,
+        }
+
     try:
-        errors = schematron_validate_xml(xml_content)
+        errors = schematron_validate_xml(xml_content, rulesets=rulesets)
     except Exception as exc:
         print(f"[Schematron] échec validation: {exc}")
         return {'error': str(exc), 'total': 0, 'fatal': 0, 'warning': 0,
-                'errors': [], 'orphans': [], 'rules': []}
+                'errors': [], 'orphans': [], 'rules': [], **profile_info}
 
     # Périmètre du mapping : ensemble des BT couverts par les résultats.
     # Inclut le préfixe court (BT-21) pour matcher les balises suffixées (BT-21-BAR).
@@ -391,7 +428,32 @@ def apply_schematron(xml_content, results):
         'rules': sorted({e['rule_id'] for e in errors}),
         'errors': errors,
         'orphans': orphans,
+        **profile_info,
     }
+
+
+def _find_missing_subset(lines, target, parse_amount, tol=0.01, max_size=3):
+    """Cherche le plus petit sous-ensemble de lignes dont la somme vaut `target`
+    (l'écart d'un contrôle de somme). Sert à identifier l'/les article(s) non
+    pris en compte (ou comptés en trop) dans un total. `lines` = [(libellé,
+    valeur_str), ...]. Retourne la liste des libellés du plus petit sous-ensemble
+    correspondant (idéalement une seule ligne, pour rester lisible), ou []."""
+    target = round(abs(target), 2)
+    if target <= tol:
+        return []
+    parsed = []
+    for lbl, v in lines:
+        try:
+            parsed.append((lbl, round(parse_amount(v), 2)))
+        except Exception:
+            pass
+    if not parsed:
+        return []
+    for size in range(1, min(max_size, len(parsed)) + 1):
+        for combo in itertools.combinations(parsed, size):
+            if abs(sum(n for _, n in combo) - target) <= tol:
+                return [lbl for lbl, _ in combo]
+    return []
 
 
 def _attach_brco_details(results, rows_by_balise, _parse_amount):
@@ -483,6 +545,12 @@ def _attach_brco_details(results, rows_by_balise, _parse_amount):
         val106, s106 = _scalar('BT-106')
         sum131, lines131 = _sum_multi('BT-131')
         if val106 is not None or lines131:
+            # Si écart : tenter d'identifier le(s) article(s) qui expliquent la différence
+            missing = set()
+            if val106 is not None and lines131:
+                ecart_tmp = abs(val106 - sum131)
+                if ecart_tmp > 0.01:
+                    missing = set(_find_missing_subset(lines131, ecart_tmp, _parse_amount))
             dl = [
                 f'🔎 BR-CO-10 — {_lbl("BT-106")} doit être = Σ {_lbl("BT-131")}',
                 f'   Formule : BT-106 = Σ BT-131',
@@ -490,7 +558,10 @@ def _attach_brco_details(results, rows_by_balise, _parse_amount):
                 f'📋 Montants nets de lignes (BT-131) :',
             ]
             for lbl, v in lines131:
-                dl.append(f'  {lbl} : BT-131 = {v}')
+                if lbl in missing:
+                    dl.append(f'  ⮞ {lbl} : BT-131 = {v}  ← NON PRIS EN COMPTE')
+                else:
+                    dl.append(f'  {lbl} : BT-131 = {v}')
             dl.append(SDASH)
             dl.append(f'  Σ BT-131 = {round(sum131, 2)}')
             dl.append(DASH)
@@ -502,6 +573,15 @@ def _attach_brco_details(results, rows_by_balise, _parse_amount):
                     f'  BT-106  (déclaré)  = {s106}',
                     f'  Écart              = {ecart:.4f} {_ok(ecart)}',
                 ]
+                if missing:
+                    lbls_txt = ', '.join(sorted(missing))
+                    sens = ('non pris en compte dans' if sum131 > val106
+                            else 'comptés en trop dans')
+                    art = 'Cet article semble' if len(missing) == 1 else 'Ces articles semblent'
+                    dl.append(
+                        f'  ⚠️ L\'écart ({round(ecart, 2)}) correspond exactement à : '
+                        f'{lbls_txt}. {art} {sens} le total BT-106.'
+                    )
             else:
                 dl.append('  BT-106 absent du mapping — vérification impossible.')
             _attach('BT-106', 'Détail calcul BR-CO-10', dl)
@@ -1033,7 +1113,8 @@ def apply_business_rules(results, type_formulaire='simple'):
             try:
                 all_items = [r for r in results if r.get('balise') == sum_field]
                 total = 0.0
-                operands_lines = []
+                # (texte_ligne, label, valeur_num_ou_None) pour pouvoir ré-annoter ensuite
+                operands = []
                 n = 0
                 for item in all_items:
                     item_line_id = item.get('article_line_id', '')
@@ -1044,11 +1125,12 @@ def apply_business_rules(results, type_formulaire='simple'):
                         for i, v in enumerate(xml_all):
                             label = f'{sum_field} #{i + 1}'
                             try:
-                                total += _parse_amount(v)
-                                operands_lines.append(f'  {label} : {v}')
+                                num = _parse_amount(v)
+                                total += num
+                                operands.append((f'  {label} : {v}', label, num))
                                 n += 1
                             except:
-                                operands_lines.append(f'  {label} : {v} (non numérique, ignoré)')
+                                operands.append((f'  {label} : {v} (non numérique, ignoré)', label, None))
                         continue
                     s = item.get('rdi', '').strip() or item.get('xml', '').strip() or '0'
                     if item_line_id:
@@ -1060,10 +1142,10 @@ def apply_business_rules(results, type_formulaire='simple'):
                     try:
                         v = _parse_amount(s)
                         total += v
-                        operands_lines.append(f'  {label} : {sum_field} = {s}')
+                        operands.append((f'  {label} : {sum_field} = {s}', label, v))
                         n += 1
                     except:
-                        operands_lines.append(f'  {label} : {sum_field} = {s} (non numérique, ignoré)')
+                        operands.append((f'  {label} : {sum_field} = {s} (non numérique, ignoré)', label, None))
                 total = round(total, 10)
                 val_target_str = target.get('rdi', '').strip() or target.get('xml', '').strip() or '0'
                 val_target = _parse_amount(val_target_str)
@@ -1073,17 +1155,40 @@ def apply_business_rules(results, type_formulaire='simple'):
                 if regle_label not in target['regles_testees']:
                     target['regles_testees'].append(regle_label)
 
+                # Si écart : identifier l'/les opérande(s) qui expliquent la différence
+                missing = set()
+                if ecart > tolerance:
+                    pairs = [(lbl, num) for _, lbl, num in operands if num is not None]
+                    missing = set(_find_missing_subset(
+                        [(lbl, str(num)) for lbl, num in pairs], ecart, _parse_amount, tolerance))
+
                 detail_lines = []
                 detail_lines.append(f'🔎 {rule_name}')
                 detail_lines.append(f'{target_field} doit égaler la somme des {sum_field}.')
                 detail_lines.append('═══════════════════════════════════════')
                 detail_lines.append(f'📋 Opérandes ({n} {sum_field}) :')
-                detail_lines.extend(operands_lines or ['  (aucun)'])
+                if operands:
+                    for txt, lbl, num in operands:
+                        if lbl in missing:
+                            detail_lines.append(f'  ⮞{txt[1:]}  ← NON PRIS EN COMPTE')
+                        else:
+                            detail_lines.append(txt)
+                else:
+                    detail_lines.append('  (aucun)')
                 detail_lines.append('───────────────────────────────────────')
                 detail_lines.append('🧮 Vérification :')
                 detail_lines.append(f'  Σ {sum_field} = {total}')
                 detail_lines.append(f'  {target_field} = {val_target}')
                 detail_lines.append(f'  Écart = {ecart:.4f} (tolérance {tolerance}) {status}')
+                if missing:
+                    lbls_txt = ', '.join(sorted(missing))
+                    sens = ('non pris en compte dans' if total > val_target
+                            else 'comptés en trop dans')
+                    art = 'Cet article semble' if len(missing) == 1 else 'Ces articles semblent'
+                    detail_lines.append(
+                        f'  ⚠️ L\'écart ({round(ecart, 2)}) correspond exactement à : '
+                        f'{lbls_txt}. {art} {sens} {target_field}.'
+                    )
                 if 'rule_details' not in target:
                     target['rule_details'] = {}
                 target['rule_details'][rule_name] = detail_lines
@@ -2215,7 +2320,7 @@ def _process_invoice(rdi_path, pdf_path, cii_path, type_formulaire, type_control
         elif rdi_data or rdi_articles:
             synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping, rdi_bg23_blocks)
             if synthetic_xml:
-                schematron_summary = apply_schematron(synthetic_xml, results)
+                schematron_summary = apply_schematron(synthetic_xml, results, synthetic=True)
                 if schematron_summary:
                     schematron_summary['synthetic'] = True
                     schematron_summary['note'] = (
@@ -2773,7 +2878,7 @@ def controle():
         elif rdi_data or rdi_articles:
             synthetic_xml = build_cii_xml(rdi_data, rdi_articles, mapping, rdi_bg23_blocks)
             if synthetic_xml:
-                schematron_summary = apply_schematron(synthetic_xml, results)
+                schematron_summary = apply_schematron(synthetic_xml, results, synthetic=True)
                 if schematron_summary:
                     schematron_summary['synthetic'] = True
                     schematron_summary['note'] = (
@@ -3822,6 +3927,22 @@ def api_stats_reanalyse(invoice_id):
             xml_content=xml_content,
         )
         payload['invoice_id'] = new_id
+        # Infos pour la bannière de téléchargement (mêmes champs que /share)
+        payload['filename']      = row.get('filename')
+        payload['invoice_number'] = inv_num
+        payload['type_formulaire'] = type_formulaire
+        payload['mapping_label'] = _resolve_type_label(type_formulaire)
+        payload['has_rdi'] = bool(rdi_path)
+        payload['has_pdf'] = bool(pdf_path)
+        if xml_content:
+            payload['has_xml'] = True
+            payload['xml_kind'] = 'xml'
+        elif cii_path:
+            payload['has_xml'] = True
+            payload['xml_kind'] = 'cii'
+        else:
+            payload['has_xml'] = False
+            payload['xml_kind'] = None
         return jsonify(payload)
     except Exception as e:
         import traceback; traceback.print_exc()
@@ -3836,7 +3957,7 @@ def api_invoice_share(invoice_id):
         conn = get_db()
         row = conn.execute(
             "SELECT results_json, invoice_number, filename, type_formulaire, type_controle, mode, "
-            "       archive_pdf, archive_xml, archive_cii "
+            "       archive_rdi, archive_pdf, archive_xml, archive_cii "
             "FROM invoice_history WHERE id = ?", (invoice_id,)
         ).fetchone()
         conn.close()
@@ -3862,6 +3983,7 @@ def api_invoice_share(invoice_id):
     # Fallback : scanner le dossier d'archive si les colonnes DB sont vides
     archive_dir = os.path.join(ARCHIVE_FOLDER, str(invoice_id))
     dir_files = os.listdir(archive_dir) if os.path.isdir(archive_dir) else []
+    has_rdi = _archive_ok(row['archive_rdi']) or any(f.startswith('rdi__') for f in dir_files)
     has_pdf = _archive_ok(row['archive_pdf']) or any(f.startswith('pdf__') for f in dir_files)
     has_xml = _archive_ok(row['archive_xml']) or _archive_ok(row['archive_cii']) or \
               any(f.startswith(('xml__', 'cii__')) for f in dir_files)
@@ -3871,6 +3993,7 @@ def api_invoice_share(invoice_id):
         xml_kind = 'cii'
     else:
         xml_kind = None
+    payload['has_rdi'] = has_rdi
     payload['has_pdf'] = has_pdf
     payload['has_xml'] = has_xml
     payload['xml_kind'] = xml_kind
