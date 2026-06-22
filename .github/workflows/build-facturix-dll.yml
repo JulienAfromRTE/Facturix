@@ -10,9 +10,8 @@ name: Build Facturix.dll (Notepad++ plugin)
 
 on:
   push:
-    paths:
-      - 'notepad\+\+/native/**'
-      - '.github/workflows/build-facturix-dll.yml'
+    branches: [main]
+    tags: ['facturix-v*']
   workflow_dispatch:
   release:
     types: [created]
