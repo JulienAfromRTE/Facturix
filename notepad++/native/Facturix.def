@@ -1,0 +1,8 @@
+LIBRARY Facturix
+EXPORTS
+    isUnicode
+    getName
+    setInfo
+    getFuncsArray
+    beNotified
+    messageProc
