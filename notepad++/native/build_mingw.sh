@@ -30,6 +30,7 @@ fetch "$NPP_RAW/PowerEditor/src/MISC/PluginsManager/PluginInterface.h" PluginInt
 fetch "$NPP_RAW/PowerEditor/src/MISC/PluginsManager/Notepad_plus_msgs.h" Notepad_plus_msgs.h
 fetch "$NPP_RAW/PowerEditor/src/menuCmdID.h" menuCmdID.h
 fetch "$NPP_RAW/scintilla/include/Scintilla.h" Scintilla.h
+fetch "$NPP_RAW/scintilla/include/Sci_Position.h" Sci_Position.h
 
 # regenere la table EN16931 depuis le referentiel Python valide (si python dispo)
 if command -v python3 >/dev/null 2>&1; then
