@@ -29,6 +29,7 @@ fetch () {  # fetch <url> <dest>
 fetch "$NPP_RAW/PowerEditor/src/MISC/PluginsManager/PluginInterface.h" PluginInterface.h
 fetch "$NPP_RAW/PowerEditor/src/MISC/PluginsManager/Notepad_plus_msgs.h" Notepad_plus_msgs.h
 fetch "$NPP_RAW/PowerEditor/src/menuCmdID.h" menuCmdID.h
+fetch "$NPP_RAW/PowerEditor/src/WinControls/DockingWnd/Docking.h" Docking.h
 fetch "$NPP_RAW/scintilla/include/Scintilla.h" Scintilla.h
 fetch "$NPP_RAW/scintilla/include/Sci_Position.h" Sci_Position.h
 
@@ -45,7 +46,7 @@ echo ">> Compilation (x64)"
   -I "$DEPS" \
   Facturix.cpp Facturix.def \
   -o Facturix.dll \
-  -lkernel32 -luser32 -lgdi32
+  -lkernel32 -luser32 -lgdi32 -lcomctl32
 
 echo ">> OK : $(pwd)/Facturix.dll"
 ls -la Facturix.dll

@@ -1,12 +1,8 @@
 name: Build Facturix.dll (Notepad++ plugin)
 
-# Compile le plugin natif Notepad++ (DLL x64) par cross-compilation MinGW-w64
-# sur un runner Ubuntu, et publie Facturix.dll en artefact telechargeable.
-#
-# Declenchement :
-#   - automatiquement a chaque push touchant notepad++/native/**
-#   - manuellement via l'onglet "Actions" (workflow_dispatch)
-#   - sur un tag "facturix-v*" : cree en plus une Release avec le DLL.
+# Compile le plugin natif (DLL x64, MinGW-w64) PUIS assemble le bundle complet
+# avec moteur Schematron embarque (JRE Windows + Saxon + XSLT EN16931/FR).
+# Publie Facturix-plugin-win64.zip en artefact (et en Release sur tag facturix-v*).
 
 on:
   push:
@@ -19,6 +15,10 @@ on:
 permissions:
   contents: write
 
+env:
+  SAXON_URL: https://repo1.maven.org/maven2/net/sf/saxon/Saxon-HE/9.9.1-8/Saxon-HE-9.9.1-8.jar
+  JRE_URL: https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,24 +26,57 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Installer MinGW-w64
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-mingw-w64-x86-64
+        run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64 unzip zip
 
       - name: Compiler Facturix.dll
-        run: |
-          cd notepad++/native
-          bash build_mingw.sh
+        run: cd notepad++/native && bash build_mingw.sh
 
-      - name: Publier l'artefact (telechargeable depuis l'onglet Actions)
+      - name: Java (runner) pour le test Saxon
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Telecharger Saxon-HE
+        run: curl -fsSL -o saxon.jar "$SAXON_URL"
+
+      - name: Sanity check Saxon + XSLT (SVRL non vide)
+        run: |
+          java -jar saxon.jar \
+            -s:exemples/facture_exemple.xml \
+            -xsl:schematron/en16931-cii/xslt/EN16931-CII-validation.xslt \
+            -o:out.svrl
+          grep -q "schematron-output" out.svrl && echo "SVRL OK ($(wc -c < out.svrl) octets)"
+
+      - name: Telecharger le JRE Windows x64
+        run: |
+          curl -fsSL -o jre.zip "$JRE_URL"
+          mkdir jre_x && (cd jre_x && unzip -q ../jre.zip)
+
+      - name: Assembler le bundle
+        run: |
+          BASE=dist/Facturix
+          mkdir -p "$BASE/engine/xslt"
+          cp notepad++/native/Facturix.dll "$BASE/"
+          cp notepad++/native/README.md "$BASE/" 2>/dev/null || true
+          cp saxon.jar "$BASE/engine/saxon-he.jar"
+          cp schematron/en16931-cii/xslt/EN16931-CII-validation.xslt "$BASE/engine/xslt/"
+          cp schematron/extended-ctc-fr/EXTENDED-CTC-FR-CII.xslt "$BASE/engine/xslt/"
+          cp schematron/br-fr-flux2/BR-FR-Flux2-CII.xslt "$BASE/engine/xslt/"
+          mv jre_x/*/ "$BASE/engine/jre"
+          test -f "$BASE/engine/jre/bin/java.exe" || (echo "java.exe manquant !" && exit 1)
+          (cd dist && zip -qr ../Facturix-plugin-win64.zip Facturix)
+          ls -la Facturix-plugin-win64.zip
+
+      - name: Publier l'artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Facturix-dll-x64
-          path: notepad++/native/Facturix.dll
+          name: Facturix-plugin-win64
+          path: Facturix-plugin-win64.zip
           if-no-files-found: error
 
-      - name: Joindre le DLL a la Release (si tag)
+      - name: Joindre a la Release (si tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: notepad++/native/Facturix.dll
+          files: Facturix-plugin-win64.zip
