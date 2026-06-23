@@ -37,7 +37,7 @@
 //  Etat global du plugin
 // --------------------------------------------------------------------------
 static NppData s_npp;
-static FuncItem s_funcItems[2];
+static FuncItem s_funcItems[3];
 static bool s_enabled = false;
 static HINSTANCE s_hInst = NULL;
 
@@ -527,13 +527,103 @@ static void render(HWND h)
 }
 
 // ==========================================================================
-//  5. Commande de menu : bascule ON / OFF
+//  5. Mise en forme (indentation) + bascule ON / OFF
 // ==========================================================================
+// Reformate en n'inserant QUE des retours-ligne + indentation entre balises
+// adjacentes. Ne touche ni au texte des elements, ni aux attributs, ni aux
+// commentaires / entites / CDATA : c'est un simple reformatage d'espaces.
+static std::string formatXml(const std::string& s, const std::string& eol)
+{
+    std::string out;
+    int depth = 0;
+    bool pendingText = false;   // la ligne courante porte du texte d'element
+    size_t i = 0, n = s.size();
+    for (; i < n;) {
+        char c = s[i];
+        if (c == '<') {
+            if (s.compare(i, 4, "<!--") == 0) {            // commentaire
+                size_t e = s.find("-->", i + 4); size_t j = (e == std::string::npos) ? n : e + 3;
+                if (!out.empty()) { out += eol; for (int k = 0; k < depth; ++k) out += "  "; }
+                out += s.substr(i, j - i); pendingText = false; i = j; continue;
+            }
+            if (s.compare(i, 9, "<![CDATA[") == 0) {        // contenu -> inline
+                size_t e = s.find("]]>", i + 9); size_t j = (e == std::string::npos) ? n : e + 3;
+                out += s.substr(i, j - i); pendingText = true; i = j; continue;
+            }
+            if (s.compare(i, 2, "<?") == 0) {               // declaration / PI
+                size_t e = s.find("?>", i + 2); size_t j = (e == std::string::npos) ? n : e + 2;
+                if (!out.empty()) { out += eol; for (int k = 0; k < depth; ++k) out += "  "; }
+                out += s.substr(i, j - i); pendingText = false; i = j; continue;
+            }
+            if (s.compare(i, 2, "<!") == 0) {               // DOCTYPE...
+                size_t e = s.find('>', i + 2); size_t j = (e == std::string::npos) ? n : e + 1;
+                if (!out.empty()) { out += eol; for (int k = 0; k < depth; ++k) out += "  "; }
+                out += s.substr(i, j - i); pendingText = false; i = j; continue;
+            }
+            size_t e = s.find('>', i + 1);
+            if (e == std::string::npos) { out += s.substr(i); break; }
+            bool close = (s[i + 1] == '/');
+            bool self = (e > i && s[e - 1] == '/');
+            std::string tag = s.substr(i, e - i + 1);
+            if (close) {
+                if (--depth < 0) depth = 0;
+                if (!pendingText) { out += eol; for (int k = 0; k < depth; ++k) out += "  "; }
+                out += tag; pendingText = false;
+            } else if (self) {
+                out += eol; for (int k = 0; k < depth; ++k) out += "  ";
+                out += tag; pendingText = false;
+            } else {
+                out += eol; for (int k = 0; k < depth; ++k) out += "  ";
+                out += tag; ++depth; pendingText = false;
+            }
+            i = e + 1; continue;
+        }
+        // texte entre deux balises
+        size_t e = s.find('<', i); if (e == std::string::npos) e = n;
+        std::string txt = s.substr(i, e - i);
+        bool ws = true;
+        for (size_t k = 0; k < txt.size(); ++k) if ((unsigned char)txt[k] > ' ') { ws = false; break; }
+        if (!ws) { out += txt; pendingText = true; }   // texte significatif -> garde inline
+        i = e;                                          // espaces inter-balises -> ignores
+    }
+    // out commence par eol (premier token) -> on le retire
+    if (out.size() >= eol.size() && out.compare(0, eol.size(), eol) == 0)
+        out = out.substr(eol.size());
+    return out;
+}
+
+static std::string eolStr(HWND h)
+{
+    int m = (int)sci(h, SCI_GETEOLMODE);
+    return (m == SC_EOL_CR) ? "\r" : (m == SC_EOL_LF) ? "\n" : "\r\n";
+}
+
+// Reformate le document s'il est minifie (presence de "><" = balises collees).
+static void maybeFormat(HWND h)
+{
+    std::string t = getDocText(h);
+    if (t.find("CrossIndustryInvoice") == std::string::npos) return;
+    if (t.find("><") == std::string::npos) return;   // deja mis en forme
+    std::string f = formatXml(t, eolStr(h));
+    sci(h, SCI_SETTEXT, 0, (LPARAM)f.c_str());
+}
+
+static void formatCmd()
+{
+    HWND h = currentScintilla();
+    if (!h) return;
+    std::string t = getDocText(h);
+    if (t.find("CrossIndustryInvoice") == std::string::npos) return;
+    std::string f = formatXml(t, eolStr(h));
+    sci(h, SCI_SETTEXT, 0, (LPARAM)f.c_str());
+    if (s_enabled) render(h);
+}
+
 static void toggleFacturix()
 {
     s_enabled = !s_enabled;
     HWND h = currentScintilla();
-    if (s_enabled) render(h);
+    if (s_enabled) { if (h) maybeFormat(h); render(h); }
     else if (h) clearAnnotations(h);
 }
 
@@ -894,11 +984,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
         s_funcItems[0]._init2Check = false;
         s_funcItems[0]._pShKey = NULL;
         s_funcItems[0]._cmdID = 0;
-        lstrcpy(s_funcItems[1]._itemName, TEXT("Valider (Schematron officiel)"));
-        s_funcItems[1]._pFunc = validateCmd;
+        lstrcpy(s_funcItems[1]._itemName, TEXT("Mettre en forme le XML (indenter)"));
+        s_funcItems[1]._pFunc = formatCmd;
         s_funcItems[1]._init2Check = false;
         s_funcItems[1]._pShKey = NULL;
         s_funcItems[1]._cmdID = 0;
+        lstrcpy(s_funcItems[2]._itemName, TEXT("Valider (Schematron officiel)"));
+        s_funcItems[2]._pFunc = validateCmd;
+        s_funcItems[2]._init2Check = false;
+        s_funcItems[2]._pShKey = NULL;
+        s_funcItems[2]._cmdID = 0;
     }
     return TRUE;
 }
@@ -915,7 +1010,7 @@ extern "C" __declspec(dllexport) const TCHAR* getName()
 
 extern "C" __declspec(dllexport) FuncItem* getFuncsArray(int* nbF)
 {
-    *nbF = 2;
+    *nbF = 3;
     return s_funcItems;
 }
 
